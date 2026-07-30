@@ -6,8 +6,8 @@ export interface User {
   password_hash: string;
   first_name: string;
   last_name: string;
-  created_at: Date;
-  updated_at: Date;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 /**

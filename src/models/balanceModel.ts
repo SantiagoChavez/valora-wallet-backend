@@ -5,8 +5,8 @@ export interface Balance {
   wallet_id: string;
   currency_code: string;
   amount: string; // Since NUMERIC is returned as a string from node-pg to preserve precision
-  created_at: Date;
-  updated_at: Date;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 /**

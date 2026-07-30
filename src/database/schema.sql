@@ -46,7 +46,4 @@ CREATE TABLE transactions (
 );
 
 -- Performance indexes
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_wallets_user_id ON wallets(user_id);
-CREATE INDEX idx_balances_wallet_currency ON balances(wallet_id, currency_code);
 CREATE INDEX idx_transactions_wallet_id ON transactions(wallet_id);
