@@ -5,6 +5,7 @@ import { createUser, findUserByEmail, findUserById } from "../models/userModel";
 import { createWallet, findWalletByUserId } from "../models/walletModel";
 import { createOrUpdateBalance } from "../models/balanceModel";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { pool } from "../database/db";
 
 /**
  * Controlador para el registro de nuevos usuarios.
@@ -37,28 +38,46 @@ export async function registerController(
     // Hashear contraseña
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Crear el usuario
-    const user = await createUser(email, passwordHash, firstName, lastName);
+    // Obtener un cliente de la pool para la transacción atómica
+    const client = await pool.connect();
 
-    // Crear su billetera asociada
-    const wallet = await createWallet(user.id);
+    try {
+      await client.query("BEGIN");
 
-    // Asignar saldo inicial de USD
-    await createOrUpdateBalance(wallet.id, "USD", "0.00000000");
+      // Crear el usuario
+      const user = await createUser(email, passwordHash, firstName, lastName, client);
 
-    // Generar token JWT
-    const token = generateToken({ userId: user.id, email: user.email });
+      // Crear su billetera asociada
+      const wallet = await createWallet(user.id, client);
 
-    res.status(201).json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name
-      },
-      walletId: wallet.id
-    });
+      // Asignar saldo inicial de USD
+      await createOrUpdateBalance(wallet.id, "USD", "0.00000000", client);
+
+      await client.query("COMMIT");
+
+      // Generar token JWT
+      const token = generateToken({ userId: user.id, email: user.email });
+
+      res.status(201).json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name
+        },
+        walletId: wallet.id
+      });
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Error al ejecutar ROLLBACK en la transacción:", rollbackError);
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     next(error);
   }
