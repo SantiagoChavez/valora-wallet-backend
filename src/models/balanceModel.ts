@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { query } from "../database/db";
 
 export interface Balance {
@@ -14,12 +15,14 @@ export interface Balance {
  * @param walletId - Wallet UUID
  * @param currencyCode - Currency identifier (e.g. USD, EUR, ARS)
  * @param amount - Balance amount
+ * @param client - Optional database client for transaction support
  * @returns The created or updated balance object.
  */
 export async function createOrUpdateBalance(
   walletId: string,
   currencyCode: string,
-  amount: string | number
+  amount: string | number,
+  client?: PoolClient
 ): Promise<Balance> {
   const sql = `
     INSERT INTO balances (wallet_id, currency_code, amount)
@@ -28,7 +31,9 @@ export async function createOrUpdateBalance(
     DO UPDATE SET amount = EXCLUDED.amount, updated_at = CURRENT_TIMESTAMP
     RETURNING id, wallet_id, currency_code, amount, created_at, updated_at
   `;
-  const result = await query(sql, [walletId, currencyCode, amount.toString()]);
+  const result = client
+    ? await client.query(sql, [walletId, currencyCode, amount.toString()])
+    : await query(sql, [walletId, currencyCode, amount.toString()]);
   if (result.rows.length === 0) {
     throw new Error("No se pudo crear o actualizar el saldo en la base de datos.");
   }

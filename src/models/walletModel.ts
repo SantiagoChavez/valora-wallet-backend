@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { query } from "../database/db";
 
 export interface Wallet {
@@ -10,15 +11,16 @@ export interface Wallet {
 /**
  * Creates a new wallet for a user.
  * @param userId - User UUID
+ * @param client - Optional database client for transaction support
  * @returns The newly created wallet object.
  */
-export async function createWallet(userId: string): Promise<Wallet> {
+export async function createWallet(userId: string, client?: PoolClient): Promise<Wallet> {
   const sql = `
     INSERT INTO wallets (user_id)
     VALUES ($1)
     RETURNING id, user_id, created_at, updated_at
   `;
-  const result = await query(sql, [userId]);
+  const result = client ? await client.query(sql, [userId]) : await query(sql, [userId]);
   if (result.rows.length === 0) {
     throw new Error("No se pudo crear la billetera en la base de datos.");
   }
