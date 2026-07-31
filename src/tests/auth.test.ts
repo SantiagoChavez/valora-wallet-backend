@@ -1,7 +1,7 @@
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../app";
-import { query, pool } from "../database/db";
+import { query } from "../database/db";
 import { findWalletByUserId } from "../models/walletModel";
 import { findBalanceByWalletAndCurrency } from "../models/balanceModel";
 
@@ -18,10 +18,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
     await query("DELETE FROM users WHERE email = $1", [testUser.email]);
   });
 
-  // Limpieza posterior y cierre de conexiones
+  // Limpieza posterior
   afterAll(async () => {
     await query("DELETE FROM users WHERE email = $1", [testUser.email]);
-    await pool.end();
   });
 
   describe("POST /auth/register", () => {
