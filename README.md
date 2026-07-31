@@ -61,6 +61,107 @@ src/
 - **balances** — balances por moneda dentro de cada wallet (FK a `wallet_id` + `currency_code`)
 - **transactions** — ledger inmutable de todas las operaciones (compra, venta, exchange)
 
+## API Endpoints (Módulo de Autenticación)
+
+### Arquitectura de Transacciones Atómicas (Registro Seguro)
+Para garantizar la integridad referencial y prevenir estados inconsistentes o datos huérfanos, la creación de la cuenta de usuario, su billetera y su saldo inicial en dólares (`USD`) se realiza mediante una **Transacción Atómica de PostgreSQL** utilizando un cliente dedicado del pool (`pool.connect()`).
+- Si alguna de las operaciones falla (`User`, `Wallet` o `Balance`), se ejecuta un `ROLLBACK` automático para revertir cualquier inserción previa.
+- Si todas las operaciones se completan de manera exitosa, se efectúa un `COMMIT` y se libera el cliente de vuelta al pool.
+
+```mermaid
+graph TD
+    A[Petición POST /auth/register] --> B[Validar Datos y Email]
+    B --> C[Hashear Contraseña]
+    C --> D[Obtener Cliente del Pool y BEGIN]
+    D --> E[Insertar en 'users']
+    E --> F[Insertar en 'wallets']
+    F --> G[Insertar en 'balances' USD]
+    G --> H[COMMIT]
+    H --> I[Liberar Cliente]
+    I --> J[Responder 201 Created]
+    E -.->|Fallo| K[ROLLBACK]
+    F -.->|Fallo| K
+    G -.->|Fallo| K
+    K --> L[Liberar Cliente y Retornar Error]
+```
+
+### Registro de Usuario
+- **Ruta:** `POST /auth/register`
+- **Autenticación:** Pública (Ninguna).
+- **Descripción:** Registra un nuevo usuario de forma atómica en el sistema. Crea automáticamente su billetera asociada y le asigna un saldo inicial de `0.00000000 USD`.
+- **Request Body (JSON):**
+  ```json
+  {
+    "email": "usuario@ejemplo.com",
+    "password": "PasswordSegura123!",
+    "firstName": "Santiago",
+    "lastName": "Chavez"
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsIn...",
+    "user": {
+      "id": "c138d8f0-1be4-434c-b4db-01de7c7bd488",
+      "email": "usuario@ejemplo.com",
+      "firstName": "Santiago",
+      "lastName": "Chavez"
+    },
+    "walletId": "f782f9d8-9db8-40a2-a60d-fb964a2f7c00"
+  }
+  ```
+
+### Inicio de Sesión
+- **Ruta:** `POST /auth/login`
+- **Autenticación:** Pública (Ninguna).
+- **Descripción:** Valida las credenciales de un usuario y retorna su información junto con un token JWT de acceso.
+- **Request Body (JSON):**
+  ```json
+  {
+    "email": "usuario@ejemplo.com",
+    "password": "PasswordSegura123!"
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIsIn...",
+    "user": {
+      "id": "c138d8f0-1be4-434c-b4db-01de7c7bd488",
+      "email": "usuario@ejemplo.com",
+      "firstName": "Santiago",
+      "lastName": "Chavez"
+    },
+    "walletId": "f782f9d8-9db8-40a2-a60d-fb964a2f7c00"
+  }
+  ```
+
+### Perfil del Usuario Autenticado
+- **Ruta:** `GET /auth/me`
+- **Autenticación:** Requerida (`Authorization: Bearer <token>`).
+- **Descripción:** Obtiene los datos del perfil y la billetera del usuario actualmente autenticado mediante el token JWT.
+- **Response (200 OK):**
+  ```json
+  {
+    "user": {
+      "id": "c138d8f0-1be4-434c-b4db-01de7c7bd488",
+      "email": "usuario@ejemplo.com",
+      "firstName": "Santiago",
+      "lastName": "Chavez"
+    },
+    "walletId": "f782f9d8-9db8-40a2-a60d-fb964a2f7c00"
+  }
+  ```
+
+## Ejecución de Pruebas
+
+Para ejecutar la suite completa de pruebas (modelos de datos y sistema de autenticación) con Vitest y Supertest, ejecuta el siguiente comando:
+
+```bash
+npm run test
+```
+
 ## Scripts disponibles
 
 ```bash
@@ -84,4 +185,4 @@ _(agregar acá cualquier decisión técnica relevante, como la de mantener versi
 - Santiago Chavez — Backend Core (modelo de datos, autenticación, despliegue, testing)
 - Daniel Sardinas — Lógica de negocio + IA (compra/venta/intercambio, tasas de cambio, chatbot Gemini)
 - Gerardo Acosta — Frontend Lead (colaborador en este repo)
-- Analía Pérez Juliá — Integración AWS SES, documentación, coordinación
+- Analía Pérez Juliá — Integración AWS SES, documentación, coordinación y tareas de Frontend.

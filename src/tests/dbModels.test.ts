@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { query, pool } from "../database/db";
+import { query } from "../database/db";
 import { createOrUpdateBalance, findBalanceByWalletAndCurrency, findBalancesByWalletId } from "../models/balanceModel";
 import { createUser, findUserByEmail, findUserById } from "../models/userModel";
 import { createWallet, findWalletByUserId } from "../models/walletModel";
@@ -14,10 +14,9 @@ describe("Pruebas de integración de modelos de base de datos", () => {
     await query("DELETE FROM users WHERE email = $1", [testEmail]);
   });
 
-  // Limpieza final y cierre de la conexión a la base de datos
+  // Limpieza final de la base de datos
   afterAll(async () => {
     await query("DELETE FROM users WHERE email = $1", [testEmail]);
-    await pool.end();
   });
 
   describe("Pruebas del modelo de Usuario", () => {
