@@ -24,7 +24,7 @@ function getJwtSecret(): string {
  */
 export function generateToken(payload: JwtPayload): string {
   const secret = getJwtSecret();
-  return jwt.sign(payload, secret, { expiresIn: "24h" });
+  return jwt.sign(payload, secret, { algorithm: "HS256", expiresIn: "24h" });
 }
 
 /**
@@ -34,5 +34,19 @@ export function generateToken(payload: JwtPayload): string {
  */
 export function verifyToken(token: string): JwtPayload {
   const secret = getJwtSecret();
-  return jwt.verify(token, secret) as JwtPayload;
+  const decoded = jwt.verify(token, secret, { algorithms: ["HS256"] });
+
+  if (!decoded || typeof decoded !== "object" || !("userId" in decoded) || !("email" in decoded)) {
+    throw new Error("El token decodificado no contiene una estructura JwtPayload válida.");
+  }
+
+  const payload = decoded as Record<string, unknown>;
+  if (typeof payload.userId !== "string" || typeof payload.email !== "string") {
+    throw new Error("El token decodificado no contiene una estructura JwtPayload válida.");
+  }
+
+  return {
+    userId: payload.userId,
+    email: payload.email,
+  };
 }
