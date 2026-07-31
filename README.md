@@ -63,10 +63,32 @@ src/
 
 ## API Endpoints (Módulo de Autenticación)
 
+### Arquitectura de Transacciones Atómicas (Registro Seguro)
+Para garantizar la integridad referencial y prevenir estados inconsistentes o datos huérfanos, la creación de la cuenta de usuario, su billetera y su saldo inicial en dólares (`USD`) se realiza mediante una **Transacción Atómica de PostgreSQL** utilizando un cliente dedicado del pool (`pool.connect()`).
+- Si alguna de las operaciones falla (`User`, `Wallet` o `Balance`), se ejecuta un `ROLLBACK` automático para revertir cualquier inserción previa.
+- Si todas las operaciones se completan de manera exitosa, se efectúa un `COMMIT` y se libera el cliente de vuelta al pool.
+
+```mermaid
+graph TD
+    A[Petición POST /auth/register] --> B[Validar Datos y Email]
+    B --> C[Hashear Contraseña]
+    C --> D[Obtener Cliente del Pool y BEGIN]
+    D --> E[Insertar en 'users']
+    E --> F[Insertar en 'wallets']
+    F --> G[Insertar en 'balances' USD]
+    G --> H[COMMIT]
+    H --> I[Liberar Cliente]
+    I --> J[Responder 201 Created]
+    E -.->|Fallo| K[ROLLBACK]
+    F -.->|Fallo| K
+    G -.->|Fallo| K
+    K --> L[Liberar Cliente y Retornar Error]
+```
+
 ### Registro de Usuario
 - **Ruta:** `POST /auth/register`
 - **Autenticación:** Pública (Ninguna).
-- **Descripción:** Registra un nuevo usuario en el sistema. Crea automáticamente su billetera asociada y le asigna un saldo inicial de `0.00000000 USD`.
+- **Descripción:** Registra un nuevo usuario de forma atómica en el sistema. Crea automáticamente su billetera asociada y le asigna un saldo inicial de `0.00000000 USD`.
 - **Request Body (JSON):**
   ```json
   {
