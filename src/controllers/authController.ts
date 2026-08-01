@@ -16,12 +16,40 @@ export async function registerController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    let { email, password, firstName, lastName } = req.body;
 
-    // Validación de existencia de campos
-    if (!email || !password || !firstName || !lastName) {
+    // Validación de existencia de campos, tipo y contenido no vacío
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      typeof firstName !== "string" ||
+      typeof lastName !== "string" ||
+      !email.trim() ||
+      !password.trim() ||
+      !firstName.trim() ||
+      !lastName.trim()
+    ) {
       res.status(400).json({
-        error: "Todos los campos (email, password, firstName, lastName) son requeridos."
+        success: false,
+        error: "ValidationError",
+        message: "Todos los campos (email, password, firstName, lastName) son requeridos y no deben estar vacíos."
+      });
+      return;
+    }
+
+    // Sanitización y normalización básica
+    email = email.trim().toLowerCase();
+    password = password.trim();
+    firstName = firstName.trim();
+    lastName = lastName.trim();
+
+    // Validación de formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({
+        success: false,
+        error: "ValidationError",
+        message: "El correo electrónico provisto no tiene un formato válido."
       });
       return;
     }
@@ -30,7 +58,9 @@ export async function registerController(
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
       res.status(400).json({
-        error: "El email ya está registrado"
+        success: false,
+        error: "DuplicateEmailError",
+        message: "El correo electrónico ya se encuentra registrado"
       });
       return;
     }
@@ -78,10 +108,12 @@ export async function registerController(
     } finally {
       client.release();
     }
-  } catch (error: any) {
-    if (error && error.code === "23505") {
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
       res.status(400).json({
-        error: "El email ya está registrado"
+        success: false,
+        error: "DuplicateEmailError",
+        message: "El correo electrónico ya se encuentra registrado"
       });
       return;
     }
@@ -98,12 +130,28 @@ export async function loginController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
-    // Validación de campos
+    // Validación de tipo de campos
+    if (typeof email !== "string" || typeof password !== "string") {
+      res.status(400).json({
+        success: false,
+        error: "ValidationError",
+        message: "Los campos email y password deben ser cadenas de texto."
+      });
+      return;
+    }
+
+    // Sanitización y normalización básica
+    email = email.trim().toLowerCase();
+    password = password.trim();
+
+    // Validación de existencia de campos
     if (!email || !password) {
       res.status(400).json({
-        error: "Los campos email y password son requeridos."
+        success: false,
+        error: "ValidationError",
+        message: "Los campos email y password son requeridos y no deben estar vacíos."
       });
       return;
     }
@@ -112,7 +160,9 @@ export async function loginController(
     const user = await findUserByEmail(email);
     if (!user) {
       res.status(401).json({
-        error: "Credenciales incorrectas."
+        success: false,
+        error: "UnauthorizedError",
+        message: "Credenciales incorrectas."
       });
       return;
     }
@@ -121,7 +171,9 @@ export async function loginController(
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
       res.status(401).json({
-        error: "Credenciales incorrectas."
+        success: false,
+        error: "UnauthorizedError",
+        message: "Credenciales incorrectas."
       });
       return;
     }
@@ -130,7 +182,9 @@ export async function loginController(
     const wallet = await findWalletByUserId(user.id);
     if (!wallet) {
       res.status(404).json({
-        error: "La billetera asociada al usuario no fue encontrada."
+        success: false,
+        error: "NotFoundError",
+        message: "La billetera asociada al usuario no fue encontrada."
       });
       return;
     }
@@ -148,7 +202,7 @@ export async function loginController(
       },
       walletId: wallet.id
     });
-  } catch (error) {
+  } catch (error: unknown) {
     next(error);
   }
 }
@@ -166,7 +220,9 @@ export async function meController(
 
     if (!userId) {
       res.status(401).json({
-        error: "Acceso no autorizado. Token no proporcionado."
+        success: false,
+        error: "UnauthorizedError",
+        message: "Acceso no autorizado. Token no proporcionado."
       });
       return;
     }
@@ -175,7 +231,9 @@ export async function meController(
     const user = await findUserById(userId);
     if (!user) {
       res.status(404).json({
-        error: "Usuario no encontrado."
+        success: false,
+        error: "NotFoundError",
+        message: "Usuario no encontrado."
       });
       return;
     }
@@ -184,7 +242,9 @@ export async function meController(
     const wallet = await findWalletByUserId(user.id);
     if (!wallet) {
       res.status(404).json({
-        error: "Billetera no encontrada para el usuario."
+        success: false,
+        error: "NotFoundError",
+        message: "Billetera no encontrada para el usuario."
       });
       return;
     }
@@ -202,7 +262,7 @@ export async function meController(
       walletId: wallet.id,
       balances
     });
-  } catch (error) {
+  } catch (error: unknown) {
     next(error);
   }
 }

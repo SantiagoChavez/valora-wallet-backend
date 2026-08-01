@@ -59,7 +59,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: "El email ya está registrado",
+        success: false,
+        error: "DuplicateEmailError",
+        message: "El correo electrónico ya se encuentra registrado",
       });
     });
 
@@ -73,7 +75,11 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty("error");
+      expect(response.body).toEqual({
+        success: false,
+        error: "ValidationError",
+        message: "Todos los campos (email, password, firstName, lastName) son requeridos y no deben estar vacíos.",
+      });
     });
   });
 
@@ -107,7 +113,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Credenciales incorrectas.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Credenciales incorrectas.",
       });
     });
 
@@ -121,7 +129,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Credenciales incorrectas.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Credenciales incorrectas.",
       });
     });
   });
@@ -161,7 +171,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Acceso no autorizado. Token no proporcionado.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Acceso no autorizado. Token no proporcionado.",
       });
     });
 
@@ -172,7 +184,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Acceso no autorizado. Token no proporcionado.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Formato de token inválido. Debe ser 'Bearer <token>'.",
       });
     });
 
@@ -183,7 +197,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Token inválido o expirado.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token inválido o expirado.",
       });
     });
   });
