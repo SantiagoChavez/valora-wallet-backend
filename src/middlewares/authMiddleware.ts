@@ -24,6 +24,10 @@ export function authMiddleware(
 
   try {
     const decoded = verifyToken(token);
+    if (!decoded || typeof decoded !== "object") {
+      res.status(401).json({ error: "Token inválido o expirado." });
+      return;
+    }
     req.user = decoded;
     next();
   } catch (error) {
