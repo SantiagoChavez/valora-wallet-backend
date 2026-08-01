@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt";
 import { createUser, findUserByEmail, findUserById } from "../models/userModel";
 import { createWallet, findWalletByUserId } from "../models/walletModel";
-import { createOrUpdateBalance } from "../models/balanceModel";
+import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { pool } from "../database/db";
 
@@ -30,7 +30,7 @@ export async function registerController(
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
       res.status(400).json({
-        error: "El correo electrónico ya está registrado."
+        error: "El email ya está registrado"
       });
       return;
     }
@@ -78,7 +78,13 @@ export async function registerController(
     } finally {
       client.release();
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error && error.code === "23505") {
+      res.status(400).json({
+        error: "El email ya está registrado"
+      });
+      return;
+    }
     next(error);
   }
 }
@@ -183,6 +189,9 @@ export async function meController(
       return;
     }
 
+    // Obtener los saldos de la billetera
+    const balances = await findBalancesByWalletId(wallet.id);
+
     res.status(200).json({
       user: {
         id: user.id,
@@ -190,7 +199,8 @@ export async function meController(
         firstName: user.first_name,
         lastName: user.last_name
       },
-      walletId: wallet.id
+      walletId: wallet.id,
+      balances
     });
   } catch (error) {
     next(error);

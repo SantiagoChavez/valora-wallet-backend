@@ -59,7 +59,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: "El correo electrónico ya está registrado.",
+        error: "El email ya está registrado",
       });
     });
 
@@ -146,6 +146,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("walletId");
+      expect(response.body).toHaveProperty("balances");
+      expect(Array.isArray(response.body.balances)).toBe(true);
       expect(response.body.user).toEqual({
         id: expect.any(String),
         email: testUser.email,

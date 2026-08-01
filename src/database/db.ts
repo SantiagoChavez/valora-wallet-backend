@@ -12,6 +12,7 @@ const isProduction = process.env.NODE_ENV === "production";
 export const pool = new Pool({
   connectionString: databaseUrl,
   ssl: isProduction ? { rejectUnauthorized: false } : false,
+  allowExitOnIdle: true,
 });
 
 /**
