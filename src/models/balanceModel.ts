@@ -1,5 +1,7 @@
 import type { PoolClient } from "pg";
 import { query } from "../database/db";
+import { findWalletByUserId } from "./walletModel";
+
 
 export interface Balance {
   id: string;
@@ -72,4 +74,46 @@ export async function findBalanceByWalletAndCurrency(
   `;
   const result = await query(sql, [walletId, currencyCode]);
   return result.rows[0] || null;
+}
+
+
+/**
+ * Retrieves the available balance of a specific currency for a user.
+ * @param userId - The user's UUID
+ * @param currencyCode - The currency code (e.g., 'USD', 'ARS')
+ * @returns The balance as a number
+ */
+export async function getUserBalance(userId: string, currencyCode: string): Promise<number> {
+  const wallet = await findWalletByUserId(userId);
+  if (!wallet) {
+    throw new Error("Billetera no encontrada para el usuario.");
+  }
+
+  const balance = await findBalanceByWalletAndCurrency(wallet.id, currencyCode);
+  return balance ? parseFloat(balance.amount) : 0;
+}
+
+/**
+ * Safely updates a user's balance by applying a delta (increment/decrement) using an UPSERT strategy.
+ * @param client - The database pool client for the transaction
+ * @param walletId - The wallet UUID
+ * @param currencyCode - The currency code
+ * @param amountDelta - The amount to add (positive) or subtract (negative)
+ * @returns The updated balance record
+ */
+export async function updateUserBalance(
+  client: PoolClient,
+  walletId: string,
+  currencyCode: string,
+  amountDelta: number
+): Promise<any> {
+  const sql = `
+    INSERT INTO balances (wallet_id, currency_code, amount)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (wallet_id, currency_code)
+    DO UPDATE SET amount = balances.amount + EXCLUDED.amount, updated_at = CURRENT_TIMESTAMP
+    RETURNING *;
+  `;
+  const result = await client.query(sql, [walletId, currencyCode, amountDelta.toString()]);
+  return result.rows[0];
 }
