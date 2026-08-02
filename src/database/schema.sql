@@ -1,3 +1,7 @@
+-- Instrucciones de creación de base de datos para entornos locales:
+-- CREATE DATABASE valora_wallet_db;
+-- \c valora_wallet_db;
+
 -- Habilitar extensión para generación de UUIDs v4
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
