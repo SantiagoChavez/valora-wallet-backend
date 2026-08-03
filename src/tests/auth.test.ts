@@ -85,6 +85,27 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         ],
       });
     });
+
+    it("debería fallar al registrar si el formato de email es inválido", async () => {
+      const response = await request(app)
+        .post("/auth/register")
+        .send({
+          email: "usuario-sin-arroba",
+          password: testUser.password,
+          firstName: testUser.firstName,
+          lastName: testUser.lastName,
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "ValidationError",
+        message: "El correo electrónico provisto no tiene un formato válido.",
+        issues: [
+          "El correo electrónico provisto no tiene un formato válido.",
+        ],
+      });
+    });
   });
 
   describe("POST /auth/login", () => {
