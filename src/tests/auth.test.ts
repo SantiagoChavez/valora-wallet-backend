@@ -78,7 +78,11 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.body).toEqual({
         success: false,
         error: "ValidationError",
-        message: "Todos los campos (email, password, firstName, lastName) son requeridos y no deben estar vacíos.",
+        message: "El nombre es requerido.",
+        issues: [
+          "El nombre es requerido.",
+          "El apellido es requerido.",
+        ],
       });
     });
   });
