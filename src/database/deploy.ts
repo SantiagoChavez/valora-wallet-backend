@@ -7,7 +7,8 @@ async function deploy(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     console.error("Error: La variable de entorno DATABASE_URL no está configurada.");
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   console.log("Iniciando conexión a la base de datos...");
@@ -15,9 +16,11 @@ async function deploy(): Promise<void> {
   // Determinar si la conexión es local o remota (como Railway)
   const isLocal = databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
 
+  const rejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
+
   const client = new Client({
     connectionString: databaseUrl,
-    ssl: isLocal ? false : { rejectUnauthorized: false }
+    ssl: isLocal ? false : { rejectUnauthorized }
   });
 
   try {
@@ -34,7 +37,8 @@ async function deploy(): Promise<void> {
     console.log("¡Esquema de base de datos inicializado exitosamente!");
   } catch (error) {
     console.error("Error durante la ejecución del esquema:", error);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   } finally {
     await client.end();
     console.log("Conexión cerrada.");
