@@ -16,43 +16,7 @@ export async function registerController(
   next: NextFunction
 ): Promise<void> {
   try {
-    let { email, password, firstName, lastName } = req.body;
-
-    // Validación de existencia de campos, tipo y contenido no vacío
-    if (
-      typeof email !== "string" ||
-      typeof password !== "string" ||
-      typeof firstName !== "string" ||
-      typeof lastName !== "string" ||
-      !email.trim() ||
-      !password.trim() ||
-      !firstName.trim() ||
-      !lastName.trim()
-    ) {
-      res.status(400).json({
-        success: false,
-        error: "ValidationError",
-        message: "Todos los campos (email, password, firstName, lastName) son requeridos y no deben estar vacíos."
-      });
-      return;
-    }
-
-    // Sanitización y normalización básica
-    email = email.trim().toLowerCase();
-    password = password.trim();
-    firstName = firstName.trim();
-    lastName = lastName.trim();
-
-    // Validación de formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      res.status(400).json({
-        success: false,
-        error: "ValidationError",
-        message: "El correo electrónico provisto no tiene un formato válido."
-      });
-      return;
-    }
+    const { email, password, firstName, lastName } = req.body;
 
     // Verificar si el usuario ya existe
     const existingUser = await findUserByEmail(email);
@@ -130,31 +94,7 @@ export async function loginController(
   next: NextFunction
 ): Promise<void> {
   try {
-    let { email, password } = req.body;
-
-    // Validación de tipo de campos
-    if (typeof email !== "string" || typeof password !== "string") {
-      res.status(400).json({
-        success: false,
-        error: "ValidationError",
-        message: "Los campos email y password deben ser cadenas de texto."
-      });
-      return;
-    }
-
-    // Sanitización y normalización básica
-    email = email.trim().toLowerCase();
-    password = password.trim();
-
-    // Validación de existencia de campos
-    if (!email || !password) {
-      res.status(400).json({
-        success: false,
-        error: "ValidationError",
-        message: "Los campos email y password son requeridos y no deben estar vacíos."
-      });
-      return;
-    }
+    const { email, password } = req.body;
 
     // Buscar usuario por correo electrónico
     const user = await findUserByEmail(email);
