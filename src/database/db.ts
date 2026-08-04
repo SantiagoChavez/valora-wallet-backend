@@ -8,13 +8,16 @@ if (!databaseUrl) {
 }
 
 const isProduction = process.env.NODE_ENV === "production";
+const isLocal = databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
 const rejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
 
 export const pool = new Pool({
   connectionString: databaseUrl,
-  ssl: isProduction ? { rejectUnauthorized } : false,
+  ssl: isLocal ? false : { rejectUnauthorized },
   allowExitOnIdle: true,
 });
+
+pool.on("error", (err) => console.error("Error inesperado en cliente inactivo del pool de PG:", err));
 
 /**
  * Helper para ejecutar consultas seguras parametrizadas contra la base de datos.

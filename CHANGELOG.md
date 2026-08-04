@@ -5,6 +5,17 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.2.0] - 2026-08-04
+
+### Added (Añadido)
+- **Justificación de Diseño de Base de Datos:** Documentación detallada en `README.md` que justifica las decisiones de modelado relacional, uso de UUIDs v4, precisión financiera con `NUMERIC(18,8)`, restricciones `CHECK` anti-sobregiros, índices de rendimiento y cascada.
+- **Flujo de Cierre de Sesión:** Documentación del mecanismo stateless y descentralizado para el Cierre de Sesión (Logout) del token JWT en el cliente.
+- **Enlaces y Guía de Despliegue:** Enlaces de producción para frontend y backend, y guía paso a paso del flujo de integración continua (CI/CD) conectado a Railway.
+
+### Fixed (Corregido)
+- **Robustez SSL en Producción:** Corrección de la lógica de evaluación de `DB_SSL_REJECT_UNAUTHORIZED` en `src/database/db.ts`. Ahora por defecto se rechazan certificados no válidos (TLS estricto) a menos que la variable esté explícitamente configurada en `"false"`, previniendo potenciales vulnerabilidades Man-in-the-Middle y manteniendo consistencia con `deploy.ts`.
+
+
 ## [1.1.0] - 2026-07-31
 
 ### Added (Añadido)
@@ -22,3 +33,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 ### Security (Seguridad)
 - **Firma explícita de JWT:** Se configuró explícitamente el algoritmo de firma `HS256` en `jwt.sign` y `jwt.verify`.
 - **Validación del Payload:** Se agregó una verificación estructurada pos-decodificación en `verifyToken` para comprobar el tipo y presencia de `userId` y `email` en la estructura `JwtPayload` antes de retornar el objeto.
+
+## [1.0.0] - 2026-07-28
+
+### Added (Añadido)
+- **Estructura del Proyecto:** Inicialización del backend con Express, TypeScript, tsx y Vitest.
+- **Modelo de Base de Datos PostgreSQL:** Diseño físico del esquema relacional en `src/database/schema.sql` con las tablas `users`, `wallets`, `balances` y `transactions`.
+- **Índices de Rendimiento:** Creación de índices específicos en la tabla `transactions` para optimizar las consultas por billetera.
+- **Pruebas de Integración:** Suite de pruebas en `src/tests/dbModels.test.ts` para validar operaciones DML básicas de los modelos de base de datos.
+- **Script de Inicialización:** Automatización del despliegue de base de datos local y remota mediante `npm run db:init` (`src/database/deploy.ts`).

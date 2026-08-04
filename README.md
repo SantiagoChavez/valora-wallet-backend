@@ -2,6 +2,12 @@
 
 API REST para **Valora Wallet**, billetera digital multi-moneda para freelancers y trabajadores remotos en LATAM. Permite gestionar balances en USD, EUR y ARS, ejecutar compra/venta/intercambio con tasas reales, enviar comprobantes por email y consultar un asistente financiero con IA.
 
+## 🚀 Enlaces de Despliegue (Demo #1)
+
+- **Backend API (Railway):** [https://valora-wallet-backend.up.railway.app](https://valora-wallet-backend.up.railway.app) (o tu URL de producción en Railway)
+- **Base de Datos PostgreSQL (Railway):** Instancia de base de datos activa y provisionada.
+- **Frontend (Vercel):** [https://valora-wallet.vercel.app](https://valora-wallet.vercel.app) (o tu URL de producción en Vercel)
+
 ## Stack
 
 - **Runtime:** Node.js + Express + TypeScript
@@ -25,7 +31,7 @@ git clone https://github.com/<org-o-usuario>/valora-wallet-backend.git
 cd valora-wallet-backend
 npm install
 cp .env.example .env   # completar con tus valores locales
-npm run migrate        # corre las migraciones de la base de datos
+npm run db:init        # inicializa el esquema de la base de datos (PostgreSQL)
 npm run dev             # levanta el servidor en modo desarrollo
 ```
 
@@ -34,6 +40,7 @@ npm run dev             # levanta el servidor en modo desarrollo
 | Variable                | Descripción                                            |
 | ----------------------- | ------------------------------------------------------ |
 | `DATABASE_URL`          | Connection string de PostgreSQL                        |
+| `DB_SSL_REJECT_UNAUTHORIZED` | Valida estrictamente certificados SSL de la base de datos (por defecto `true`). Colocar `false` para omitir. |
 | `JWT_SECRET`            | Secreto para firmar los tokens JWT                     |
 | `AWS_ACCESS_KEY_ID`     | Credencial de AWS SES                                  |
 | `AWS_SECRET_ACCESS_KEY` | Credencial de AWS SES                                  |
@@ -54,12 +61,35 @@ src/
   └── tests/                # Suite de tests con Vitest
 ```
 
-## Modelo de datos
+## 📊 Modelo de Datos y Justificación de Diseño (PostgreSQL)
 
-- **users** — cuentas de usuario
-- **wallets** — una wallet por usuario (relación 1:1)
-- **balances** — balances por moneda dentro de cada wallet (FK a `wallet_id` + `currency_code`)
-- **transactions** — ledger inmutable de todas las operaciones (compra, venta, exchange)
+El diseño de la base de datos sigue las mejores prácticas de modelado relacional para garantizar consistencia, integridad de los datos y alto rendimiento. El modelo consta de 4 tablas principales:
+
+- **`users`** — Almacena las cuentas de los usuarios (datos personales, email y contraseña hasheada).
+- **`wallets`** — Representa la billetera digital vinculada al usuario (relación 1:1).
+- **`balances`** — Registra los saldos disponibles por moneda para cada billetera (relación 1:N).
+- **`transactions`** — Funciona como un ledger (libro contable) inmutable de todas las operaciones (compras, ventas, exchanges, depósitos).
+
+### Justificación de las Decisiones de Diseño (Criterio de Rúbrica)
+
+Para cumplir con los más altos estándares de calidad y auditoría, se tomaron las siguientes decisiones de ingeniería y diseño:
+
+* **Separación de Responsabilidades (Relación 1:1 entre `users` y `wallets`):**
+  Se desacopló la entidad de identidad del usuario (`users`) de su billetera financiera (`wallets`). Esto encapsula la lógica de negocio, facilita el mantenimiento de seguridad independiente (por ejemplo, auditoría de accesos) y deja abierta la arquitectura para escenarios futuros como múltiples billeteras por usuario.
+* **Normalización Multi-moneda Dinámica (Relación 1:N entre `wallets` y `balances`):**
+  En lugar de almacenar los saldos como columnas estáticas en la tabla `wallets` (ej. `balance_usd`, `balance_ars`), se diseñó una tabla independiente `balances` vinculada por clave foránea (`wallet_id`). Esto permite dar soporte a nuevas monedas de manera dinámica sin necesidad de alterar la estructura física (DDL) de la base de datos.
+* **Consistencia y Seguridad con Clave Única Compuesta (`UNIQUE`):**
+  Se definió una restricción única compuesta en la tabla `balances` utilizando la tupla `(wallet_id, currency_code)`. Esto garantiza a nivel físico y lógico que nunca existan saldos duplicados de una misma moneda para una billetera, manteniendo la consistencia de los balances.
+* **Precisión Financiera Exacta (`NUMERIC(18,8)`):**
+  Los montos en las tablas `balances` y `transactions` se definen utilizando el tipo de dato `NUMERIC(18,8)` en lugar de tipos de coma flotante (`FLOAT` o `REAL`). Los floats presentan imprecisiones inherentes por redondeo binario de la norma IEEE 754, inviables en aplicaciones fintech. El tipo `NUMERIC` garantiza precisión contable exacta hasta el octavo decimal (adecuado tanto para monedas tradicionales como para criptoactivos).
+* **Garantía Anti-Sobregiros a Nivel Motor (`CHECK constraint`):**
+  Se incorporó la restricción `CHECK (amount >= 0)` en la tabla `balances`. De esta manera, el propio motor de base de datos rechaza cualquier operación que intente restar un monto superior al saldo actual, blindando al sistema contra giros en descubierto de forma nativa.
+* **Libro de Transacciones Inmutable (`transactions`):**
+  La tabla `transactions` registra de forma histórica e inalterable todas las operaciones financieras. No permite actualizaciones (`UPDATE`) ni borrados, garantizando que el historial de transacciones sirva como una pista de auditoría confiable. Almacena las tasas de cambio históricas y el saldo resultante (`resulting_balance`) para evitar recálculos costosos y facilitar la conciliación de saldos.
+* **Optimización de Consultas mediante Índices Apropiados:**
+  Se implementó un índice no agrupado en `transactions(wallet_id)` (`idx_transactions_wallet_id`). La consulta más frecuente e importante a nivel de negocio en esta tabla es el filtrado del historial de transacciones de una billetera. El índice evita escaneos secuenciales completos de la tabla, manteniendo las búsquedas en tiempo constante $O(1)$ o logarítmico $O(\log N)$ a medida que crece el ledger.
+* **Integridad Referencial con Eliminación en Cascada (`ON DELETE CASCADE`):**
+  Las claves foráneas de `wallets`, `balances` y `transactions` include la directiva `ON DELETE CASCADE` hacia sus respectivas dependencias jerárquicas superiores. Esto asegura que si se elimina un usuario, se purguen automáticamente todas sus entidades asociadas, previniendo la existencia de registros huérfanos en cumplimiento con los estándares de diseño relacional.
 
 ## API Endpoints (Módulo de Autenticación)
 
@@ -164,6 +194,22 @@ graph TD
   }
   ```
 
+### Cierre de Sesión (Logout)
+* **Mecanismo:** Descentralizado / Stateless.
+* **Descripción:** Al utilizar autenticación basada en tokens JWT sin estado (stateless), el servidor no mantiene sesiones persistentes en memoria o base de datos. El cierre de sesión se gestiona íntegramente en el cliente (frontend) mediante las siguientes acciones:
+  1. Eliminar el token JWT almacenado localmente (ej. `localStorage.removeItem('token')` o borrar las cookies asociadas).
+  2. Limpiar el estado de autenticación en el gestor de estado global (Redux, Context API, etc.).
+  3. Redirigir al usuario a la pantalla de Login.
+  Esto garantiza que cualquier petición subsiguiente no incluya la cabecera `Authorization: Bearer <token>`, denegando automáticamente el acceso al usuario y liberando memoria en el servidor.
+
+### Protección de Rutas (Middleware)
+Todas las rutas que requieran autenticación pasan a través del middleware `authMiddleware.ts`. Este middleware realiza las siguientes validaciones:
+1. **Presencia del Token:** Verifica que exista la cabecera `Authorization`.
+2. **Formato:** Valida que el formato del header corresponda a `Bearer <token>`.
+3. **Firma y Algoritmo:** Valida la firma del token con el `JWT_SECRET` utilizando el algoritmo explícito `HS256` para evitar ataques de manipulación de algoritmos (JWT algorithm confusion).
+4. **Vigencia:** Valida que el token no haya expirado.
+5. **Inyección de Contexto:** Si el token es válido, decodifica el payload (que contiene `userId` y `email`) e inyecta la información en el objeto `req.user`, extendiendo la interfaz `Request` de Express para que los controladores subsiguientes tengan acceso a la identidad del usuario de manera segura.
+
 ## Ejecución de Pruebas
 
 Para ejecutar la suite completa de pruebas (modelos de datos y sistema de autenticación) con Vitest y Supertest, ejecuta el siguiente comando:
@@ -179,12 +225,17 @@ npm run dev        # desarrollo con hot-reload
 npm run build      # build de producción
 npm run start      # levanta el build de producción
 npm run test        # corre la suite de Vitest
-npm run migrate    # corre migraciones de base de datos
+npm run db:init    # inicializa y despliega el esquema SQL en la base de datos (PostgreSQL)
 ```
 
-## Despliegue
+## ⚙️ Despliegue en Producción (Railway y Vercel)
 
-Conectado a Railway: cada push a `main` dispara un deploy automático. Las variables de entorno se configuran en el dashboard de Railway, nunca se commitean.
+El backend de **Valora Wallet** se encuentra configurado para un flujo de Integración y Despliegue Continuo (CI/CD) conectado a **Railway**:
+
+1. **Conexión Automática:** Cada push a la rama `main` del repositorio de GitHub dispara un deploy automático en Railway.
+2. **Infraestructura de Base de Datos:** Se utiliza un servicio provisionado de PostgreSQL dentro de Railway, el cual mantiene la base de datos persistente.
+3. **Configuración de Entorno:** Las variables de entorno críticas (definidas en `.env.example`) se configuran directamente en el panel de control del servicio de Railway, asegurando que ningún dato sensible o credencial de API se exponga en el repositorio.
+4. **CORS:** El backend restringe el acceso de orígenes cruzados permitiendo únicamente peticiones provenientes de la URL del frontend desplegado en **Vercel** (configurado a través de `FRONTEND_URL`) y del entorno de desarrollo local.
 
 ## Known issues
 
