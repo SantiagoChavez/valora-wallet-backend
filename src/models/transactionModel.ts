@@ -60,5 +60,19 @@ export async function insertTransaction(
   if (result.rows.length === 0) {
     throw new Error("No se pudo insertar la transacción en la base de datos.");
   }
-  return result.rows[0] as Transaction;
+
+  const [row] = result.rows;
+
+  return {
+    id: row.id,
+    wallet_id: row.wallet_id,
+    transaction_type: row.transaction_type,
+    source_currency: row.source_currency,
+    target_currency: row.target_currency,
+    source_amount: row.source_amount,
+    target_amount: row.target_amount,
+    exchange_rate: row.exchange_rate,
+    resulting_balance: row.resulting_balance,
+    created_at: row.created_at,
+  } satisfies Transaction;
 }
