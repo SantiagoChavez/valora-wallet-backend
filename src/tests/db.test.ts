@@ -1,19 +1,27 @@
-import { describe, expect, it, vi } from 'vitest';
-import { pool } from '../database/db';
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pool } from "../database/db";
 
-describe('Database Pool Configuration', () => {
-  it('should have an error listener registered', () => {
-    expect(pool.listenerCount('error')).toBeGreaterThanOrEqual(1);
+describe("Database Pool Configuration", () => {
+  let consoleSpy: any;
+
+  beforeEach(() => {
+    consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  it('should not throw when an error is emitted', () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const error = new Error('Test DB Error');
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  it("should have an error listener registered", () => {
+    expect(pool.listenerCount("error")).toBeGreaterThanOrEqual(1);
+  });
+
+  it("should not throw when an error is emitted", () => {
+    const error = new Error("Test DB Error");
     
     // The pool should have the listener, so it should not throw
-    expect(() => pool.emit('error', error)).not.toThrow();
+    expect(() => pool.emit("error", error)).not.toThrow();
     
     expect(consoleSpy).toHaveBeenCalled();
-    consoleSpy.mockRestore();
   });
 });
