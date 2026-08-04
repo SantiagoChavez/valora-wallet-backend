@@ -47,12 +47,12 @@ export async function findWalletById(id: string): Promise<Wallet | null> {
  * @param userId - User UUID
  * @returns The wallet object if found, or null otherwise.
  */
-export async function findWalletByUserId(userId: string): Promise<Wallet | null> {
+export async function findWalletByUserId(userId: string, client?: PoolClient): Promise<Wallet | null> {
   const sql = `
     SELECT id, user_id, created_at, updated_at
     FROM wallets
     WHERE user_id = $1
   `;
-  const result = await query(sql, [userId]);
+  const result = client ? await client.query(sql, [userId]) : await query(sql, [userId]);
   return result.rows[0] || null;
 }

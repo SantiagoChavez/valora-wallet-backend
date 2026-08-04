@@ -8,10 +8,11 @@ if (!databaseUrl) {
 }
 
 const isProduction = process.env.NODE_ENV === "production";
+const rejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false";
 
 export const pool = new Pool({
   connectionString: databaseUrl,
-  ssl: isProduction ? { rejectUnauthorized: false } : false,
+  ssl: isProduction ? { rejectUnauthorized } : false,
   allowExitOnIdle: true,
 });
 

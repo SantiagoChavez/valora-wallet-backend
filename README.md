@@ -140,7 +140,7 @@ graph TD
 ### Perfil del Usuario Autenticado
 - **Ruta:** `GET /auth/me`
 - **Autenticación:** Requerida (`Authorization: Bearer <token>`).
-- **Descripción:** Obtiene los datos del perfil y la billetera del usuario actualmente autenticado mediante el token JWT.
+- **Descripción:** Obtiene los datos del perfil, la billetera y los saldos del usuario actualmente autenticado mediante el token JWT.
 - **Response (200 OK):**
   ```json
   {
@@ -150,7 +150,17 @@ graph TD
       "firstName": "Santiago",
       "lastName": "Chavez"
     },
-    "walletId": "f782f9d8-9db8-40a2-a60d-fb964a2f7c00"
+    "walletId": "f782f9d8-9db8-40a2-a60d-fb964a2f7c00",
+    "balances": [
+      {
+        "id": "...",
+        "wallet_id": "...",
+        "currency_code": "USD",
+        "amount": "100.00000000",
+        "created_at": "...",
+        "updated_at": "..."
+      }
+    ]
   }
   ```
 

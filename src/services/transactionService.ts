@@ -56,9 +56,8 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
         await client.query("BEGIN");
 
         // Business Validation: Check sufficient funds
-        const currentBalance = await getUserBalance(userId, fromCurrency);
+        const currentBalance = await getUserBalance(userId, fromCurrency, client);
         if (currentBalance < amount) {
-            await client.query("ROLLBACK");
             throw new Error("Saldo insuficiente para realizar la operación.");
         }
 
@@ -68,7 +67,6 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
         const rateTo = rates[toCurrency];
 
         if (!rateFrom || !rateTo) {
-            await client.query("ROLLBACK");
             throw new Error("Tasa de cambio no disponible para las monedas seleccionadas.");
         }
 

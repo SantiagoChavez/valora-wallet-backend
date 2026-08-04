@@ -65,14 +65,15 @@ export async function findBalancesByWalletId(walletId: string): Promise<Balance[
  */
 export async function findBalanceByWalletAndCurrency(
   walletId: string,
-  currencyCode: string
+  currencyCode: string,
+  client?: PoolClient
 ): Promise<Balance | null> {
   const sql = `
     SELECT id, wallet_id, currency_code, amount, created_at, updated_at
     FROM balances
     WHERE wallet_id = $1 AND currency_code = $2
   `;
-  const result = await query(sql, [walletId, currencyCode]);
+  const result = client ? await client.query(sql, [walletId, currencyCode]) : await query(sql, [walletId, currencyCode]);
   return result.rows[0] || null;
 }
 
@@ -83,13 +84,13 @@ export async function findBalanceByWalletAndCurrency(
  * @param currencyCode - The currency code (e.g., 'USD', 'ARS')
  * @returns The balance as a number
  */
-export async function getUserBalance(userId: string, currencyCode: string): Promise<number> {
-  const wallet = await findWalletByUserId(userId);
+export async function getUserBalance(userId: string, currencyCode: string, client?: PoolClient): Promise<number> {
+  const wallet = await findWalletByUserId(userId, client);
   if (!wallet) {
     throw new Error("Billetera no encontrada para el usuario.");
   }
 
-  const balance = await findBalanceByWalletAndCurrency(wallet.id, currencyCode);
+  const balance = await findBalanceByWalletAndCurrency(wallet.id, currencyCode, client);
   return balance ? parseFloat(balance.amount) : 0;
 }
 

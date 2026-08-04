@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { verifyToken, type JwtPayload } from "../utils/jwt";
 
 export interface AuthenticatedRequest extends Request {
@@ -15,22 +16,40 @@ export function authMiddleware(
 ): void {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Acceso no autorizado. Token no proporcionado." });
+  if (!authHeader) {
+    res.status(401).json({
+      success: false,
+      error: "UnauthorizedError",
+      message: "Acceso no autorizado. Token no proporcionado."
+    });
     return;
   }
 
-  const token = authHeader.split(" ")[1];
+  const parts = authHeader.trim().split(/\s+/);
+  if (parts.length !== 2 || !/^Bearer$/i.test(parts[0])) {
+    res.status(401).json({
+      success: false,
+      error: "UnauthorizedError",
+      message: "Formato de token inválido. Debe ser 'Bearer <token>'."
+    });
+    return;
+  }
+
+  const token = parts[1];
 
   try {
     const decoded = verifyToken(token);
-    if (!decoded || typeof decoded !== "object") {
-      res.status(401).json({ error: "Token inválido o expirado." });
-      return;
-    }
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({ error: "Token inválido o expirado." });
+    if (error instanceof JsonWebTokenError || error instanceof TokenExpiredError) {
+      res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token inválido o expirado."
+      });
+      return;
+    }
+    next(error);
   }
 }

@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "migrate": "node-pg-migrate up"
+    "migrate": "node-pg-migrate up",
+    "db:init": "tsx src/database/deploy.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

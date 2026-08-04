@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { query } from "../database/db";
-import { createOrUpdateBalance, findBalanceByWalletAndCurrency, findBalancesByWalletId } from "../models/balanceModel";
+import { pool, query } from "../database/db";
+import { createOrUpdateBalance, findBalanceByWalletAndCurrency, findBalancesByWalletId, getUserBalance, updateUserBalance } from "../models/balanceModel";
 import { createUser, findUserByEmail, findUserById } from "../models/userModel";
 import { createWallet, findWalletByUserId } from "../models/walletModel";
 
@@ -93,6 +93,23 @@ describe("Pruebas de integración de modelos de base de datos", () => {
 
       const retrieved = await findBalanceByWalletAndCurrency(createdWalletId, "USD");
       expect(parseFloat(retrieved!.amount)).toBe(1850.75);
+    });
+
+    it("debería leer el saldo desde la transacción activa cuando existe un cambio no comprometido", async () => {
+      const client = await pool.connect();
+
+      try {
+        await client.query("BEGIN");
+        const updatedBalance = await updateUserBalance(client, createdWalletId, "USD", 100);
+        const balanceInTransaction = await getUserBalance(createdUserId, "USD", client);
+
+        expect(parseFloat(updatedBalance.amount)).toBe(1950.75);
+        expect(balanceInTransaction).toBe(1950.75);
+
+        await client.query("ROLLBACK");
+      } finally {
+        client.release();
+      }
     });
   });
 });
