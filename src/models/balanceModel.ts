@@ -108,14 +108,46 @@ export async function updateUserBalance(
   currencyCode: string,
   amountDelta: number
 ): Promise<Balance> {
-  const sql = `
-    INSERT INTO balances (wallet_id, currency_code, amount)
-    VALUES ($1, $2, $3)
-    ON CONFLICT (wallet_id, currency_code)
-    DO UPDATE SET amount = balances.amount + EXCLUDED.amount, updated_at = CURRENT_TIMESTAMP
+  const existingBalance = await client.query(
+    `
+      SELECT id, wallet_id, currency_code, amount, created_at, updated_at
+      FROM balances
+      WHERE wallet_id = $1 AND currency_code = $2
+    `,
+    [walletId, currencyCode]
+  );
+
+  if (existingBalance.rows.length === 0) {
+    if (amountDelta < 0) {
+      throw new Error("Saldo insuficiente para realizar la operación.");
+    }
+
+    const insertSql = `
+      INSERT INTO balances (wallet_id, currency_code, amount)
+      VALUES ($1, $2, $3)
+      RETURNING id, wallet_id, currency_code, amount, created_at, updated_at;
+    `;
+    const result = await client.query(insertSql, [walletId, currencyCode, amountDelta.toFixed(8)]);
+    if (result.rows.length === 0) {
+      throw new Error("No se pudo actualizar el saldo en la base de datos.");
+    }
+    return result.rows[0];
+  }
+
+  const currentAmount = parseFloat(existingBalance.rows[0].amount);
+  const newAmount = currentAmount + amountDelta;
+
+  if (newAmount < 0) {
+    throw new Error("Saldo insuficiente para realizar la operación.");
+  }
+
+  const updateSql = `
+    UPDATE balances
+    SET amount = $3, updated_at = CURRENT_TIMESTAMP
+    WHERE wallet_id = $1 AND currency_code = $2
     RETURNING id, wallet_id, currency_code, amount, created_at, updated_at;
   `;
-  const result = await client.query(sql, [walletId, currencyCode, amountDelta.toString()]);
+  const result = await client.query(updateSql, [walletId, currencyCode, newAmount.toFixed(8)]);
   if (result.rows.length === 0) {
     throw new Error("No se pudo actualizar el saldo en la base de datos.");
   }
