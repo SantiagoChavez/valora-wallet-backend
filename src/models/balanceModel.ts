@@ -107,14 +107,17 @@ export async function updateUserBalance(
   walletId: string,
   currencyCode: string,
   amountDelta: number
-): Promise<any> {
+): Promise<Balance> {
   const sql = `
     INSERT INTO balances (wallet_id, currency_code, amount)
     VALUES ($1, $2, $3)
     ON CONFLICT (wallet_id, currency_code)
     DO UPDATE SET amount = balances.amount + EXCLUDED.amount, updated_at = CURRENT_TIMESTAMP
-    RETURNING *;
+    RETURNING id, wallet_id, currency_code, amount, created_at, updated_at;
   `;
   const result = await client.query(sql, [walletId, currencyCode, amountDelta.toString()]);
+  if (result.rows.length === 0) {
+    throw new Error("No se pudo actualizar el saldo en la base de datos.");
+  }
   return result.rows[0];
 }
