@@ -40,12 +40,18 @@ export async function getExchangeRates(): Promise<Record<string, number>>{
 
         // Transformación (DTO): Extraemos únicamente las tasas que manejará la billetera.
         // Nota: Como la base es USD, Frankfurter no la incluye en 'rates', así que la agregamos manualmente.
-        // También incluimos ARS con un valor de reserva en caso de que la API de la UE no la provea en tiempo real.
-        ratesCache = {
-            USD: 1, 
-            EUR: data.rates.EUR,
-            ARS: data.rates.ARS || 1000, 
-        };
+        // Si la API no devuelve una tasa válida para EUR o ARS, no la cacheamos para evitar valores inventados.
+        const nextRates: Record<string, number> = { USD: 1 };
+
+        if (typeof data.rates.EUR === "number" && Number.isFinite(data.rates.EUR)) {
+            nextRates.EUR = data.rates.EUR;
+        }
+
+        if (typeof data.rates.ARS === "number" && Number.isFinite(data.rates.ARS)) {
+            nextRates.ARS = data.rates.ARS;
+        }
+
+        ratesCache = nextRates;
 
         // Actualizamos el temporizador de la ultima llamada exitosa
         lastFetchTime = Date.now();
