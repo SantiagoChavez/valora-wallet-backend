@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { verifyToken, type JwtPayload } from "../utils/jwt";
 
 export interface AuthenticatedRequest extends Request {
@@ -41,10 +42,14 @@ export function authMiddleware(
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({
-      success: false,
-      error: "UnauthorizedError",
-      message: "Token inválido o expirado."
-    });
+    if (error instanceof JsonWebTokenError || error instanceof TokenExpiredError) {
+      res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token inválido o expirado."
+      });
+      return;
+    }
+    next(error);
   }
 }
