@@ -30,13 +30,16 @@ export const registerSchema = z.object({
     dateOfBirth: z
         .string({ message: "La fecha de nacimiento es requerida." })
         .trim()
+        .regex(/^\d{2}\/\d{2}\/\d{4}$/, {
+            message: "La fecha de nacimiento debe tener el formato DD/MM/YYYY",
+        })
         .refine((val) => {
-            // Validar formato YYYY-MM-DD
-            const parts = val.split("-");
-            if (parts.length !== 3) return false;
-            const year = parseInt(parts[0], 10);
+            // Si el formato no coincide con el regex, dejamos que la validación .regex maneje el error
+            if (!/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return true;
+            const parts = val.split("/");
+            const day = parseInt(parts[0], 10);
             const month = parseInt(parts[1], 10) - 1; // 0-indexed en JS Date
-            const day = parseInt(parts[2], 10);
+            const year = parseInt(parts[2], 10);
             
             const birthDateUTC = new Date(Date.UTC(year, month, day));
             if (isNaN(birthDateUTC.getTime())) return false;
@@ -57,6 +60,11 @@ export const registerSchema = z.object({
             return birthDateUTC <= cutoffUTC;
         }, {
             message: "Debes ser mayor de 18 años para registrarte.",
+        })
+        .transform((val) => {
+            // Transformar a YYYY-MM-DD para la base de datos
+            const parts = val.split("/");
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
         }),
     phone: z
         .string({ message: "El número de teléfono es requerido." })
