@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { authRouter } from "./authRoutes";
-import { transactionRouter } from "./transactionRoutes";
-import { balanceRouter } from "./balanceRoutes";
+import { authRouter } from "./authRoutes.js";
+import { transactionRouter } from "./transactionRoutes.js";
+import { balanceRouter } from "./balanceRoutes.js";
 
 export const router = Router();
 
