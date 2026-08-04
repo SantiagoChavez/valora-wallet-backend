@@ -11,6 +11,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
     password: "PasswordSegura123!",
     firstName: "Santiago",
     lastName: "Chavez",
+    dateOfBirth: "1995-05-15",
+    phone: "+54 9 351 123-4567",
   };
 
   // Limpieza previa a la ejecución de pruebas
@@ -37,6 +39,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         email: testUser.email,
         firstName: testUser.firstName,
         lastName: testUser.lastName,
+        dateOfBirth: "1995-05-15",
+        phone: "+5493511234567", // E.164 normalizado
       });
 
       const { walletId, user } = response.body;
@@ -71,19 +75,16 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         .send({
           email: "otro_usuario@valora.com",
           password: "password",
-          // faltan firstName y lastName
+          // faltan firstName, lastName, dateOfBirth, phone
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toEqual({
-        success: false,
-        error: "ValidationError",
-        message: "El nombre es requerido.",
-        issues: [
-          "El nombre es requerido.",
-          "El apellido es requerido.",
-        ],
-      });
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("ValidationError");
+      expect(response.body.issues).toContain("El nombre es requerido.");
+      expect(response.body.issues).toContain("El apellido es requerido.");
+      expect(response.body.issues).toContain("La fecha de nacimiento es requerida.");
+      expect(response.body.issues).toContain("El número de teléfono es requerido.");
     });
 
     it("debería fallar al registrar si el formato de email es inválido", async () => {
@@ -94,6 +95,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
           password: testUser.password,
           firstName: testUser.firstName,
           lastName: testUser.lastName,
+          dateOfBirth: testUser.dateOfBirth,
+          phone: testUser.phone,
         });
 
       expect(response.status).toBe(400);
@@ -104,6 +107,42 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         issues: [
           "El correo electrónico provisto no tiene un formato válido.",
         ],
+      });
+    });
+
+    it("debería fallar al registrar si el usuario es menor de 18 años", async () => {
+      const response = await request(app)
+        .post("/auth/register")
+        .send({
+          ...testUser,
+          email: "menor_edad@valora.com",
+          dateOfBirth: "2015-05-15", // Menor de edad
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "ValidationError",
+        message: "Debes ser mayor de 18 años para registrarte.",
+        issues: ["Debes ser mayor de 18 años para registrarte."],
+      });
+    });
+
+    it("debería fallar al registrar si el formato de teléfono es inválido", async () => {
+      const response = await request(app)
+        .post("/auth/register")
+        .send({
+          ...testUser,
+          email: "telefono_invalido@valora.com",
+          phone: "12345", // Inválido
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "ValidationError",
+        message: "El número de teléfono provisto no es válido.",
+        issues: ["El número de teléfono provisto no es válido."],
       });
     });
   });
@@ -125,6 +164,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         email: testUser.email,
         firstName: testUser.firstName,
         lastName: testUser.lastName,
+        dateOfBirth: "1995-05-15",
+        phone: "+5493511234567",
       });
     });
 
@@ -188,6 +229,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         email: testUser.email,
         firstName: testUser.firstName,
         lastName: testUser.lastName,
+        dateOfBirth: "1995-05-15",
+        phone: "+5493511234567",
       });
     });
 
