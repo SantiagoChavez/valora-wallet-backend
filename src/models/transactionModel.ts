@@ -37,7 +37,7 @@ export async function insertTransaction(
   targetAmount: number | string | null,
   exchangeRate: number | string | null,
   resultingBalance: number | string | null
-){
+): Promise<Transaction> {
   const sql = `
     INSERT INTO transactions 
     (wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance)
@@ -57,5 +57,8 @@ export async function insertTransaction(
   ];
 
   const result = await client.query(sql, values);
-  return result.rows[0];
+  if (result.rows.length === 0) {
+    throw new Error("No se pudo insertar la transacción en la base de datos.");
+  }
+  return result.rows[0] as Transaction;
 }
