@@ -12,6 +12,7 @@ interface ExchangeApiResponse{
 // Variables globales del módulo que vivirán en la memoria de Railway
 let ratesCache: Record<string, number> | null = null;
 let lastFetchTime: number = 0;
+let lastSuccessfulFetchTime: number = 0;
 
 // Constante de tiempo: 1 hora en milisegundos
 const CACHE_TTL = 60 * 60 * 1000;
@@ -20,8 +21,8 @@ const CACHE_TTL = 60 * 60 * 1000;
 export async function getExchangeRates(): Promise<Record<string, number>>{
     const now = Date.now();
 
-    // Patron Fail-Fast: Si la cache existe y no ha expirado, cotamos el flujo y la retornamos
-    if (ratesCache && (now - lastFetchTime) < CACHE_TTL){
+    // Si la caché sigue siendo válida y ya se obtuvo al menos una vez, la devolvemos como resultado fresco.
+    if (ratesCache && lastSuccessfulFetchTime > 0 && (now - lastSuccessfulFetchTime) < CACHE_TTL){
         return ratesCache;
     }
 
@@ -54,19 +55,20 @@ export async function getExchangeRates(): Promise<Record<string, number>>{
         ratesCache = nextRates;
 
         // Actualizamos el temporizador de la ultima llamada exitosa
+        lastSuccessfulFetchTime = Date.now();
         lastFetchTime = Date.now();
 
         return ratesCache;
 
     } catch (error: unknown) {
-        // Estrategia de Fallback: La red colapso o hubo unn error HTTP
-        if (ratesCache) {
-            console.warn("[Exchange Service] API caida. Utilizando tasas en cache");
+        // Si hay una respuesta previa válida, la devolvemos solo como fallback explícito.
+        if (ratesCache && lastSuccessfulFetchTime > 0) {
+            console.warn("[Exchange Service] La API falló; se está devolviendo la caché válida anterior.");
             return ratesCache;
         }
 
         // Paso 4: Exepciones Controladas (Manejo Centralizado)
-        // Si la API falla por completo y no hay cache 
+        // Si la API falla por completo y no hay una caché válida previa, se rechaza la operación.
         throw new Error("No se pudieron obtener las tasas de cambio en este momento");
     }
 }
