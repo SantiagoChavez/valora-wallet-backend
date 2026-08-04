@@ -108,7 +108,8 @@ export async function updateUserBalance(
   currencyCode: string,
   amountDelta: number
 ): Promise<Balance> {
-  await client.query(
+  // Bloqueamos la billetera para serializar todas las operaciones de saldo del mismo wallet.
+  const walletLock = await client.query(
     `
       SELECT id
       FROM wallets
@@ -118,6 +119,12 @@ export async function updateUserBalance(
     [walletId]
   );
 
+  if (walletLock.rows.length === 0) {
+    throw new Error("Billetera no encontrada.");
+  }
+
+  // Bloqueamos el saldo concreto para evitar que dos transacciones concurrentes
+  // lean y actualicen el mismo balance al mismo tiempo.
   const existingBalance = await client.query(
     `
       SELECT id, wallet_id, currency_code, amount, created_at, updated_at
