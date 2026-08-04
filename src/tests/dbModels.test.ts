@@ -21,11 +21,13 @@ describe("Pruebas de integración de modelos de base de datos", () => {
 
   describe("Pruebas del modelo de Usuario", () => {
     it("debería registrar un nuevo usuario exitosamente en la base de datos", async () => {
-      const user = await createUser(testEmail, "clave_encriptada_valora", "Santiago", "Chavez");
+      const user = await createUser(testEmail, "clave_encriptada_valora", "Santiago", "Chavez", "1995-05-15", "+5493511234567");
       expect(user.id).toBeDefined();
       expect(user.email).toBe(testEmail);
       expect(user.first_name).toBe("Santiago");
       expect(user.last_name).toBe("Chavez");
+      expect(user.date_of_birth).toBeDefined();
+      expect(user.phone).toBe("+5493511234567");
       createdUserId = user.id;
     });
 

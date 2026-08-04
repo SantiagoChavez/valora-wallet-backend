@@ -1,11 +1,71 @@
 import type { Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt";
-import { createUser, findUserByEmail, findUserById } from "../models/userModel";
+import { createUser, findUserByEmail, findUserById, type User } from "../models/userModel";
 import { createWallet, findWalletByUserId } from "../models/walletModel";
 import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { pool } from "../database/db";
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth?: string | null;
+  phone?: string | null;
+}
+
+/**
+ * Formatea una fecha de nacimiento (Date, string, null o undefined) a formato DD/MM/YYYY de forma segura contra zonas horarias.
+ */
+function formatDate(dateInput: Date | string | null | undefined): string | null {
+  if (!dateInput) return null;
+  if (typeof dateInput === "string") {
+    // Si ya es un formato de fecha limpio DD/MM/YYYY, lo retornamos directo
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateInput)) {
+      return dateInput;
+    }
+    // Si es YYYY-MM-DD (retornado por pg), lo convertimos a DD/MM/YYYY
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const parts = dateInput.split("-");
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const parsedDate = new Date(dateInput);
+    if (isNaN(parsedDate.getTime())) {
+      return dateInput;
+    }
+    const year = parsedDate.getUTCFullYear();
+    const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(parsedDate.getUTCDate()).padStart(2, "0");
+    return `${day}/${month}/${year}`;
+  }
+
+  // Si es un objeto Date de JS, usamos getters locales para respetar la fecha exacta de creación
+  const year = dateInput.getFullYear();
+  const month = String(dateInput.getMonth() + 1).padStart(2, "0");
+  const day = String(dateInput.getDate()).padStart(2, "0");
+  return `${day}/${month}/${year}`;
+}
+
+/**
+ * Mapea un usuario de la base de datos al formato de respuesta seguro (DRY/camelCase)
+ */
+export function toUserResponse(user: User, includePII = true): UserResponse {
+  const response: UserResponse = {
+    id: user.id,
+    email: user.email,
+    firstName: user.first_name,
+    lastName: user.last_name,
+  };
+
+  if (includePII) {
+    response.dateOfBirth = formatDate(user.date_of_birth);
+    response.phone = user.phone || null;
+  }
+
+  return response;
+}
 
 /**
  * Controlador para el registro de nuevos usuarios.
@@ -16,7 +76,7 @@ export async function registerController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { email, password, firstName, lastName, dateOfBirth, phone } = req.body;
 
     // Verificar si el usuario ya existe
     const existingUser = await findUserByEmail(email);
@@ -39,7 +99,7 @@ export async function registerController(
       await client.query("BEGIN");
 
       // Crear el usuario
-      const user = await createUser(email, passwordHash, firstName, lastName, client);
+      const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, phone, client);
 
       // Crear su billetera asociada
       const wallet = await createWallet(user.id, client);
@@ -54,12 +114,7 @@ export async function registerController(
 
       res.status(201).json({
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name
-        },
+        user: toUserResponse(user),
         walletId: wallet.id
       });
     } catch (error) {
@@ -134,12 +189,7 @@ export async function loginController(
 
     res.status(200).json({
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name
-      },
+      user: toUserResponse(user),
       walletId: wallet.id
     });
   } catch (error: unknown) {
@@ -193,12 +243,7 @@ export async function meController(
     const balances = await findBalancesByWalletId(wallet.id);
 
     res.status(200).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name
-      },
+      user: toUserResponse(user),
       walletId: wallet.id,
       balances
     });
