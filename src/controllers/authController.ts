@@ -1,11 +1,48 @@
 import type { Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
 import { generateToken } from "../utils/jwt";
-import { createUser, findUserByEmail, findUserById } from "../models/userModel";
+import { createUser, findUserByEmail, findUserById, type User } from "../models/userModel";
 import { createWallet, findWalletByUserId } from "../models/walletModel";
 import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { pool } from "../database/db";
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  phone: string;
+}
+
+/**
+ * Formatea una fecha de nacimiento (Date o string) a formato YYYY-MM-DD en UTC.
+ */
+function formatDate(dateInput: Date | string): string {
+  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) {
+    return String(dateInput);
+  }
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Mapea un usuario de la base de datos al formato de respuesta seguro (DRY/camelCase)
+ */
+export function toUserResponse(user: User): UserResponse {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.first_name,
+    lastName: user.last_name,
+    dateOfBirth: formatDate(user.date_of_birth),
+    phone: user.phone
+  };
+}
 
 /**
  * Controlador para el registro de nuevos usuarios.
@@ -16,7 +53,7 @@ export async function registerController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { email, password, firstName, lastName, dateOfBirth, phone } = req.body;
 
     // Verificar si el usuario ya existe
     const existingUser = await findUserByEmail(email);
@@ -39,7 +76,7 @@ export async function registerController(
       await client.query("BEGIN");
 
       // Crear el usuario
-      const user = await createUser(email, passwordHash, firstName, lastName, client);
+      const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, phone, client);
 
       // Crear su billetera asociada
       const wallet = await createWallet(user.id, client);
@@ -54,12 +91,7 @@ export async function registerController(
 
       res.status(201).json({
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name
-        },
+        user: toUserResponse(user),
         walletId: wallet.id
       });
     } catch (error) {
@@ -134,12 +166,7 @@ export async function loginController(
 
     res.status(200).json({
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name
-      },
+      user: toUserResponse(user),
       walletId: wallet.id
     });
   } catch (error: unknown) {
@@ -193,12 +220,7 @@ export async function meController(
     const balances = await findBalancesByWalletId(wallet.id);
 
     res.status(200).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name
-      },
+      user: toUserResponse(user),
       walletId: wallet.id,
       balances
     });
