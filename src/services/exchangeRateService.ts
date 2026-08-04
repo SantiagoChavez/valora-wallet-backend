@@ -58,7 +58,7 @@ export async function getExchangeRates(): Promise<Record<string, number>>{
 
         return ratesCache;
 
-    }catch (error){
+    } catch (error: unknown) {
         // Estrategia de Fallback: La red colapso o hubo unn error HTTP
         if (ratesCache) {
             console.warn("[Exchange Service] API caida. Utilizando tasas en cache");
