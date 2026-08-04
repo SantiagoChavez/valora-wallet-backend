@@ -102,7 +102,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         success: false,
-        error: "ValidationError",
+        error: "VALIDATION_ERROR",
         message: "El correo electrónico provisto no tiene un formato válido.",
         issues: [
           "El correo electrónico provisto no tiene un formato válido.",
