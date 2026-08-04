@@ -1,5 +1,6 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
+import type { Transaction } from "../models/transactionModel.js";
 import { executeDeposit, executeExchange } from "../services/transactionService.js";
 
 /**
@@ -7,7 +8,7 @@ import { executeDeposit, executeExchange } from "../services/transactionService.
  * @param tx - The raw transaction object from the database
  * @returns The mapped object
  */
-const mapTransactionToCamelCase = (tx: any) => ({
+const mapTransactionToCamelCase = (tx: Transaction) => ({
     id: tx.id,
     walletId: tx.wallet_id,
     transactionType: tx.transaction_type,
