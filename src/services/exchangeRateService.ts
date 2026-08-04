@@ -9,7 +9,7 @@ interface ExchangeApiResponse{
     rates: Record<string, number>;
 }
 
-// Variables globales del mosulo que viviran en la memoria de Railway
+// Variables globales del módulo que vivirán en la memoria de Railway
 let ratesCache: Record<string, number> | null = null;
 let lastFetchTime: number = 0;
 
