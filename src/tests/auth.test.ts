@@ -59,7 +59,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: "El email ya está registrado",
+        success: false,
+        error: "DuplicateEmailError",
+        message: "El correo electrónico ya se encuentra registrado",
       });
     });
 
@@ -73,7 +75,36 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toHaveProperty("error");
+      expect(response.body).toEqual({
+        success: false,
+        error: "ValidationError",
+        message: "El nombre es requerido.",
+        issues: [
+          "El nombre es requerido.",
+          "El apellido es requerido.",
+        ],
+      });
+    });
+
+    it("debería fallar al registrar si el formato de email es inválido", async () => {
+      const response = await request(app)
+        .post("/auth/register")
+        .send({
+          email: "usuario-sin-arroba",
+          password: testUser.password,
+          firstName: testUser.firstName,
+          lastName: testUser.lastName,
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "ValidationError",
+        message: "El correo electrónico provisto no tiene un formato válido.",
+        issues: [
+          "El correo electrónico provisto no tiene un formato válido.",
+        ],
+      });
     });
   });
 
@@ -107,7 +138,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Credenciales incorrectas.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Credenciales incorrectas.",
       });
     });
 
@@ -121,7 +154,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Credenciales incorrectas.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Credenciales incorrectas.",
       });
     });
   });
@@ -161,7 +196,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Acceso no autorizado. Token no proporcionado.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Acceso no autorizado. Token no proporcionado.",
       });
     });
 
@@ -172,7 +209,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Acceso no autorizado. Token no proporcionado.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Formato de token inválido. Debe ser 'Bearer <token>'.",
       });
     });
 
@@ -183,7 +222,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({
-        error: "Token inválido o expirado.",
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token inválido o expirado.",
       });
     });
   });
