@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    date_of_birth DATE NOT NULL,
-    phone VARCHAR(20) NOT NULL,
+    date_of_birth DATE,
+    phone VARCHAR(20),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -61,5 +61,5 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);
 
 -- Actualizaciones de Esquema (Migraciones de compatibilidad)
-ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE NOT NULL DEFAULT '2000-01-01';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);

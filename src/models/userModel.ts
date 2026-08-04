@@ -7,8 +7,8 @@ export interface User {
   password_hash: string;
   first_name: string;
   last_name: string;
-  date_of_birth: Date | string;
-  phone: string;
+  date_of_birth: Date | string | null;
+  phone: string | null;
   created_at: string | Date;
   updated_at: string | Date;
 }
