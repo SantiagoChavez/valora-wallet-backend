@@ -11,7 +11,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
     password: "PasswordSegura123!",
     firstName: "Santiago",
     lastName: "Chavez",
-    dateOfBirth: "1995-05-15",
+    dateOfBirth: "15/05/1995",
     phone: "+54 9 351 123-4567",
   };
 
@@ -39,7 +39,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         email: testUser.email,
         firstName: testUser.firstName,
         lastName: testUser.lastName,
-        dateOfBirth: "1995-05-15",
+        dateOfBirth: "15/05/1995",
         phone: "+5493511234567", // E.164 normalizado
       });
 
@@ -116,7 +116,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         .send({
           ...testUser,
           email: "menor_edad@valora.com",
-          dateOfBirth: "2015-05-15", // Menor de edad
+          dateOfBirth: "15/05/2015", // Menor de edad
         });
 
       expect(response.status).toBe(400);
@@ -145,6 +145,24 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         issues: ["El número de teléfono provisto no es válido."],
       });
     });
+
+    it("debería fallar al registrar si la fecha de nacimiento tiene formato incorrecto", async () => {
+      const response = await request(app)
+        .post("/auth/register")
+        .send({
+          ...testUser,
+          email: "fecha_invalida@valora.com",
+          dateOfBirth: "1995-05-15", // Formato incorrecto ahora, debe ser DD/MM/YYYY!
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "ValidationError",
+        message: "La fecha de nacimiento debe tener el formato DD/MM/YYYY",
+        issues: ["La fecha de nacimiento debe tener el formato DD/MM/YYYY"],
+      });
+    });
   });
 
   describe("POST /auth/login", () => {
@@ -164,7 +182,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         email: testUser.email,
         firstName: testUser.firstName,
         lastName: testUser.lastName,
-        dateOfBirth: "1995-05-15",
+        dateOfBirth: "15/05/1995",
         phone: "+5493511234567",
       });
     });
@@ -229,7 +247,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         email: testUser.email,
         firstName: testUser.firstName,
         lastName: testUser.lastName,
-        dateOfBirth: "1995-05-15",
+        dateOfBirth: "15/05/1995",
         phone: "+5493511234567",
       });
     });

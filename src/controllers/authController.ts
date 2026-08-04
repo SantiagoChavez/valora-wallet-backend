@@ -12,36 +12,59 @@ export interface UserResponse {
   email: string;
   firstName: string;
   lastName: string;
-  dateOfBirth: string;
-  phone: string;
+  dateOfBirth?: string | null;
+  phone?: string | null;
 }
 
 /**
- * Formatea una fecha de nacimiento (Date o string) a formato YYYY-MM-DD en UTC.
+ * Formatea una fecha de nacimiento (Date, string, null o undefined) a formato DD/MM/YYYY de forma segura contra zonas horarias.
  */
-function formatDate(dateInput: Date | string): string {
-  const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
-  if (isNaN(date.getTime())) {
-    return String(dateInput);
+function formatDate(dateInput: Date | string | null | undefined): string | null {
+  if (!dateInput) return null;
+  if (typeof dateInput === "string") {
+    // Si ya es un formato de fecha limpio DD/MM/YYYY, lo retornamos directo
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateInput)) {
+      return dateInput;
+    }
+    // Si es YYYY-MM-DD (retornado por pg), lo convertimos a DD/MM/YYYY
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const parts = dateInput.split("-");
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const parsedDate = new Date(dateInput);
+    if (isNaN(parsedDate.getTime())) {
+      return dateInput;
+    }
+    const year = parsedDate.getUTCFullYear();
+    const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(parsedDate.getUTCDate()).padStart(2, "0");
+    return `${day}/${month}/${year}`;
   }
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+
+  // Si es un objeto Date de JS, usamos getters locales para respetar la fecha exacta de creación
+  const year = dateInput.getFullYear();
+  const month = String(dateInput.getMonth() + 1).padStart(2, "0");
+  const day = String(dateInput.getDate()).padStart(2, "0");
+  return `${day}/${month}/${year}`;
 }
 
 /**
  * Mapea un usuario de la base de datos al formato de respuesta seguro (DRY/camelCase)
  */
-export function toUserResponse(user: User): UserResponse {
-  return {
+export function toUserResponse(user: User, includePII = true): UserResponse {
+  const response: UserResponse = {
     id: user.id,
     email: user.email,
     firstName: user.first_name,
     lastName: user.last_name,
-    dateOfBirth: formatDate(user.date_of_birth),
-    phone: user.phone
   };
+
+  if (includePII) {
+    response.dateOfBirth = formatDate(user.date_of_birth);
+    response.phone = user.phone || null;
+  }
+
+  return response;
 }
 
 /**
