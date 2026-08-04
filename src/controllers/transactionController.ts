@@ -34,16 +34,6 @@ export async function depositController(req: AuthenticatedRequest, res: Response
             return;
         }
 
-        if (typeof currency !== "string" || currency.trim() === "") {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "La moneda es obligatoria." });
-            return;
-        }
-
-        if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El monto debe ser un número mayor a cero." });
-            return;
-        }
-
         const transaction = await executeDeposit(userId, currency, amount);
 
         res.status(200).json({
@@ -65,21 +55,6 @@ export async function exchangeController(req: AuthenticatedRequest, res: Respons
 
         if (!userId) {
             res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
-
-        if (typeof fromCurrency !== "string" || fromCurrency.trim() === "") {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "La moneda de origen es obligatoria." });
-            return;
-        }
-
-        if (typeof toCurrency !== "string" || toCurrency.trim() === "") {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "La moneda de destino es obligatoria." });
-            return;
-        }
-
-        if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El monto debe ser un número mayor a cero." });
             return;
         }
 

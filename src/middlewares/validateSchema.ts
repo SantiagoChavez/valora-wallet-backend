@@ -6,7 +6,7 @@ import { ZodError } from "zod";
  * Middleware genérico para validar peticiones mediante esquemas de Zod
  */
 export const validateSchema =
-    (schema: ZodTypeAny) =>
+    (schema: ZodTypeAny, options?: { errorCode?: string; includeIssues?: boolean }) =>
         (req: Request, res: Response, next: NextFunction): void => {
             try {
                 req.body = schema.parse(req.body);
@@ -14,13 +14,20 @@ export const validateSchema =
             } catch (error) {
                 if (error instanceof ZodError) {
                     const errorMessages = error.issues.map((issue) => issue.message);
+                    const errorCode = options?.errorCode ?? "ValidationError";
+                    const includeIssues = options?.includeIssues ?? true;
 
-                    res.status(400).json({
+                    const responseBody: Record<string, unknown> = {
                         success: false,
-                        error: "ValidationError",
+                        error: errorCode,
                         message: errorMessages[0] || "Datos de solicitud no válidos",
-                        issues: errorMessages,
-                    });
+                    };
+
+                    if (includeIssues) {
+                        responseBody.issues = errorMessages;
+                    }
+
+                    res.status(400).json(responseBody);
                     return;
                 }
 
