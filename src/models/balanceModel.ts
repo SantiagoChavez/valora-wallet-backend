@@ -108,11 +108,22 @@ export async function updateUserBalance(
   currencyCode: string,
   amountDelta: number
 ): Promise<Balance> {
+  await client.query(
+    `
+      SELECT id
+      FROM wallets
+      WHERE id = $1
+      FOR UPDATE
+    `,
+    [walletId]
+  );
+
   const existingBalance = await client.query(
     `
       SELECT id, wallet_id, currency_code, amount, created_at, updated_at
       FROM balances
       WHERE wallet_id = $1 AND currency_code = $2
+      FOR UPDATE
     `,
     [walletId, currencyCode]
   );
