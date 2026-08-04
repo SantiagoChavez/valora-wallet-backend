@@ -1,0 +1,26 @@
+## 0. Health Check
+GET https://valora-wallet-backend.onrender.com/health
+
+### 1. Registrar usuario
+POST https://valora-wallet-backend.onrender.com/auth/register
+Content-Type: application/json
+
+{
+  "email": "santiago.demo@valora.com",
+  "password": "Password123!",
+  "firstName": "Santiago",
+  "lastName": "Chavez"
+}
+
+### 2. Iniciar Sesión
+POST https://valora-wallet-backend.onrender.com/auth/login
+Content-Type: application/json
+
+{
+  "email": "santiago.demo@valora.com",
+  "password": "Password123!"
+}
+
+### 3. Obtener Perfil
+GET https://valora-wallet-backend.onrender.com/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJhMTI2Njg3NC01ZTg2LTRiM2QtYmZlNy0xN2FiZjdkMGEwY2YiLCJlbWFpbCI6InNhbnRpYWdvLmRlbW9AdmFsb3JhLmNvbSIsImlhdCI6MTc4NTUxMTgwMywiZXhwIjoxNzg1NTk4MjAzfQ.xncE635mjhkorYoMWQeq4IUiDZ_zGV5MGSt69eKh7ho

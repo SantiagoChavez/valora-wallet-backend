@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { query } from "../database/db";
 
 export interface User {
@@ -6,6 +7,8 @@ export interface User {
   password_hash: string;
   first_name: string;
   last_name: string;
+  date_of_birth: Date | string | null;
+  phone: string | null;
   created_at: string | Date;
   updated_at: string | Date;
 }
@@ -16,20 +19,26 @@ export interface User {
  * @param passwordHash - Hashed password
  * @param firstName - User's first name
  * @param lastName - User's last name
+ * @param client - Optional database client for transaction support
  * @returns The newly created user object.
  */
 export async function createUser(
   email: string,
   passwordHash: string,
   firstName: string,
-  lastName: string
+  lastName: string,
+  dateOfBirth: string,
+  phone: string,
+  client?: PoolClient
 ): Promise<User> {
   const sql = `
-    INSERT INTO users (email, password_hash, first_name, last_name)
-    VALUES ($1, $2, $3, $4)
-    RETURNING id, email, password_hash, first_name, last_name, created_at, updated_at
+    INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth, phone)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, created_at, updated_at
   `;
-  const result = await query(sql, [email, passwordHash, firstName, lastName]);
+  const result = client
+    ? await client.query(sql, [email, passwordHash, firstName, lastName, dateOfBirth, phone])
+    : await query(sql, [email, passwordHash, firstName, lastName, dateOfBirth, phone]);
   if (result.rows.length === 0) {
     throw new Error("No se pudo registrar el usuario en la base de datos.");
   }
@@ -43,7 +52,7 @@ export async function createUser(
  */
 export async function findUserById(id: string): Promise<User | null> {
   const sql = `
-    SELECT id, email, password_hash, first_name, last_name, created_at, updated_at
+    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, created_at, updated_at
     FROM users
     WHERE id = $1
   `;
@@ -58,7 +67,7 @@ export async function findUserById(id: string): Promise<User | null> {
  */
 export async function findUserByEmail(email: string): Promise<User | null> {
   const sql = `
-    SELECT id, email, password_hash, first_name, last_name, created_at, updated_at
+    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, created_at, updated_at
     FROM users
     WHERE email = $1
   `;
