@@ -40,6 +40,7 @@ npm run dev             # levanta el servidor en modo desarrollo
 | Variable                | Descripción                                            |
 | ----------------------- | ------------------------------------------------------ |
 | `DATABASE_URL`          | Connection string de PostgreSQL                        |
+| `DB_SSL_REJECT_UNAUTHORIZED` | Valida estrictamente certificados SSL de la base de datos (por defecto `true`). Colocar `false` para omitir. |
 | `JWT_SECRET`            | Secreto para firmar los tokens JWT                     |
 | `AWS_ACCESS_KEY_ID`     | Credencial de AWS SES                                  |
 | `AWS_SECRET_ACCESS_KEY` | Credencial de AWS SES                                  |

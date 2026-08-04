@@ -12,6 +12,10 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - **Flujo de Cierre de Sesión:** Documentación del mecanismo stateless y descentralizado para el Cierre de Sesión (Logout) del token JWT en el cliente.
 - **Enlaces y Guía de Despliegue:** Enlaces de producción para frontend y backend, y guía paso a paso del flujo de integración continua (CI/CD) conectado a Railway.
 
+### Fixed (Corregido)
+- **Robustez SSL en Producción:** Corrección de la lógica de evaluación de `DB_SSL_REJECT_UNAUTHORIZED` en `src/database/db.ts`. Ahora por defecto se rechazan certificados no válidos (TLS estricto) a menos que la variable esté explícitamente configurada en `"false"`, previniendo potenciales vulnerabilidades Man-in-the-Middle y manteniendo consistencia con `deploy.ts`.
+
+
 ## [1.1.0] - 2026-07-31
 
 ### Added (Añadido)
