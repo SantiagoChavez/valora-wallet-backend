@@ -34,8 +34,13 @@ export async function depositController(req: AuthenticatedRequest, res: Response
             return;
         }
 
-        if (!currency || !amount) {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "Moneda y monto son obligatorios." });
+        if (typeof currency !== "string" || currency.trim() === "") {
+            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "La moneda es obligatoria." });
+            return;
+        }
+
+        if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
+            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El monto debe ser un número mayor a cero." });
             return;
         }
 
@@ -63,8 +68,18 @@ export async function exchangeController(req: AuthenticatedRequest, res: Respons
             return;
         }
 
-        if (!fromCurrency || !toCurrency || !amount) {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "Faltan parámetros de intercambio." });
+        if (typeof fromCurrency !== "string" || fromCurrency.trim() === "") {
+            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "La moneda de origen es obligatoria." });
+            return;
+        }
+
+        if (typeof toCurrency !== "string" || toCurrency.trim() === "") {
+            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "La moneda de destino es obligatoria." });
+            return;
+        }
+
+        if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
+            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El monto debe ser un número mayor a cero." });
             return;
         }
 
