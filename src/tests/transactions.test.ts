@@ -10,6 +10,8 @@ describe("Pruebas de integración de transacciones", () => {
     password: "PasswordSegura123!",
     firstName: "Santiago",
     lastName: "Chavez",
+    dateOfBirth: "15/05/1995",
+    phone: "+5493511234567",
   };
 
   const originalFetch = global.fetch;
@@ -106,6 +108,8 @@ describe("Transaction Integration Tests", () => {
     password: "PasswordSegura123!",
     firstName: "Santiago",
     lastName: "Chavez",
+    dateOfBirth: "15/05/1995",
+    phone: "+5493511234567",
   };
 
   const originalFetch = global.fetch;
