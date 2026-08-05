@@ -17,7 +17,13 @@ export const validateSchema =
         (req: Request, res: Response, next: NextFunction): void => {
             try {
                 if (target === "query") {
-                    req.query = schema.parse(req.query) as any;
+                    const parsedQuery = schema.parse(req.query);
+                    for (const key in req.query) {
+                        if (Object.prototype.hasOwnProperty.call(req.query, key)) {
+                            delete req.query[key];
+                        }
+                    }
+                    Object.assign(req.query, parsedQuery);
                 } else {
                     req.body = schema.parse(req.body);
                 }
