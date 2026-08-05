@@ -100,4 +100,51 @@ describe("Pruebas de integración de transacciones", () => {
     expect(parseFloat(usdBalance!.amount)).toBe(50);
     expect(parseFloat(eurBalance!.amount)).toBe(55);
   });
+
+  describe("GET /transactions", () => {
+    it("debería retornar la lista de transacciones del usuario autenticado", async () => {
+      const response = await request(app)
+        .get("/transactions")
+        .set("Authorization", `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBeGreaterThanOrEqual(2);
+      expect(response.body.data[0]).toHaveProperty("transactionType");
+      expect(response.body.data[0]).toHaveProperty("walletId", walletId);
+      expect(response.body.pagination).toEqual({
+        page: 1,
+        limit: 20,
+        count: expect.any(Number)
+      });
+    });
+
+    it("debería aplicar paginación correctamente mediante query params", async () => {
+      const response = await request(app)
+        .get("/transactions?limit=1&page=1")
+        .set("Authorization", `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.length).toBe(1);
+      expect(response.body.pagination).toEqual({
+        page: 1,
+        limit: 1,
+        count: 1
+      });
+    });
+
+    it("debería rechazar la consulta si no se proporciona el token de autenticación", async () => {
+      const response = await request(app)
+        .get("/transactions");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Acceso no autorizado. Token no proporcionado."
+      });
+    });
+  });
 });
