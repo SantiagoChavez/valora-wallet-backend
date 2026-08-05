@@ -80,7 +80,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe("ValidationError");
+      expect(response.body.error).toBe("VALIDATION_ERROR");
       expect(response.body.issues).toContain("El nombre es requerido.");
       expect(response.body.issues).toContain("El apellido es requerido.");
       expect(response.body.issues).toContain("La fecha de nacimiento es requerida.");
@@ -122,7 +122,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         success: false,
-        error: "ValidationError",
+        error: "VALIDATION_ERROR",
         message: "Debes ser mayor de 18 años para registrarte.",
         issues: ["Debes ser mayor de 18 años para registrarte."],
       });
@@ -140,7 +140,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         success: false,
-        error: "ValidationError",
+        error: "VALIDATION_ERROR",
         message: "El número de teléfono provisto no es válido.",
         issues: ["El número de teléfono provisto no es válido."],
       });
@@ -158,7 +158,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         success: false,
-        error: "ValidationError",
+        error: "VALIDATION_ERROR",
         message: "La fecha de nacimiento debe tener el formato DD/MM/YYYY",
         issues: ["La fecha de nacimiento debe tener el formato DD/MM/YYYY"],
       });
