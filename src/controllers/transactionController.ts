@@ -2,7 +2,7 @@ import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import type { Transaction } from "../models/transactionModel.js";
 import { executeDeposit, executeExchange, getUserTransactions } from "../services/transactionService.js";
-import { getTransactionsQuerySchema } from "../schemas/transactionSchema.js";
+import type { GetTransactionsQuery } from "../schemas/transactionSchema.js";
 
 /**
  * Maps a database transaction record (snake_case) to an API DTO (camelCase).
@@ -90,9 +90,8 @@ export async function getTransactionsController(
             return;
         }
 
-        // Validar y parsear query params usando el esquema Zod
-        const validatedQuery = getTransactionsQuerySchema.parse(req.query);
-        const { limit, page, type } = validatedQuery;
+        // Extraer los query params ya validados y parseados por el middleware validateSchema
+        const { limit, page, type } = req.query as unknown as GetTransactionsQuery;
 
         const result = await getUserTransactions(userId, limit, page, type);
         const mappedTransactions = result.transactions.map(mapTransactionToCamelCase);
