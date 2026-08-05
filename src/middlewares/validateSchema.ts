@@ -13,10 +13,14 @@ interface ValidateSchemaOptions {
  * el debugging y las pruebas.
  */
 export const validateSchema =
-    (schema: ZodTypeAny, options: ValidateSchemaOptions = {}) =>
+    (schema: ZodTypeAny, options: ValidateSchemaOptions = {}, target: "body" | "query" = "body") =>
         (req: Request, res: Response, next: NextFunction): void => {
             try {
-                req.body = schema.parse(req.body);
+                if (target === "query") {
+                    req.query = schema.parse(req.query) as any;
+                } else {
+                    req.body = schema.parse(req.body);
+                }
                 next();
             } catch (error) {
                 if (error instanceof ZodError) {
