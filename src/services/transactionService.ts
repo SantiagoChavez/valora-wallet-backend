@@ -114,16 +114,14 @@ export async function getUserTransactions(
         throw new Error("Billetera no encontrada.");
     }
 
-    const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-    const safePage = Math.max(1, Math.floor(page));
-    const offset = (safePage - 1) * safeLimit;
-    const transactions = await findTransactionsByWalletId(wallet.id, safeLimit, offset, type);
+    const offset = (page - 1) * limit;
+    const transactions = await findTransactionsByWalletId(wallet.id, limit, offset, type);
 
     return {
         transactions,
         pagination: {
-            page: safePage,
-            limit: safeLimit,
+            page: page,
+            limit: limit,
             count: transactions.length
         }
     };
