@@ -27,8 +27,8 @@ export async function createUser(
   passwordHash: string,
   firstName: string,
   lastName: string,
-  dateOfBirth: string,
-  phone: string,
+  dateOfBirth: string | null,
+  phone: string | null,
   client?: PoolClient
 ): Promise<User> {
   const sql = `
