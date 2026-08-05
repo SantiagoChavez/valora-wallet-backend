@@ -51,6 +51,15 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
     const wallet = await findWalletByUserId(userId);
     if (!wallet) throw new Error("Billetera no encontrada.");
 
+    // Fetch exchange rates from Day 1 service BEFORE acquiring DB connection
+    const rates = await getExchangeRates();
+    const rateFrom = rates[fromCurrency];
+    const rateTo = rates[toCurrency];
+
+    if (!rateFrom || !rateTo) {
+        throw new Error("Tasa de cambio no disponible para las monedas seleccionadas.");
+    }
+
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
@@ -59,15 +68,6 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
         const currentBalance = await getUserBalance(userId, fromCurrency, client);
         if (currentBalance < amount) {
             throw new Error("Saldo insuficiente para realizar la operación.");
-        }
-
-        // Fetch exchange rates from Day 1 service
-        const rates = await getExchangeRates();
-        const rateFrom = rates[fromCurrency];
-        const rateTo = rates[toCurrency];
-
-        if (!rateFrom || !rateTo) {
-            throw new Error("Tasa de cambio no disponible para las monedas seleccionadas.");
         }
 
         // Mathematical logic for exchange
