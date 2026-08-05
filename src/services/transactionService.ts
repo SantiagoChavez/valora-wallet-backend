@@ -1,7 +1,7 @@
 import { pool } from "../database/db.js";
 import { findWalletByUserId } from "../models/walletModel.js";
 import { getUserBalance, updateUserBalance } from "../models/balanceModel.js";
-import { insertTransaction } from "../models/transactionModel.js";
+import { insertTransaction, findTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
 
 /**
@@ -51,6 +51,15 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
     const wallet = await findWalletByUserId(userId);
     if (!wallet) throw new Error("Billetera no encontrada.");
 
+    // Fetch exchange rates from Day 1 service BEFORE acquiring DB connection
+    const rates = await getExchangeRates();
+    const rateFrom = rates[fromCurrency];
+    const rateTo = rates[toCurrency];
+
+    if (!rateFrom || !rateTo) {
+        throw new Error("Tasa de cambio no disponible para las monedas seleccionadas.");
+    }
+
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
@@ -59,15 +68,6 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
         const currentBalance = await getUserBalance(userId, fromCurrency, client);
         if (currentBalance < amount) {
             throw new Error("Saldo insuficiente para realizar la operación.");
-        }
-
-        // Fetch exchange rates from Day 1 service
-        const rates = await getExchangeRates();
-        const rateFrom = rates[fromCurrency];
-        const rateTo = rates[toCurrency];
-
-        if (!rateFrom || !rateTo) {
-            throw new Error("Tasa de cambio no disponible para las monedas seleccionadas.");
         }
 
         // Mathematical logic for exchange
@@ -94,4 +94,37 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
     } finally {
         client.release();
     }
+}
+
+/**
+ * Recupera el historial de transacciones paginado del usuario.
+ * @param userId - UUID del usuario
+ * @param limit - Límite de transacciones por página
+ * @param page - Número de página actual (1-indexed)
+ * @param type - Tipo opcional de transacción a filtrar
+ */
+export async function getUserTransactions(
+    userId: string,
+    limit: number = 20,
+    page: number = 1,
+    type?: string
+) {
+    const wallet = await findWalletByUserId(userId);
+    if (!wallet) {
+        throw new Error("Billetera no encontrada.");
+    }
+
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+    const safePage = Math.max(1, Math.floor(page));
+    const offset = (safePage - 1) * safeLimit;
+    const transactions = await findTransactionsByWalletId(wallet.id, safeLimit, offset, type);
+
+    return {
+        transactions,
+        pagination: {
+            page: safePage,
+            limit: safeLimit,
+            count: transactions.length
+        }
+    };
 }
