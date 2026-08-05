@@ -91,7 +91,7 @@ export async function getTransactionsController(
         }
 
         // Extraer los query params ya validados y parseados por el middleware validateSchema
-        const { limit, page, type } = req.query as unknown as GetTransactionsQuery;
+        const { limit, page, type } = req.validatedQuery as unknown as GetTransactionsQuery;
 
         const result = await getUserTransactions(userId, limit, page, type);
         const mappedTransactions = result.transactions.map(mapTransactionToCamelCase);

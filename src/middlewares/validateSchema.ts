@@ -7,6 +7,14 @@ interface ValidateSchemaOptions {
     includeIssues?: boolean;
 }
 
+declare global {
+    namespace Express {
+        interface Request {
+            validatedQuery?: Record<string, any>;
+        }
+    }
+}
+
 /**
  * Middleware genérico para validar peticiones mediante esquemas de Zod.
  * Usa un contrato de error consistente para facilitar el consumo del frontend,
@@ -17,13 +25,7 @@ export const validateSchema =
         (req: Request, res: Response, next: NextFunction): void => {
             try {
                 if (target === "query") {
-                    const parsedQuery = schema.parse(req.query);
-                    for (const key in req.query) {
-                        if (Object.prototype.hasOwnProperty.call(req.query, key)) {
-                            delete req.query[key];
-                        }
-                    }
-                    Object.assign(req.query, parsedQuery);
+                    req.validatedQuery = schema.parse(req.query) as Record<string, any>;
                 } else {
                     req.body = schema.parse(req.body);
                 }
