@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import { query } from "../database/db.js";
 
 export interface Transaction {
   id: string;
@@ -75,4 +76,64 @@ export async function insertTransaction(
     resulting_balance: row.resulting_balance,
     created_at: row.created_at,
   } satisfies Transaction;
+}
+
+/**
+ * Recupera el historial de transacciones asociadas a una billetera específica.
+ * @param walletId El UUID de la billetera.
+ * @param limit Límite máximo de resultados (por defecto 20).
+ * @param offset Desplazamiento para paginación (por defecto 0).
+ * @param type Filtro opcional por tipo de transacción.
+ * @returns Listado de transacciones que coinciden con los criterios de búsqueda.
+ */
+export async function findTransactionsByWalletId(
+  walletId: string,
+  limit: number = 20,
+  offset: number = 0,
+  type?: string
+): Promise<Transaction[]> {
+  const values: unknown[] = [walletId];
+  let sql = `
+    SELECT id, wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance, created_at
+    FROM transactions
+    WHERE wallet_id = $1
+  `;
+
+  if (type) {
+    values.push(type);
+    sql += ` AND transaction_type = $${values.length}`;
+  }
+
+  sql += ` ORDER BY created_at DESC`;
+
+  values.push(limit);
+  sql += ` LIMIT $${values.length}`;
+
+  values.push(offset);
+  sql += ` OFFSET $${values.length}`;
+
+  const result = await query(sql, values);
+  return result.rows as Transaction[];
+}
+
+/**
+ * Cuenta el total de transacciones asociadas a una billetera específica.
+ * @param walletId El UUID de la billetera.
+ * @param type Filtro opcional por tipo de transacción.
+ * @returns La cantidad total de transacciones.
+ */
+export async function countTransactionsByWalletId(
+  walletId: string,
+  type?: string
+): Promise<number> {
+  const values: unknown[] = [walletId];
+  let sql = `SELECT COUNT(*) FROM transactions WHERE wallet_id = $1`;
+
+  if (type) {
+    values.push(type);
+    sql += ` AND transaction_type = $${values.length}`;
+  }
+
+  const result = await query(sql, values);
+  return parseInt(result.rows[0].count, 10);
 }

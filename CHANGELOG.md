@@ -5,6 +5,13 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.2.1] - 2026-08-04
+
+### Changed (Modificado)
+- **Estandarización de Códigos de Error Zod:** Actualización del código de error esperado a `VALIDATION_ERROR` en `auth.test.ts` para alinearse perfectamente con el middleware centralizado `errorHandler.ts`.
+- **Inyección de Cabecera en Transacciones:** Configuración de la cabecera `Authorization: Bearer <token>` en todas las llamadas de integración de `transactions.test.ts` tras resolver el registro del usuario con los campos requeridos.
+- **Resultado:** Suite de pruebas completamente estabilizada con 30/30 tests pasando de forma exitosa en verde.
+
 ## [1.2.0] - 2026-08-04
 
 ### Added (Añadido)

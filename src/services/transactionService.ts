@@ -1,7 +1,7 @@
 import { pool } from "../database/db.js";
 import { findWalletByUserId } from "../models/walletModel.js";
 import { getUserBalance, updateUserBalance } from "../models/balanceModel.js";
-import { insertTransaction } from "../models/transactionModel.js";
+import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
 
 /**
@@ -94,4 +94,39 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
     } finally {
         client.release();
     }
+}
+
+/**
+ * Recupera el historial de transacciones paginado del usuario.
+ * @param userId - UUID del usuario
+ * @param limit - Límite de transacciones por página
+ * @param page - Número de página actual (1-indexed)
+ * @param type - Tipo opcional de transacción a filtrar
+ */
+export async function getUserTransactions(
+    userId: string,
+    limit: number = 20,
+    page: number = 1,
+    type?: string
+) {
+    const wallet = await findWalletByUserId(userId);
+    if (!wallet) {
+        throw new Error("Billetera no encontrada.");
+    }
+
+    const offset = (page - 1) * limit;
+    const [transactions, totalCount] = await Promise.all([
+        findTransactionsByWalletId(wallet.id, limit, offset, type),
+        countTransactionsByWalletId(wallet.id, type)
+    ]);
+
+    return {
+        transactions,
+        pagination: {
+            page: page,
+            limit: limit,
+            totalCount: totalCount,
+            totalPages: Math.ceil(totalCount / limit)
+        }
+    };
 }
