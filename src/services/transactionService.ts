@@ -1,7 +1,7 @@
 import { pool } from "../database/db.js";
 import { findWalletByUserId } from "../models/walletModel.js";
 import { getUserBalance, updateUserBalance } from "../models/balanceModel.js";
-import { insertTransaction, findTransactionsByWalletId } from "../models/transactionModel.js";
+import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
 
 /**
@@ -115,14 +115,18 @@ export async function getUserTransactions(
     }
 
     const offset = (page - 1) * limit;
-    const transactions = await findTransactionsByWalletId(wallet.id, limit, offset, type);
+    const [transactions, totalCount] = await Promise.all([
+        findTransactionsByWalletId(wallet.id, limit, offset, type),
+        countTransactionsByWalletId(wallet.id, type)
+    ]);
 
     return {
         transactions,
         pagination: {
             page: page,
             limit: limit,
-            count: transactions.length
+            totalCount: totalCount,
+            totalPages: Math.ceil(totalCount / limit)
         }
     };
 }
