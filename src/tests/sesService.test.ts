@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
 
@@ -11,10 +11,34 @@ vi.mock("@aws-sdk/client-ses", () => ({
   }),
 }));
 
+const REQUIRED_ENV_VARS = {
+  AWS_SES_REGION: "us-east-1",
+  AWS_ACCESS_KEY_ID: "test-access-key-id",
+  AWS_SECRET_ACCESS_KEY: "test-secret-access-key",
+  AWS_SES_SENDER_EMAIL: "remitente@mail.com",
+} as const;
+
 describe("sesService", () => {
+  const originalEnv: Record<string, string | undefined> = {};
+
   beforeEach(() => {
     vi.resetModules();
     sendMock.mockReset();
+
+    for (const [key, value] of Object.entries(REQUIRED_ENV_VARS)) {
+      originalEnv[key] = process.env[key];
+      process.env[key] = value;
+    }
+  });
+
+  afterEach(() => {
+    for (const key of Object.keys(REQUIRED_ENV_VARS)) {
+      if (originalEnv[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = originalEnv[key];
+      }
+    }
   });
 
   it("envía el email y devuelve el messageId cuando los datos son válidos", async () => {
