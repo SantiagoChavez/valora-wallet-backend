@@ -13,6 +13,7 @@
     "db:init": "tsx src/database/deploy.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1101.0",
     "@google/generative-ai": "^0.24.1",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
