@@ -36,6 +36,11 @@ function getSesClient(): SESClient {
       "AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY deben configurarse ambas o ninguna.",
     );
   }
+  if (sessionToken && !(accessKeyId && secretAccessKey)) {
+    throw new Error(
+      "AWS_SESSION_TOKEN requiere que AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY también estén configuradas.",
+    );
+  }
 
   // Si no se proveen credenciales explícitas, el SDK cae al default credential
   // provider chain (rol IAM en EC2/ECS/Lambda, SSO, perfil de ~/.aws, etc.).

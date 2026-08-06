@@ -178,6 +178,47 @@ describe("sesService", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
+  it("incluye el session token en las credenciales cuando está seteado junto con access key/secret", async () => {
+    process.env.AWS_SESSION_TOKEN = "test-session-token";
+    sendMock.mockResolvedValueOnce({ MessageId: "abc-123" });
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await enviarEmailConfirmacion({
+      destinatario: "usuario@mail.com",
+      asunto: "Confirmación",
+      cuerpoHtml: "<p>Listo</p>",
+    });
+
+    expect(SESClient).toHaveBeenCalledWith({
+      region: "us-east-1",
+      credentials: {
+        accessKeyId: "test-access-key-id",
+        secretAccessKey: "test-secret-access-key",
+        sessionToken: "test-session-token",
+      },
+    });
+
+    delete process.env.AWS_SESSION_TOKEN;
+  });
+
+  it("rechaza si AWS_SESSION_TOKEN está seteado sin access key/secret", async () => {
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    process.env.AWS_SESSION_TOKEN = "test-session-token";
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await expect(
+      enviarEmailConfirmacion({
+        destinatario: "usuario@mail.com",
+        asunto: "Confirmación",
+        cuerpoHtml: "<p>Listo</p>",
+      }),
+    ).rejects.toThrow("AWS_SESSION_TOKEN");
+    expect(sendMock).not.toHaveBeenCalled();
+
+    delete process.env.AWS_SESSION_TOKEN;
+  });
+
   it("rechaza si falta la variable de entorno AWS_SES_REGION", async () => {
     delete process.env.AWS_SES_REGION;
     const { enviarEmailConfirmacion } = await import("../services/sesService.js");
