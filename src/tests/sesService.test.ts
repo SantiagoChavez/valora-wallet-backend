@@ -83,6 +83,19 @@ describe("sesService", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
+  it("rechaza si el cuerpo del email está vacío", async () => {
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await expect(
+      enviarEmailConfirmacion({
+        destinatario: "usuario@mail.com",
+        asunto: "Confirmación",
+        cuerpoHtml: "   ",
+      }),
+    ).rejects.toThrow("cuerpo");
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
   it("propaga el error cuando SES falla al enviar", async () => {
     sendMock.mockRejectedValueOnce(new Error("SES no disponible"));
     const { enviarEmailConfirmacion } = await import("../services/sesService.js");
