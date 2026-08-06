@@ -4,6 +4,9 @@
   "private": true,
   "description": "API REST para Valora Wallet, billetera digital multi-moneda para freelancers y trabajadores remotos en LATAM.",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
