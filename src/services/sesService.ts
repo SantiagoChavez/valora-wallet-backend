@@ -1,8 +1,6 @@
 import "dotenv/config";
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
-
-// Regex estándar de email, misma usada en authSchema.ts
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { emailRegex } from "../schemas/authSchema.js";
 
 /**
  * Redacta la parte local de un email para logging, dejando solo el dominio (ej. "usuario@mail.com" -> "***@mail.com").

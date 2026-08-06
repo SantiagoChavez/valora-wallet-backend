@@ -2,7 +2,7 @@ import { z } from "zod";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 
 // Regex estándar de email para evitar métodos con firmas deprecadas
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Esquema de validación para el registro de usuarios
