@@ -60,7 +60,7 @@ export async function enviarEmailConfirmacion({
   destinatario,
   asunto,
   cuerpoHtml,
-}: EmailConfirmacionParams): Promise<string | undefined> {
+}: EmailConfirmacionParams): Promise<string> {
   if (!emailRegex.test(destinatario)) {
     throw new Error("El email del destinatario provisto no tiene un formato válido.");
   }
@@ -84,6 +84,9 @@ export async function enviarEmailConfirmacion({
 
   try {
     const res = await sesClient.send(command);
+    if (!res.MessageId) {
+      throw new Error("SES no devolvió un MessageId para el email enviado.");
+    }
     console.log("Email de confirmación enviado", {
       destinatario,
       messageId: res.MessageId,

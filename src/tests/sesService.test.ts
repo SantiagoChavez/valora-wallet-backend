@@ -96,6 +96,19 @@ describe("sesService", () => {
     ).rejects.toThrow("SES no disponible");
   });
 
+  it("rechaza si SES responde sin MessageId", async () => {
+    sendMock.mockResolvedValueOnce({});
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await expect(
+      enviarEmailConfirmacion({
+        destinatario: "usuario@mail.com",
+        asunto: "Confirmación",
+        cuerpoHtml: "<p>Listo</p>",
+      }),
+    ).rejects.toThrow("MessageId");
+  });
+
   it("pasa credenciales explícitas al cliente SES cuando están seteadas por env vars", async () => {
     sendMock.mockResolvedValueOnce({ MessageId: "abc-123" });
     const { enviarEmailConfirmacion } = await import("../services/sesService.js");
