@@ -55,6 +55,14 @@ describe("sesService", () => {
 
     expect(messageId).toBe("abc-123");
     expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledWith({
+      Source: "remitente@mail.com",
+      Destination: { ToAddresses: ["usuario@mail.com"] },
+      Message: {
+        Subject: { Data: "Confirmación", Charset: "UTF-8" },
+        Body: { Html: { Data: "<p>Listo</p>", Charset: "UTF-8" } },
+      },
+    });
   });
 
   it("rechaza si el email del destinatario tiene formato inválido", async () => {
