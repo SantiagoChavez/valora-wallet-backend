@@ -16,18 +16,18 @@ function getSesClient(): SESClient {
   }
 
   const region = process.env.AWS_SES_REGION;
+  if (!region) {
+    throw new Error("La variable de entorno AWS_SES_REGION no está configurada.");
+  }
+
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-  if (!region || !accessKeyId || !secretAccessKey) {
-    throw new Error(
-      "Las variables de entorno AWS_SES_REGION, AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY no están configuradas.",
-    );
-  }
-
+  // Si no se proveen credenciales explícitas, el SDK cae al default credential
+  // provider chain (rol IAM en EC2/ECS/Lambda, SSO, perfil de ~/.aws, etc.).
   client = new SESClient({
     region,
-    credentials: { accessKeyId, secretAccessKey },
+    ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
   });
 
   return client;

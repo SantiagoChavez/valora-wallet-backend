@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SESClient } from "@aws-sdk/client-ses";
 
 const { sendMock } = vi.hoisted(() => ({ sendMock: vi.fn() }));
 
@@ -24,6 +25,7 @@ describe("sesService", () => {
   beforeEach(() => {
     vi.resetModules();
     sendMock.mockReset();
+    vi.mocked(SESClient).mockClear();
 
     for (const [key, value] of Object.entries(REQUIRED_ENV_VARS)) {
       originalEnv[key] = process.env[key];
@@ -92,5 +94,39 @@ describe("sesService", () => {
         cuerpoHtml: "<p>Listo</p>",
       }),
     ).rejects.toThrow("SES no disponible");
+  });
+
+  it("pasa credenciales explícitas al cliente SES cuando están seteadas por env vars", async () => {
+    sendMock.mockResolvedValueOnce({ MessageId: "abc-123" });
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await enviarEmailConfirmacion({
+      destinatario: "usuario@mail.com",
+      asunto: "Confirmación",
+      cuerpoHtml: "<p>Listo</p>",
+    });
+
+    expect(SESClient).toHaveBeenCalledWith({
+      region: "us-east-1",
+      credentials: {
+        accessKeyId: "test-access-key-id",
+        secretAccessKey: "test-secret-access-key",
+      },
+    });
+  });
+
+  it("deja que el SDK resuelva credenciales por su cuenta si no hay access key/secret en env", async () => {
+    delete process.env.AWS_ACCESS_KEY_ID;
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    sendMock.mockResolvedValueOnce({ MessageId: "abc-123" });
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await enviarEmailConfirmacion({
+      destinatario: "usuario@mail.com",
+      asunto: "Confirmación",
+      cuerpoHtml: "<p>Listo</p>",
+    });
+
+    expect(SESClient).toHaveBeenCalledWith({ region: "us-east-1" });
   });
 });
