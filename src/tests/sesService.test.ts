@@ -19,6 +19,12 @@ const REQUIRED_ENV_VARS = {
   AWS_SES_SENDER_EMAIL: "remitente@mail.com",
 } as const;
 
+// Env vars opcionales que algunos tests setean manualmente: se restauran igual que las requeridas,
+// aunque no tengan un valor por defecto en beforeEach, para que un test que falla a mitad de camino
+// no contamine los siguientes.
+const OPTIONAL_ENV_VARS = ["AWS_SESSION_TOKEN"] as const;
+const TRACKED_ENV_VARS = [...Object.keys(REQUIRED_ENV_VARS), ...OPTIONAL_ENV_VARS];
+
 describe("sesService", () => {
   const originalEnv: Record<string, string | undefined> = {};
 
@@ -27,14 +33,16 @@ describe("sesService", () => {
     sendMock.mockReset();
     vi.mocked(SESClient).mockClear();
 
-    for (const [key, value] of Object.entries(REQUIRED_ENV_VARS)) {
+    for (const key of TRACKED_ENV_VARS) {
       originalEnv[key] = process.env[key];
+    }
+    for (const [key, value] of Object.entries(REQUIRED_ENV_VARS)) {
       process.env[key] = value;
     }
   });
 
   afterEach(() => {
-    for (const key of Object.keys(REQUIRED_ENV_VARS)) {
+    for (const key of TRACKED_ENV_VARS) {
       if (originalEnv[key] === undefined) {
         delete process.env[key];
       } else {
@@ -197,8 +205,6 @@ describe("sesService", () => {
         sessionToken: "test-session-token",
       },
     });
-
-    delete process.env.AWS_SESSION_TOKEN;
   });
 
   it("rechaza si AWS_SESSION_TOKEN está seteado sin access key/secret", async () => {
@@ -215,8 +221,6 @@ describe("sesService", () => {
       }),
     ).rejects.toThrow("AWS_SESSION_TOKEN");
     expect(sendMock).not.toHaveBeenCalled();
-
-    delete process.env.AWS_SESSION_TOKEN;
   });
 
   it("rechaza si falta la variable de entorno AWS_SES_REGION", async () => {
