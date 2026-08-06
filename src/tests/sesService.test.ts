@@ -169,4 +169,32 @@ describe("sesService", () => {
     ).rejects.toThrow("AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY");
     expect(sendMock).not.toHaveBeenCalled();
   });
+
+  it("rechaza si falta la variable de entorno AWS_SES_REGION", async () => {
+    delete process.env.AWS_SES_REGION;
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await expect(
+      enviarEmailConfirmacion({
+        destinatario: "usuario@mail.com",
+        asunto: "Confirmación",
+        cuerpoHtml: "<p>Listo</p>",
+      }),
+    ).rejects.toThrow("AWS_SES_REGION");
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("rechaza si falta la variable de entorno AWS_SES_SENDER_EMAIL", async () => {
+    delete process.env.AWS_SES_SENDER_EMAIL;
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await expect(
+      enviarEmailConfirmacion({
+        destinatario: "usuario@mail.com",
+        asunto: "Confirmación",
+        cuerpoHtml: "<p>Listo</p>",
+      }),
+    ).rejects.toThrow("AWS_SES_SENDER_EMAIL");
+    expect(sendMock).not.toHaveBeenCalled();
+  });
 });
