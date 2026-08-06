@@ -4,6 +4,14 @@ import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 // Regex estándar de email, misma usada en authSchema.ts
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Redacta la parte local de un email para logging, dejando solo el dominio (ej. "usuario@mail.com" -> "***@mail.com").
+ */
+function redactEmail(email: string): string {
+  const atIndex = email.indexOf("@");
+  return atIndex === -1 ? "***" : `***${email.slice(atIndex)}`;
+}
+
 let client: SESClient | undefined;
 
 /**
@@ -88,13 +96,13 @@ export async function enviarEmailConfirmacion({
       throw new Error("SES no devolvió un MessageId para el email enviado.");
     }
     console.log("Email de confirmación enviado", {
-      destinatario,
+      destinatario: redactEmail(destinatario),
       messageId: res.MessageId,
     });
     return res.MessageId;
   } catch (error) {
     console.error("Fallo al enviar email de confirmación vía SES", {
-      destinatario,
+      destinatario: redactEmail(destinatario),
       error,
     });
     throw error;
