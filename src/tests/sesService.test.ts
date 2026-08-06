@@ -155,4 +155,18 @@ describe("sesService", () => {
 
     expect(SESClient).toHaveBeenCalledWith({ region: "us-east-1" });
   });
+
+  it("rechaza si solo una de las dos credenciales AWS está seteada", async () => {
+    delete process.env.AWS_SECRET_ACCESS_KEY;
+    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
+
+    await expect(
+      enviarEmailConfirmacion({
+        destinatario: "usuario@mail.com",
+        asunto: "Confirmación",
+        cuerpoHtml: "<p>Listo</p>",
+      }),
+    ).rejects.toThrow("AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY");
+    expect(sendMock).not.toHaveBeenCalled();
+  });
 });

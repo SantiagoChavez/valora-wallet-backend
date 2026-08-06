@@ -29,6 +29,12 @@ function getSesClient(): SESClient {
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
+  if (Boolean(accessKeyId) !== Boolean(secretAccessKey)) {
+    throw new Error(
+      "AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY deben configurarse ambas o ninguna.",
+    );
+  }
+
   // Si no se proveen credenciales explícitas, el SDK cae al default credential
   // provider chain (rol IAM en EC2/ECS/Lambda, SSO, perfil de ~/.aws, etc.).
   client = new SESClient({
