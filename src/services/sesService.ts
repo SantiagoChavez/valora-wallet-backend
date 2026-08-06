@@ -108,7 +108,7 @@ export async function enviarEmailConfirmacion({
   } catch (error) {
     console.error("Fallo al enviar email de confirmación vía SES", {
       destinatario: redactEmail(destinatario),
-      error,
+      error: error instanceof Error ? { name: error.name, message: error.message } : error,
     });
     throw error;
   }
