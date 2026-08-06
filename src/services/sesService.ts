@@ -50,14 +50,18 @@ function getSesClient(): SESClient {
 }
 
 /**
- * Obtiene el email remitente desde las variables de entorno. Solo valida que esté presente:
- * ni el formato ni que esté efectivamente verificado en SES se pueden chequear sin una llamada a la API.
+ * Obtiene el email remitente desde las variables de entorno, validando que esté presente y
+ * tenga formato válido. Que esté efectivamente verificado en SES no se puede chequear sin
+ * una llamada a la API.
  * @returns El email remitente.
  */
 function getSenderEmail(): string {
   const senderEmail = process.env.AWS_SES_SENDER_EMAIL;
   if (!senderEmail) {
     throw new Error("La variable de entorno AWS_SES_SENDER_EMAIL no está configurada.");
+  }
+  if (!emailRegex.test(senderEmail)) {
+    throw new Error("La variable de entorno AWS_SES_SENDER_EMAIL no tiene un formato de email válido.");
   }
   return senderEmail;
 }
