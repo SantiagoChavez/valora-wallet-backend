@@ -46,7 +46,8 @@ function getSesClient(): SESClient {
 }
 
 /**
- * Obtiene y valida el email remitente verificado en SES.
+ * Obtiene el email remitente desde las variables de entorno. Solo valida que esté presente:
+ * ni el formato ni que esté efectivamente verificado en SES se pueden chequear sin una llamada a la API.
  * @returns El email remitente.
  */
 function getSenderEmail(): string {
