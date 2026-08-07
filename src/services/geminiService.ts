@@ -1,17 +1,22 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. Inicialización: Verificamos y obtenemos la API key desde las variables de entorno
-const apiKey = process.env.GEMINI_API_KEY;
+// Variable para cachear la instancia del modelo (Lazy Initialization)
+let cachedModel: any = null;
 
-if (!apiKey) {
-    throw new Error("La variable de entorno GEMINI_API_KEY no está configurada.");
+function getModel() {
+    if (!cachedModel) {
+        // 1. Inicialización: Verificamos y obtenemos la API key desde las variables de entorno de forma perezosa
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            throw new Error("La variable de entorno GEMINI_API_KEY no está configurada.");
+        }
+        // Instanciamos el cliente de Google Generative AI
+        const genAI = new GoogleGenerativeAI(apiKey);
+        // Seleccionamos explícitamente el modelo indicado en los requerimientos
+        cachedModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    }
+    return cachedModel;
 }
-
-// Instanciamos el cliente de Google Generative AI
-const genAI = new GoogleGenerativeAI(apiKey);
-
-// Seleccionamos explícitamente el modelo indicado en los requerimientos
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /**
  * Consulta al asistente financiero de IA de Valora Wallet.
@@ -31,6 +36,7 @@ export async function getFinancialAdvice(userMessage: string, balances: Record<s
 
     try {
         // 5. Retorno: Ejecutamos el llamado al modelo de IA
+        const model = getModel();
         const result = await model.generateContent(finalPrompt);
         const response = await result.response;
 
