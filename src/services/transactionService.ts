@@ -159,7 +159,7 @@ export async function getUserTransactions(
             page,
             limit,
             totalCount,
-            totalPages: Math.ceil(totalCount / limit) || 1
+            totalPages: totalCount === 0 ? 0 : Math.ceil(totalCount / limit)
         }
     };
 }
