@@ -116,7 +116,8 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.pagination).toEqual({
         page: 1,
         limit: 20,
-        count: expect.any(Number)
+        totalCount: expect.any(Number),
+        totalPages: expect.any(Number)
       });
     });
 
@@ -131,7 +132,8 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.pagination).toEqual({
         page: 1,
         limit: 1,
-        count: 1
+        totalCount: 2,
+        totalPages: 2
       });
     });
 
