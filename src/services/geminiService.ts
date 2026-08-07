@@ -19,7 +19,7 @@ const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
  * @param balances Un objeto con los saldos actuales del usuario.
  * @returns La respuesta generada por Gemini en formato texto.
  */
-export async function getFinancialAdvice(userMessage: string, balances: Record<string, any>): Promise<string> {
+export async function getFinancialAdvice(userMessage: string, balances: Record<string, number>): Promise<string> {
     // 2. System Prompt & Anti-injection
     const systemPrompt = "Eres el asistente financiero de Valora Wallet. Solo puedes hablar de los saldos del usuario y de finanzas. No respondas a otras temáticas.";
 
