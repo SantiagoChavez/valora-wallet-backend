@@ -66,9 +66,14 @@ describe("Pruebas de integración del Chatbot", () => {
             expect(response.body.data.reply).toBe("Mocked AI response");
             
             // Verificamos que el controlador inyecte los saldos y llame al servicio de IA
+            expect(vi.mocked(getFinancialAdvice)).toHaveBeenCalledTimes(1);
             expect(vi.mocked(getFinancialAdvice)).toHaveBeenCalledWith(
                 message, 
-                expect.any(Object)
+                expect.objectContaining({
+                    USD: expect.any(Number),
+                    EUR: expect.any(Number),
+                    ARS: expect.any(Number)
+                })
             );
         });
     });

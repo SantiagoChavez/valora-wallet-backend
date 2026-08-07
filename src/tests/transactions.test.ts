@@ -101,6 +101,17 @@ describe("Pruebas de integración de transacciones", () => {
     expect(parseFloat(eurBalance!.amount)).toBe(55);
   });
 
+  it("debería rechazar un intercambio si el usuario no tiene fondos suficientes", async () => {
+    const response = await request(app)
+      .post("/transactions/exchange")
+      .set("Authorization", `Bearer ${authToken}`)
+      .send({ fromCurrency: "USD", toCurrency: "EUR", amount: 10000 });
+
+    expect(response.status).toBe(500);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe("Saldo insuficiente para realizar la operación.");
+  });
+
   describe("GET /transactions", () => {
     it("debería retornar la lista de transacciones del usuario autenticado", async () => {
       const response = await request(app)
