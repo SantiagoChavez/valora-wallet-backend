@@ -121,3 +121,29 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
     1. Crea un nuevo Request `GET` con la URL.
     2. Haz clic en **Send**. *(No requiere Auth ni Body)*.
     3. Recibiras una respuesta indicando `{"status": "ok"}`.
+
+## 5. Asistente Financiero (Chatbot)
+
+### 5.1 Enviar Mensaje a la IA
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/chatbot/message`
+*   **Descripcion:** Envía una consulta de texto al asistente financiero. El servidor inyectará automáticamente los saldos del usuario para generar respuestas contextuales. Requiere autenticación.
+*   **Como probarlo en Insomnia:**
+    1. Crea un nuevo Request `POST` con la URL.
+    2. En la pestana **Auth**, selecciona **Bearer Token** y pega el token.
+    3. En **Body** -> **JSON**, pega lo siguiente:
+    ```json
+    {
+      "message": "¿Me alcanza el saldo para comprar un café de 5 euros?"
+    }
+    ```
+    4. Haz clic en **Send**.
+    5. **Respuesta Exitosa (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "reply": "Si tienes saldo suficiente. Actualmente cuentas con 55 EUR en tu billetera."
+      }
+    }
+    ```
