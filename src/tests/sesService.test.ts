@@ -18,12 +18,7 @@ const REQUIRED_ENV_VARS = {
   AWS_SECRET_ACCESS_KEY: "test-secret-access-key",
   AWS_SES_SENDER_EMAIL: "remitente@mail.com",
 } as const;
-
-// Env vars opcionales que algunos tests setean manualmente: se restauran igual que las requeridas,
-// aunque no tengan un valor por defecto en beforeEach, para que un test que falla a mitad de camino
-// no contamine los siguientes.
-const OPTIONAL_ENV_VARS = ["AWS_SESSION_TOKEN"] as const;
-const TRACKED_ENV_VARS = [...Object.keys(REQUIRED_ENV_VARS), ...OPTIONAL_ENV_VARS];
+const TRACKED_ENV_VARS = Object.keys(REQUIRED_ENV_VARS);
 
 describe("sesService", () => {
   const originalEnv: Record<string, string | undefined> = {};
@@ -183,43 +178,6 @@ describe("sesService", () => {
         cuerpoHtml: "<p>Listo</p>",
       }),
     ).rejects.toThrow("AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY");
-    expect(sendMock).not.toHaveBeenCalled();
-  });
-
-  it("incluye el session token en las credenciales cuando está seteado junto con access key/secret", async () => {
-    process.env.AWS_SESSION_TOKEN = "test-session-token";
-    sendMock.mockResolvedValueOnce({ MessageId: "abc-123" });
-    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
-
-    await enviarEmailConfirmacion({
-      destinatario: "usuario@mail.com",
-      asunto: "Confirmación",
-      cuerpoHtml: "<p>Listo</p>",
-    });
-
-    expect(SESClient).toHaveBeenCalledWith({
-      region: "us-east-1",
-      credentials: {
-        accessKeyId: "test-access-key-id",
-        secretAccessKey: "test-secret-access-key",
-        sessionToken: "test-session-token",
-      },
-    });
-  });
-
-  it("rechaza si AWS_SESSION_TOKEN está seteado sin access key/secret", async () => {
-    delete process.env.AWS_ACCESS_KEY_ID;
-    delete process.env.AWS_SECRET_ACCESS_KEY;
-    process.env.AWS_SESSION_TOKEN = "test-session-token";
-    const { enviarEmailConfirmacion } = await import("../services/sesService.js");
-
-    await expect(
-      enviarEmailConfirmacion({
-        destinatario: "usuario@mail.com",
-        asunto: "Confirmación",
-        cuerpoHtml: "<p>Listo</p>",
-      }),
-    ).rejects.toThrow("AWS_SESSION_TOKEN");
     expect(sendMock).not.toHaveBeenCalled();
   });
 

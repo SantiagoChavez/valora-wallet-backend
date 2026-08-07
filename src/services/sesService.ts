@@ -27,17 +27,10 @@ function getSesClient(): SESClient {
 
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-  // Solo aplica a credenciales temporales de STS (rol asumido, SSO); un usuario IAM fijo no lo necesita.
-  const sessionToken = process.env.AWS_SESSION_TOKEN;
 
   if (Boolean(accessKeyId) !== Boolean(secretAccessKey)) {
     throw new Error(
       "AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY deben configurarse ambas o ninguna.",
-    );
-  }
-  if (sessionToken && !(accessKeyId && secretAccessKey)) {
-    throw new Error(
-      "AWS_SESSION_TOKEN requiere que AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY también estén configuradas.",
     );
   }
 
@@ -45,9 +38,7 @@ function getSesClient(): SESClient {
   // provider chain (rol IAM en EC2/ECS/Lambda, SSO, perfil de ~/.aws, etc.).
   client = new SESClient({
     region,
-    ...(accessKeyId && secretAccessKey
-      ? { credentials: { accessKeyId, secretAccessKey, ...(sessionToken ? { sessionToken } : {}) } }
-      : {}),
+    ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
   });
 
   return client;
