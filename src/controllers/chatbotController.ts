@@ -21,11 +21,7 @@ export async function chatController(
             return;
         }
 
-        // Validación de entrada
-        if (!message || typeof message !== "string") {
-            res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El mensaje es requerido." });
-            return;
-        }
+
 
         // 1. Inyección Contextual: Obtenemos los saldos reales del usuario
         const balances = await initializeAndGetBalances(userId);
