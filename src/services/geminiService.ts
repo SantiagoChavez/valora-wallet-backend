@@ -38,8 +38,8 @@ Tus reglas estrictas de comportamiento e inquebrantables son:
     try {
         // 4. Instanciamos el modelo asignando el systemInstruction protegido
         const genAI = getGenAIClient();
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash",
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.5-flash",
             systemInstruction: fullSystemInstruction
         });
 
