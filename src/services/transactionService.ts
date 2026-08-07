@@ -1,7 +1,7 @@
 import { pool } from "../database/db.js";
 import { findWalletByUserId } from "../models/walletModel.js";
 import { getUserBalance, updateUserBalance } from "../models/balanceModel.js";
-import { insertTransaction, findTransactionsByWalletId } from "../models/transactionModel.js";
+import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
 
 /**
@@ -114,17 +114,19 @@ export async function getUserTransactions(
         throw new Error("Billetera no encontrada.");
     }
 
-    const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
-    const safePage = Math.max(1, Math.floor(page));
-    const offset = (safePage - 1) * safeLimit;
-    const transactions = await findTransactionsByWalletId(wallet.id, safeLimit, offset, type);
+    const offset = (page - 1) * limit;
+    const [transactions, totalCount] = await Promise.all([
+        findTransactionsByWalletId(wallet.id, limit, offset, type),
+        countTransactionsByWalletId(wallet.id, type)
+    ]);
 
     return {
         transactions,
         pagination: {
-            page: safePage,
-            limit: safeLimit,
-            count: transactions.length
+            page: page,
+            limit: limit,
+            totalCount: totalCount,
+            totalPages: Math.ceil(totalCount / limit)
         }
     };
 }

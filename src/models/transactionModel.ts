@@ -115,3 +115,25 @@ export async function findTransactionsByWalletId(
   const result = await query(sql, values);
   return result.rows as Transaction[];
 }
+
+/**
+ * Cuenta el total de transacciones asociadas a una billetera específica.
+ * @param walletId El UUID de la billetera.
+ * @param type Filtro opcional por tipo de transacción.
+ * @returns La cantidad total de transacciones.
+ */
+export async function countTransactionsByWalletId(
+  walletId: string,
+  type?: string
+): Promise<number> {
+  const values: unknown[] = [walletId];
+  let sql = `SELECT COUNT(*) FROM transactions WHERE wallet_id = $1`;
+
+  if (type) {
+    values.push(type);
+    sql += ` AND transaction_type = $${values.length}`;
+  }
+
+  const result = await query(sql, values);
+  return parseInt(result.rows[0].count, 10);
+}
