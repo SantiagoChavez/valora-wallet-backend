@@ -7,6 +7,16 @@ export function errorHandler(
   next: NextFunction,
 ): void {
   console.error(err);
+
+  // Capturar errores de sintaxis JSON malformado enviados en el request body
+  if (err instanceof SyntaxError && (err as any).status === 400 && "body" in err) {
+    res.status(400).json({
+      success: false,
+      error: "INVALID_JSON",
+      message: "El cuerpo de la solicitud contiene un JSON con formato inválido."
+    });
+    return;
+  }
   
   const isProduction = process.env.NODE_ENV === "production";
   const isTest = process.env.NODE_ENV === "test";
