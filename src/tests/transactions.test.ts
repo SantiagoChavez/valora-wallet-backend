@@ -1,8 +1,8 @@
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { app } from "../app";
-import { query } from "../database/db";
-import { findBalanceByWalletAndCurrency } from "../models/balanceModel";
+import { app } from "../app.js";
+import { query } from "../database/db.js";
+import { findBalanceByWalletAndCurrency } from "../models/balanceModel.js";
 
 describe("Pruebas de integración de transacciones", () => {
   const testUser = {

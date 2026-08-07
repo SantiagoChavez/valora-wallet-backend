@@ -1,6 +1,6 @@
 import { pool } from "../database/db.js";
 import { findWalletByUserId } from "../models/walletModel.js";
-import { getUserBalance, updateUserBalance } from "../models/balanceModel.js";
+import { updateUserBalance } from "../models/balanceModel.js";
 import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
 
