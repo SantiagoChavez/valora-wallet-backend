@@ -44,7 +44,7 @@ export async function getFinancialAdvice(userMessage: string, balances: Record<s
 
         // Retornamos exclusivamente el texto generado
         return response.text();
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("[Gemini Service] Error al generar contenido:", error);
         throw new Error("El asistente financiero no está disponible en este momento.");
     }
