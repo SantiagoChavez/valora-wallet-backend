@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import { emailRegex } from "../utils/emailValidation.js";
 
@@ -61,7 +60,7 @@ function getSesClient(): SESClient {
  * @returns El email remitente.
  */
 function getSenderEmail(): string {
-  const senderEmail = process.env.AWS_SES_SENDER_EMAIL;
+  const senderEmail = process.env.AWS_SES_SENDER_EMAIL?.trim();
   if (!senderEmail) {
     throw new Error("La variable de entorno AWS_SES_SENDER_EMAIL no está configurada.");
   }
@@ -87,7 +86,9 @@ export async function enviarEmailConfirmacion({
   asunto,
   cuerpoHtml,
 }: EmailConfirmacionParams): Promise<string> {
-  if (!emailRegex.test(destinatario)) {
+  const destinatarioNormalizado = destinatario.trim();
+
+  if (!emailRegex.test(destinatarioNormalizado)) {
     throw new Error("El email del destinatario provisto no tiene un formato válido.");
   }
   if (!asunto.trim()) {
@@ -101,7 +102,7 @@ export async function enviarEmailConfirmacion({
 
   const command = new SendEmailCommand({
     Source: getSenderEmail(),
-    Destination: { ToAddresses: [destinatario] },
+    Destination: { ToAddresses: [destinatarioNormalizado] },
     Message: {
       Subject: { Data: asunto, Charset: "UTF-8" },
       Body: { Html: { Data: cuerpoHtml, Charset: "UTF-8" } },
@@ -113,14 +114,16 @@ export async function enviarEmailConfirmacion({
     if (!res.MessageId) {
       throw new Error("SES no devolvió un MessageId para el email enviado.");
     }
-    console.log("Email de confirmación enviado", {
-      destinatario: redactEmail(destinatario),
-      messageId: res.MessageId,
-    });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Email de confirmación enviado", {
+        destinatario: redactEmail(destinatarioNormalizado),
+        messageId: res.MessageId,
+      });
+    }
     return res.MessageId;
   } catch (error) {
     console.error("Fallo al enviar email de confirmación vía SES", {
-      destinatario: redactEmail(destinatario),
+      destinatario: redactEmail(destinatarioNormalizado),
       error: error instanceof Error ? { name: error.name, message: error.message } : error,
     });
     throw error;
