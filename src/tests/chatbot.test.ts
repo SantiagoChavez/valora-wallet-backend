@@ -66,7 +66,7 @@ describe("Pruebas de integración del Chatbot", () => {
             expect(response.body.data.reply).toBe("Mocked AI response");
             
             // Verificamos que el controlador inyecte los saldos y llame al servicio de IA
-            expect(getFinancialAdvice).toHaveBeenCalledWith(
+            expect(vi.mocked(getFinancialAdvice)).toHaveBeenCalledWith(
                 message, 
                 expect.any(Object)
             );
