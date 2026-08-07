@@ -45,6 +45,7 @@ npm run dev             # levanta el servidor en modo desarrollo
 | `AWS_ACCESS_KEY_ID`     | Credencial de AWS SES                                  |
 | `AWS_SECRET_ACCESS_KEY` | Credencial de AWS SES                                  |
 | `AWS_SES_REGION`        | Región de AWS SES                                      |
+| `AWS_SES_SENDER_EMAIL`  | Email remitente verificado en AWS SES                  |
 | `GEMINI_API_KEY`        | API key de Google Gemini                               |
 | `FRONTEND_URL`          | URL del frontend en Vercel, usada para configurar CORS |
 | `PORT`                  | Puerto local (default 3000)                            |
