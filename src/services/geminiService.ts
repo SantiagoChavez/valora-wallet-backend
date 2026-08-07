@@ -1,21 +1,19 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Variable para cachear la instancia del modelo (Lazy Initialization)
-let cachedModel: any = null;
+// Variable para cachear la instancia del cliente (Lazy Initialization)
+let genAIClient: GoogleGenerativeAI | null = null;
 
-function getModel() {
-    if (!cachedModel) {
+function getGenAIClient(): GoogleGenerativeAI {
+    if (!genAIClient) {
         // 1. Inicialización: Verificamos y obtenemos la API key desde las variables de entorno de forma perezosa
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
             throw new Error("La variable de entorno GEMINI_API_KEY no está configurada.");
         }
         // Instanciamos el cliente de Google Generative AI
-        const genAI = new GoogleGenerativeAI(apiKey);
-        // Seleccionamos explícitamente el modelo indicado en los requerimientos
-        cachedModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        genAIClient = new GoogleGenerativeAI(apiKey);
     }
-    return cachedModel;
+    return genAIClient;
 }
 
 /**
@@ -25,19 +23,23 @@ function getModel() {
  * @returns La respuesta generada por Gemini en formato texto.
  */
 export async function getFinancialAdvice(userMessage: string, balances: Record<string, number>): Promise<string> {
-    // 2. System Prompt & Anti-injection
+    // 2. System Prompt & Anti-injection nativo
     const systemPrompt = "Eres el asistente financiero de Valora Wallet. Solo puedes hablar de los saldos del usuario y de finanzas. No respondas a otras temáticas.";
 
-    // 3. Inyección de datos: Convertimos los saldos a texto plano
+    // 3. Inyección de datos al rol de sistema: Convertimos los saldos a texto plano
     const balancesText = `Saldos actuales del usuario: ${JSON.stringify(balances)}`;
-
-    // 4. Implementación del Prompt: Concatenación estricta
-    const finalPrompt = `${systemPrompt}\n\n${balancesText}\n\nMensaje del usuario: ${userMessage}`;
+    const fullSystemInstruction = `${systemPrompt}\n\n${balancesText}`;
 
     try {
-        // 5. Retorno: Ejecutamos el llamado al modelo de IA
-        const model = getModel();
-        const result = await model.generateContent(finalPrompt);
+        // 4. Instanciamos el modelo asignando el systemInstruction protegido
+        const genAI = getGenAIClient();
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash",
+            systemInstruction: fullSystemInstruction
+        });
+
+        // 5. Retorno: Ejecutamos el llamado al modelo pasando únicamente el mensaje del usuario
+        const result = await model.generateContent(userMessage);
         const response = await result.response;
 
         // Retornamos exclusivamente el texto generado
