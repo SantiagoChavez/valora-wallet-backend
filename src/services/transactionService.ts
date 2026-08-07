@@ -67,12 +67,6 @@ async function executeConversion(
     try {
         await client.query("BEGIN");
 
-        // Business Validation: Check sufficient funds
-        const currentBalance = await getUserBalance(userId, fromCurrency, client);
-        if (currentBalance < amount) {
-            throw new Error("Saldo insuficiente para realizar la operación.");
-        }
-
         // Mathematical logic for exchange
         const amountInUsd = amount / rateFrom;
         const targetAmount = amountInUsd * rateTo;
@@ -153,21 +147,19 @@ export async function getUserTransactions(
         throw new Error("Billetera no encontrada.");
     }
 
-    const safePage = page;
-    const safeLimit = limit;
-    const offset = (safePage - 1) * safeLimit;
+    const offset = (page - 1) * limit;
     const [transactions, totalCount] = await Promise.all([
-        findTransactionsByWalletId(wallet.id, safeLimit, offset, type),
+        findTransactionsByWalletId(wallet.id, limit, offset, type),
         countTransactionsByWalletId(wallet.id, type)
     ]);
 
     return {
         transactions,
         pagination: {
-            page: safePage,
-            limit: safeLimit,
-            totalCount: totalCount,
-            totalPages: Math.ceil(totalCount / safeLimit) || 1
+            page,
+            limit,
+            totalCount,
+            totalPages: Math.ceil(totalCount / limit) || 1
         }
     };
 }
