@@ -2,9 +2,9 @@ import type { NextFunction, Request, Response } from "express";
 
 export function errorHandler(
   err: any,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction,
+  _next: NextFunction,
 ): void {
   console.error(err);
 
@@ -20,7 +20,8 @@ export function errorHandler(
   
   const isProduction = process.env.NODE_ENV === "production";
   const isTest = process.env.NODE_ENV === "test";
-  const statusCode = err.status || err.statusCode || 500;
+  const rawStatus = Number(err.status ?? err.statusCode);
+  const statusCode = Number.isInteger(rawStatus) && rawStatus >= 100 && rawStatus <= 599 ? rawStatus : 500;
   
   const message = (statusCode === 500 && isProduction)
     ? "Error interno del servidor"

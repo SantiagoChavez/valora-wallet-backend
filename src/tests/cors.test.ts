@@ -1,5 +1,5 @@
 import request from "supertest";
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
+import { describe, it, expect, afterAll, afterEach, vi } from "vitest";
 import { app } from "../app.js";
 import { pool } from "../database/db.js";
 
@@ -32,9 +32,9 @@ describe("Pruebas de CORS, JSON malformado y stack traces", () => {
         .get("/health")
         .set("Origin", "http://sitio-malicioso.com");
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(403);
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe("InternalServerError");
+      expect(response.body.error).toBe("CORS_ERROR");
       expect(response.body.message).toBe("No permitido por CORS");
     });
   });

@@ -22,7 +22,11 @@ app.use(
       if (whitelist.includes(normalizedOrigin)) {
         callback(null, true);
       } else {
-        callback(new Error("No permitido por CORS"));
+        const corsError = Object.assign(new Error("No permitido por CORS"), {
+          status: 403,
+          code: "CORS_ERROR",
+        });
+        callback(corsError);
       }
     },
     credentials: true,
