@@ -37,15 +37,18 @@ export async function executeDeposit(userId: string, currency: string, amount: n
 }
 
 /**
- * Executes a currency exchange ensuring sufficient funds and atomic updates.
- * @param userId - The user's UUID
- * @param fromCurrency - Source currency
- * @param toCurrency - Destination currency
- * @param amount - Amount to exchange
- * @returns The recorded transaction
+ * Lógica común privada para ejecutar conversiones de moneda (EXCHANGE, BUY, SELL)
+ * garantizando ACID y evitando retener conexiones de base de datos durante llamadas de red externas.
  */
-export async function executeExchange(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
-    if (amount <= 0) throw new Error("El monto a intercambiar debe ser mayor a cero.");
+async function executeConversion(
+    userId: string,
+    type: "EXCHANGE" | "BUY" | "SELL",
+    fromCurrency: string,
+    toCurrency: string,
+    amount: number
+) {
+    const action = type === "EXCHANGE" ? "intercambiar" : type === "BUY" ? "comprar" : "vender";
+    if (amount <= 0) throw new Error(`El monto a ${action} debe ser mayor a cero.`);
     if (fromCurrency === toCurrency) throw new Error("Las monedas de origen y destino no pueden ser iguales.");
 
     const wallet = await findWalletByUserId(userId);
@@ -83,7 +86,7 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
 
         // Record the operation in the ledger
         const transaction = await insertTransaction(
-            client, wallet.id, "EXCHANGE", fromCurrency, toCurrency, amount, targetAmount, exchangeRate, newTargetBalance.amount
+            client, wallet.id, type, fromCurrency, toCurrency, amount, targetAmount, exchangeRate, newTargetBalance.amount
         );
 
         await client.query("COMMIT");
@@ -94,6 +97,42 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
     } finally {
         client.release();
     }
+}
+
+/**
+ * Executes a currency exchange ensuring sufficient funds and atomic updates.
+ * @param userId - The user's UUID
+ * @param fromCurrency - Source currency
+ * @param toCurrency - Destination currency
+ * @param amount - Amount to exchange
+ * @returns The recorded transaction
+ */
+export async function executeExchange(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
+    return executeConversion(userId, "EXCHANGE", fromCurrency, toCurrency, amount);
+}
+
+/**
+ * Executes a currency buy ensuring sufficient funds and atomic updates.
+ * @param userId - The user's UUID
+ * @param fromCurrency - Source currency (currency spent)
+ * @param toCurrency - Destination currency (currency bought)
+ * @param amount - Amount to sell/spend
+ * @returns The recorded transaction
+ */
+export async function executeBuy(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
+    return executeConversion(userId, "BUY", fromCurrency, toCurrency, amount);
+}
+
+/**
+ * Executes a currency sell ensuring sufficient funds and atomic updates.
+ * @param userId - The user's UUID
+ * @param fromCurrency - Source currency (currency sold)
+ * @param toCurrency - Destination currency (currency obtained)
+ * @param amount - Amount to sell
+ * @returns The recorded transaction
+ */
+export async function executeSell(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
+    return executeConversion(userId, "SELL", fromCurrency, toCurrency, amount);
 }
 
 /**
@@ -114,19 +153,21 @@ export async function getUserTransactions(
         throw new Error("Billetera no encontrada.");
     }
 
-    const offset = (page - 1) * limit;
+    const safePage = page;
+    const safeLimit = limit;
+    const offset = (safePage - 1) * safeLimit;
     const [transactions, totalCount] = await Promise.all([
-        findTransactionsByWalletId(wallet.id, limit, offset, type),
+        findTransactionsByWalletId(wallet.id, safeLimit, offset, type),
         countTransactionsByWalletId(wallet.id, type)
     ]);
 
     return {
         transactions,
         pagination: {
-            page: page,
-            limit: limit,
+            page: safePage,
+            limit: safeLimit,
             totalCount: totalCount,
-            totalPages: Math.ceil(totalCount / limit)
+            totalPages: Math.ceil(totalCount / safeLimit) || 1
         }
     };
 }
