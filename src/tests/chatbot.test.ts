@@ -1,8 +1,6 @@
 import request from "supertest";
-import { describe, expect, it, vi, beforeAll, afterAll } from "vitest";
-import { app } from "../app.js";
+import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from "vitest";
 import { query } from "../database/db.js";
-import { getFinancialAdvice } from "../services/geminiService.js";
 
 // Mockeamos el servicio de Gemini para evitar llamadas reales a la API
 vi.mock("../services/geminiService.js", () => {
@@ -12,6 +10,8 @@ vi.mock("../services/geminiService.js", () => {
 });
 
 describe("Pruebas de integración del Chatbot", () => {
+    let app: typeof import("../app.js").app;
+    let getFinancialAdvice: typeof import("../services/geminiService.js").getFinancialAdvice;
     let token = "";
     const testUser = {
         email: "chatbot_test@valora.com",
@@ -23,6 +23,11 @@ describe("Pruebas de integración del Chatbot", () => {
     };
 
     beforeAll(async () => {
+        const appModule = await import("../app.js");
+        const geminiModule = await import("../services/geminiService.js");
+        app = appModule.app;
+        getFinancialAdvice = geminiModule.getFinancialAdvice;
+
         await query("DELETE FROM users WHERE email = $1", [testUser.email]);
 
         const res = await request(app).post("/auth/register").send(testUser);
@@ -33,6 +38,10 @@ describe("Pruebas de integración del Chatbot", () => {
         await query("DELETE FROM users WHERE email = $1", [testUser.email]);
     });
 
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
+
     describe("POST /chatbot/message", () => {
         it("debería retornar 401 si no se envía el header de Authorization", async () => {
             const response = await request(app)
@@ -40,7 +49,11 @@ describe("Pruebas de integración del Chatbot", () => {
                 .send({ message: "Hola" });
 
             expect(response.status).toBe(401);
-            expect(response.body.success).toBe(false);
+            expect(response.body).toEqual({
+                success: false,
+                error: "UnauthorizedError",
+                message: "Acceso no autorizado. Token no proporcionado.",
+            });
         });
 
         it("debería retornar 400 si falta el campo 'message' en el body", async () => {
@@ -50,8 +63,12 @@ describe("Pruebas de integración del Chatbot", () => {
                 .send({});
 
             expect(response.status).toBe(400);
-            expect(response.body.success).toBe(false);
-            expect(response.body.error).toBe("VALIDATION_ERROR");
+            expect(response.body).toEqual({
+                success: false,
+                error: "VALIDATION_ERROR",
+                message: expect.any(String),
+                issues: expect.any(Array),
+            });
         });
 
         it("debería retornar 200 y la respuesta de la IA al enviar un mensaje válido", async () => {

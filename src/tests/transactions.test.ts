@@ -108,8 +108,11 @@ describe("Pruebas de integración de transacciones", () => {
       .send({ fromCurrency: "USD", toCurrency: "EUR", amount: 10000 });
 
     expect(response.status).toBe(500);
-    expect(response.body.success).toBe(false);
-    expect(response.body.message).toBe("Saldo insuficiente para realizar la operación.");
+    expect(response.body).toEqual({
+      success: false,
+      error: "InternalServerError",
+      message: "Saldo insuficiente para realizar la operación.",
+    });
   });
 
   describe("GET /transactions", () => {
