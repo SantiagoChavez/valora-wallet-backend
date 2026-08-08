@@ -37,7 +37,7 @@ export async function createOrUpdateBalance(
     ? await client.query(sql, [walletId, currencyCode, amount.toString()])
     : await query(sql, [walletId, currencyCode, amount.toString()]);
   if (result.rows.length === 0) {
-    throw new Error("No se pudo crear o actualizar el saldo en la base de datos.");
+    throw Object.assign(new Error("No se pudo crear o actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
   }
   return result.rows[0];
 }
@@ -87,7 +87,7 @@ export async function findBalanceByWalletAndCurrency(
 export async function getUserBalance(userId: string, currencyCode: string, client?: PoolClient): Promise<number> {
   const wallet = await findWalletByUserId(userId, client);
   if (!wallet) {
-    throw new Error("Billetera no encontrada para el usuario.");
+    throw Object.assign(new Error("Billetera no encontrada para el usuario."), { status: 404, code: "WALLET_NOT_FOUND" });
   }
 
   const balance = await findBalanceByWalletAndCurrency(wallet.id, currencyCode, client);
@@ -120,7 +120,7 @@ export async function updateUserBalance(
   );
 
   if (walletLock.rows.length === 0) {
-    throw new Error("Billetera no encontrada.");
+    throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
   }
 
   // Bloqueamos el saldo concreto para evitar que dos transacciones concurrentes
@@ -137,7 +137,7 @@ export async function updateUserBalance(
 
   if (existingBalance.rows.length === 0) {
     if (amountDelta < 0) {
-      throw new Error("Saldo insuficiente para realizar la operación.");
+      throw Object.assign(new Error("Saldo insuficiente para realizar la operación."), { status: 400, code: "INSUFFICIENT_FUNDS" });
     }
 
     const insertSql = `
@@ -147,7 +147,7 @@ export async function updateUserBalance(
     `;
     const result = await client.query(insertSql, [walletId, currencyCode, amountDelta.toFixed(8)]);
     if (result.rows.length === 0) {
-      throw new Error("No se pudo actualizar el saldo en la base de datos.");
+      throw Object.assign(new Error("No se pudo actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
     }
     return result.rows[0];
   }
@@ -156,7 +156,7 @@ export async function updateUserBalance(
   const newAmount = currentAmount + amountDelta;
 
   if (newAmount < 0) {
-    throw new Error("Saldo insuficiente para realizar la operación.");
+    throw Object.assign(new Error("Saldo insuficiente para realizar la operación."), { status: 400, code: "INSUFFICIENT_FUNDS" });
   }
 
   const updateSql = `
@@ -167,7 +167,7 @@ export async function updateUserBalance(
   `;
   const result = await client.query(updateSql, [walletId, currencyCode, newAmount.toFixed(8)]);
   if (result.rows.length === 0) {
-    throw new Error("No se pudo actualizar el saldo en la base de datos.");
+    throw Object.assign(new Error("No se pudo actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
   }
   return result.rows[0];
 }

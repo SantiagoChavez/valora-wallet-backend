@@ -12,10 +12,10 @@ import { getExchangeRates } from "./exchangeRateService.js";
  * @returns The recorded transaction
  */
 export async function executeDeposit(userId: string, currency: string, amount: number) {
-    if (amount <= 0) throw new Error("El monto a depositar debe ser mayor a cero.");
+    if (amount <= 0) throw Object.assign(new Error("El monto a depositar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
 
     const wallet = await findWalletByUserId(userId);
-    if (!wallet) throw new Error("Billetera no encontrada.");
+    if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
     const client = await pool.connect();
     try {
@@ -48,11 +48,11 @@ async function executeConversion(
     amount: number
 ) {
     const action = type === "EXCHANGE" ? "intercambiar" : type === "BUY" ? "comprar" : "vender";
-    if (amount <= 0) throw new Error(`El monto a ${action} debe ser mayor a cero.`);
-    if (fromCurrency === toCurrency) throw new Error("Las monedas de origen y destino no pueden ser iguales.");
+    if (amount <= 0) throw Object.assign(new Error(`El monto a ${action} debe ser mayor a cero.`), { status: 400, code: "INVALID_AMOUNT" });
+    if (fromCurrency === toCurrency) throw Object.assign(new Error("Las monedas de origen y destino no pueden ser iguales."), { status: 400, code: "SAME_CURRENCY" });
 
     const wallet = await findWalletByUserId(userId);
-    if (!wallet) throw new Error("Billetera no encontrada.");
+    if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
     // Fetch exchange rates from Day 1 service BEFORE acquiring DB connection
     const rates = await getExchangeRates();
@@ -60,7 +60,7 @@ async function executeConversion(
     const rateTo = rates[toCurrency];
 
     if (!rateFrom || !rateTo) {
-        throw new Error("Tasa de cambio no disponible para las monedas seleccionadas.");
+        throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
     const client = await pool.connect();
@@ -144,7 +144,7 @@ export async function getUserTransactions(
 ) {
     const wallet = await findWalletByUserId(userId);
     if (!wallet) {
-        throw new Error("Billetera no encontrada.");
+        throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
     }
 
     const offset = (page - 1) * limit;

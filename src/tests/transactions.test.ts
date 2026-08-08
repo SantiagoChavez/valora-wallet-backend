@@ -108,11 +108,11 @@ describe("Pruebas de integración de transacciones", () => {
       .set("Authorization", `Bearer ${authToken}`)
       .send({ fromCurrency: "USD", toCurrency: "ARS", amount: 100 });
 
-    // Esperamos un error HTTP 500 manejado por el errorHandler centralizado con mensaje en español
-    expect(response.status).toBe(500);
+    // Esperamos un error HTTP 400 manejado por el errorHandler centralizado
+    expect(response.status).toBe(400);
     expect(response.body).toEqual({
       success: false,
-      error: "InternalServerError",
+      error: "INSUFFICIENT_FUNDS",
       message: "Saldo insuficiente para realizar la operación."
     });
   });
