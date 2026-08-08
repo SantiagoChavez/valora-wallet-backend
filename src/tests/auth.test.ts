@@ -289,4 +289,38 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       });
     });
   });
+
+  describe("POST /auth/logout", () => {
+    let validToken: string;
+
+    beforeAll(async () => {
+      const loginResponse = await request(app)
+        .post("/auth/login")
+        .send({
+          email: testUser.email,
+          password: testUser.password,
+        });
+      validToken = loginResponse.body.token;
+    });
+
+    it("debería retornar 200 OK y un mensaje de éxito si el usuario está autenticado", async () => {
+      const response = await request(app)
+        .post("/auth/logout")
+        .set("Authorization", `Bearer ${validToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        message: "Sesión cerrada correctamente. Por favor, descarta el token en el cliente."
+      });
+    });
+
+    it("debería rechazar el logout si no se provee un token de autenticación (401)", async () => {
+      const response = await request(app).post("/auth/logout");
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("UnauthorizedError");
+    });
+  });
 });
