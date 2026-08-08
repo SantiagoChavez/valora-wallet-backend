@@ -1,28 +1,37 @@
 import cors from "cors";
 import express from "express";
 
-import { errorHandler } from "./middlewares/errorHandler";
-import { router } from "./routes";
+import { errorHandler } from "./middlewares/errorHandler.js";
+import { router } from "./routes/index.js";
 
 export const app = express();
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL, // producción (Vercel)
-  "http://localhost:5173", // desarrollo local del frontend (puerto default de Vite)
-].map((url) => url?.replace(/\/$/, ""));
+const whitelist = ["http://localhost:5173"];
+if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.trim() !== "") {
+  whitelist.push(process.env.FRONTEND_URL.trim().replace(/\/$/, ""));
+}
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permite requests sin origin (Postman, curl, etc.) y los orígenes de la lista
-      const normalizedOrigin = origin?.replace(/\/$/, "");
-      if (!origin || allowedOrigins.includes(normalizedOrigin)) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const normalizedOrigin = origin.replace(/\/$/, "");
+      if (whitelist.includes(normalizedOrigin)) {
         callback(null, true);
       } else {
-        callback(new Error("No permitido por CORS"));
+        const corsError = Object.assign(new Error("No permitido por CORS"), {
+          status: 403,
+          code: "CORS_ERROR",
+        });
+        callback(corsError);
       }
     },
-    credentials: true, // necesario si usan cookies o Authorization header con JWT
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 app.use(express.json());

@@ -1,6 +1,6 @@
 import { pool } from "../database/db.js";
 import { findWalletByUserId } from "../models/walletModel.js";
-import { getUserBalance, updateUserBalance } from "../models/balanceModel.js";
+import { updateUserBalance } from "../models/balanceModel.js";
 import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
 
@@ -12,10 +12,10 @@ import { getExchangeRates } from "./exchangeRateService.js";
  * @returns The recorded transaction
  */
 export async function executeDeposit(userId: string, currency: string, amount: number) {
-    if (amount <= 0) throw new Error("El monto a depositar debe ser mayor a cero.");
+    if (amount <= 0) throw Object.assign(new Error("El monto a depositar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
 
     const wallet = await findWalletByUserId(userId);
-    if (!wallet) throw new Error("Billetera no encontrada.");
+    if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
     const client = await pool.connect();
     try {
@@ -37,19 +37,22 @@ export async function executeDeposit(userId: string, currency: string, amount: n
 }
 
 /**
- * Executes a currency exchange ensuring sufficient funds and atomic updates.
- * @param userId - The user's UUID
- * @param fromCurrency - Source currency
- * @param toCurrency - Destination currency
- * @param amount - Amount to exchange
- * @returns The recorded transaction
+ * Lógica común privada para ejecutar conversiones de moneda (EXCHANGE, BUY, SELL)
+ * garantizando ACID y evitando retener conexiones de base de datos durante llamadas de red externas.
  */
-export async function executeExchange(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
-    if (amount <= 0) throw new Error("El monto a intercambiar debe ser mayor a cero.");
-    if (fromCurrency === toCurrency) throw new Error("Las monedas de origen y destino no pueden ser iguales.");
+async function executeConversion(
+    userId: string,
+    type: "EXCHANGE" | "BUY" | "SELL",
+    fromCurrency: string,
+    toCurrency: string,
+    amount: number
+) {
+    const action = type === "EXCHANGE" ? "intercambiar" : type === "BUY" ? "comprar" : "vender";
+    if (amount <= 0) throw Object.assign(new Error(`El monto a ${action} debe ser mayor a cero.`), { status: 400, code: "INVALID_AMOUNT" });
+    if (fromCurrency === toCurrency) throw Object.assign(new Error("Las monedas de origen y destino no pueden ser iguales."), { status: 400, code: "SAME_CURRENCY" });
 
     const wallet = await findWalletByUserId(userId);
-    if (!wallet) throw new Error("Billetera no encontrada.");
+    if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
     // Fetch exchange rates from Day 1 service BEFORE acquiring DB connection
     const rates = await getExchangeRates();
@@ -57,18 +60,12 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
     const rateTo = rates[toCurrency];
 
     if (!rateFrom || !rateTo) {
-        throw new Error("Tasa de cambio no disponible para las monedas seleccionadas.");
+        throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
-
-        // Business Validation: Check sufficient funds
-        const currentBalance = await getUserBalance(userId, fromCurrency, client);
-        if (currentBalance < amount) {
-            throw new Error("Saldo insuficiente para realizar la operación.");
-        }
 
         // Mathematical logic for exchange
         const amountInUsd = amount / rateFrom;
@@ -83,7 +80,7 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
 
         // Record the operation in the ledger
         const transaction = await insertTransaction(
-            client, wallet.id, "EXCHANGE", fromCurrency, toCurrency, amount, targetAmount, exchangeRate, newTargetBalance.amount
+            client, wallet.id, type, fromCurrency, toCurrency, amount, targetAmount, exchangeRate, newTargetBalance.amount
         );
 
         await client.query("COMMIT");
@@ -94,6 +91,42 @@ export async function executeExchange(userId: string, fromCurrency: string, toCu
     } finally {
         client.release();
     }
+}
+
+/**
+ * Executes a currency exchange ensuring sufficient funds and atomic updates.
+ * @param userId - The user's UUID
+ * @param fromCurrency - Source currency
+ * @param toCurrency - Destination currency
+ * @param amount - Amount to exchange
+ * @returns The recorded transaction
+ */
+export async function executeExchange(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
+    return executeConversion(userId, "EXCHANGE", fromCurrency, toCurrency, amount);
+}
+
+/**
+ * Executes a currency buy ensuring sufficient funds and atomic updates.
+ * @param userId - The user's UUID
+ * @param fromCurrency - Source currency (currency spent)
+ * @param toCurrency - Destination currency (currency bought)
+ * @param amount - Amount to sell/spend
+ * @returns The recorded transaction
+ */
+export async function executeBuy(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
+    return executeConversion(userId, "BUY", fromCurrency, toCurrency, amount);
+}
+
+/**
+ * Executes a currency sell ensuring sufficient funds and atomic updates.
+ * @param userId - The user's UUID
+ * @param fromCurrency - Source currency (currency sold)
+ * @param toCurrency - Destination currency (currency obtained)
+ * @param amount - Amount to sell
+ * @returns The recorded transaction
+ */
+export async function executeSell(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
+    return executeConversion(userId, "SELL", fromCurrency, toCurrency, amount);
 }
 
 /**
@@ -111,7 +144,7 @@ export async function getUserTransactions(
 ) {
     const wallet = await findWalletByUserId(userId);
     if (!wallet) {
-        throw new Error("Billetera no encontrada.");
+        throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
     }
 
     const offset = (page - 1) * limit;
@@ -123,10 +156,10 @@ export async function getUserTransactions(
     return {
         transactions,
         pagination: {
-            page: page,
-            limit: limit,
-            totalCount: totalCount,
-            totalPages: Math.ceil(totalCount / limit)
+            page,
+            limit,
+            totalCount,
+            totalPages: totalCount === 0 ? 0 : Math.ceil(totalCount / limit)
         }
     };
 }

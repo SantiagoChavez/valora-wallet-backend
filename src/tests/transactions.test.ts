@@ -1,8 +1,8 @@
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { app } from "../app";
-import { query } from "../database/db";
-import { findBalanceByWalletAndCurrency } from "../models/balanceModel";
+import { app } from "../app.js";
+import { query } from "../database/db.js";
+import { findBalanceByWalletAndCurrency } from "../models/balanceModel.js";
 
 describe("Pruebas de integración de transacciones", () => {
   const testUser = {
@@ -101,17 +101,19 @@ describe("Pruebas de integración de transacciones", () => {
     expect(parseFloat(eurBalance!.amount)).toBe(55);
   });
 
-  it("debería rechazar un intercambio si el usuario no tiene fondos suficientes", async () => {
+  it("debería rechazar un intercambio si el usuario no tiene fondos suficientes (Camino Infeliz)", async () => {
+    // El usuario intenta intercambiar 100 USD, pero solo le quedan 50 USD de las pruebas anteriores
     const response = await request(app)
       .post("/transactions/exchange")
       .set("Authorization", `Bearer ${authToken}`)
-      .send({ fromCurrency: "USD", toCurrency: "EUR", amount: 10000 });
+      .send({ fromCurrency: "USD", toCurrency: "ARS", amount: 100 });
 
-    expect(response.status).toBe(500);
+    // Esperamos un error HTTP 400 manejado por el errorHandler centralizado
+    expect(response.status).toBe(400);
     expect(response.body).toEqual({
       success: false,
-      error: "InternalServerError",
-      message: "Saldo insuficiente para realizar la operación.",
+      error: "INSUFFICIENT_FUNDS",
+      message: "Saldo insuficiente para realizar la operación."
     });
   });
 

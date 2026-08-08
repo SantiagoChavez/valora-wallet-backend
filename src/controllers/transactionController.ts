@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import type { Transaction } from "../models/transactionModel.js";
-import { executeDeposit, executeExchange, getUserTransactions } from "../services/transactionService.js";
+import { executeDeposit, executeExchange, getUserTransactions, executeBuy, executeSell } from "../services/transactionService.js";
 import type { GetTransactionsQuery } from "../schemas/transactionSchema.js";
 
 /**
@@ -100,6 +100,62 @@ export async function getTransactionsController(
             success: true,
             data: mappedTransactions,
             pagination: result.pagination
+        });
+    } catch (error: unknown) {
+        next(error);
+    }
+}
+
+/**
+ * Controller to handle buy requests.
+ */
+export async function buyController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const userId = req.user?.userId;
+        const { fromCurrency, toCurrency, amount } = req.body;
+
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                error: "AUTH_ERROR",
+                message: "Usuario no autorizado."
+            });
+            return;
+        }
+
+        const transaction = await executeBuy(userId, fromCurrency, toCurrency, amount);
+
+        res.status(200).json({
+            success: true,
+            data: mapTransactionToCamelCase(transaction)
+        });
+    } catch (error: unknown) {
+        next(error);
+    }
+}
+
+/**
+ * Controller to handle sell requests.
+ */
+export async function sellController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const userId = req.user?.userId;
+        const { fromCurrency, toCurrency, amount } = req.body;
+
+        if (!userId) {
+            res.status(401).json({
+                success: false,
+                error: "AUTH_ERROR",
+                message: "Usuario no autorizado."
+            });
+            return;
+        }
+
+        const transaction = await executeSell(userId, fromCurrency, toCurrency, amount);
+
+        res.status(200).json({
+            success: true,
+            data: mapTransactionToCamelCase(transaction)
         });
     } catch (error: unknown) {
         next(error);
