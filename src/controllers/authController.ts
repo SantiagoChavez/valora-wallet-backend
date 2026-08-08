@@ -1,11 +1,11 @@
 import type { Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
-import { generateToken } from "../utils/jwt";
-import { createUser, findUserByEmail, findUserById, type User } from "../models/userModel";
-import { createWallet, findWalletByUserId } from "../models/walletModel";
-import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel";
-import type { AuthenticatedRequest } from "../middlewares/authMiddleware";
-import { pool } from "../database/db";
+import { generateToken } from "../utils/jwt.js";
+import { createUser, findUserByEmail, findUserById, type User } from "../models/userModel.js";
+import { createWallet, findWalletByUserId } from "../models/walletModel.js";
+import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel.js";
+import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
+import { pool } from "../database/db.js";
 
 export interface UserResponse {
   id: string;
@@ -250,4 +250,19 @@ export async function meController(
   } catch (error: unknown) {
     next(error);
   }
+}
+
+/**
+ * Controlador para cerrar la sesión del usuario.
+ * JWT es stateless — el logout real ocurre en el cliente al descartar el token.
+ * Este endpoint confirma la acción y le indica al Frontend que limpie su estado local.
+ */
+export async function logoutController(
+  _req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> {
+  res.status(200).json({
+    success: true,
+    message: "Sesión cerrada correctamente. Por favor, descarta el token en el cliente."
+  });
 }
