@@ -1,9 +1,8 @@
 import request from "supertest";
-import { describe, expect, it, vi, beforeAll, afterAll } from "vitest";
-import { app } from "../app.js";
+import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from "vitest";
 import { query } from "../database/db.js";
 
-// Mockeamos el servicio de Gemini para evitar llamadas reales a la API durante los tests
+// Mockeamos el servicio de Gemini para evitar llamadas reales a la API
 vi.mock("../services/geminiService.js", () => {
     return {
         getFinancialAdvice: vi.fn().mockResolvedValue("Mocked AI response")
@@ -11,6 +10,8 @@ vi.mock("../services/geminiService.js", () => {
 });
 
 describe("Pruebas de integración del Chatbot", () => {
+    let app: typeof import("../app.js").app;
+    let getFinancialAdvice: typeof import("../services/geminiService.js").getFinancialAdvice;
     let token = "";
     const testUser = {
         email: "chatbot_test@valora.com",
@@ -22,17 +23,23 @@ describe("Pruebas de integración del Chatbot", () => {
     };
 
     beforeAll(async () => {
-        // Limpiar usuario previo si existe para asegurar un entorno limpio
+        const appModule = await import("../app.js");
+        const geminiModule = await import("../services/geminiService.js");
+        app = appModule.app;
+        getFinancialAdvice = geminiModule.getFinancialAdvice;
+
         await query("DELETE FROM users WHERE email = $1", [testUser.email]);
-        
-        // Registrar usuario y obtener token
+
         const res = await request(app).post("/auth/register").send(testUser);
         token = res.body.token;
     });
 
     afterAll(async () => {
-        // Limpiar usuario creado durante las pruebas
         await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
     });
 
     describe("POST /chatbot/message", () => {
@@ -40,9 +47,13 @@ describe("Pruebas de integración del Chatbot", () => {
             const response = await request(app)
                 .post("/chatbot/message")
                 .send({ message: "Hola" });
-            
+
             expect(response.status).toBe(401);
-            expect(response.body.success).toBe(false);
+            expect(response.body).toEqual({
+                success: false,
+                error: "UnauthorizedError",
+                message: "Acceso no autorizado. Token no proporcionado.",
+            });
         });
 
         it("debería retornar 400 si falta el campo 'message' en el body", async () => {
@@ -50,21 +61,38 @@ describe("Pruebas de integración del Chatbot", () => {
                 .post("/chatbot/message")
                 .set("Authorization", `Bearer ${token}`)
                 .send({});
-            
+
             expect(response.status).toBe(400);
-            expect(response.body.success).toBe(false);
-            expect(response.body.error).toBe("VALIDATION_ERROR");
+            expect(response.body).toEqual({
+                success: false,
+                error: "VALIDATION_ERROR",
+                message: expect.any(String),
+                issues: expect.any(Array),
+            });
         });
 
         it("debería retornar 200 y la respuesta de la IA al enviar un mensaje válido", async () => {
+            const message = "¿Cuánto saldo tengo?";
             const response = await request(app)
                 .post("/chatbot/message")
                 .set("Authorization", `Bearer ${token}`)
-                .send({ message: "¿Cuánto saldo tengo?" });
-            
+                .send({ message });
+
             expect(response.status).toBe(200);
             expect(response.body.success).toBe(true);
             expect(response.body.data.reply).toBe("Mocked AI response");
+            
+            // Verificamos que el controlador inyecte los saldos y llame al servicio de IA
+            expect(vi.mocked(getFinancialAdvice)).toHaveBeenCalledTimes(1);
+            expect(vi.mocked(getFinancialAdvice)).toHaveBeenCalledWith(
+                message, 
+                expect.objectContaining({
+                    USD: expect.any(Number),
+                    EUR: expect.any(Number),
+                    ARS: expect.any(Number)
+                })
+            );
         });
     });
 });
+
