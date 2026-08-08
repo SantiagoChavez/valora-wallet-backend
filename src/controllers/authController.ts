@@ -257,10 +257,10 @@ export async function meController(
  * JWT es stateless — el logout real ocurre en el cliente al descartar el token.
  * Este endpoint confirma la acción y le indica al Frontend que limpie su estado local.
  */
-export async function logoutController(
+export function logoutController(
   _req: AuthenticatedRequest,
   res: Response,
-): Promise<void> {
+): void {
   res.status(200).json({
     success: true,
     message: "Sesión cerrada correctamente. Por favor, descarta el token en el cliente."
