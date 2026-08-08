@@ -297,8 +297,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       const loginResponse = await request(app)
         .post("/auth/login")
         .send({
-          email: "auth_test_santiago@valora.com",
-          password: "PasswordSegura123!",
+          email: testUser.email,
+          password: testUser.password,
         });
       validToken = loginResponse.body.token;
     });
