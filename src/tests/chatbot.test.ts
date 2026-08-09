@@ -31,7 +31,7 @@ describe("Pruebas de integración del Chatbot", () => {
         await query("DELETE FROM users WHERE email = $1", [testUser.email]);
 
         const res = await request(app).post("/auth/register").send(testUser);
-        token = res.body.token;
+        token = res.body.data.token;
     });
 
     afterAll(async () => {

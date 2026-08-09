@@ -37,8 +37,8 @@ describe("Pruebas de integración para compra y venta (BUY/SELL)", () => {
       .post("/auth/register")
       .send(testUser);
 
-    authToken = registerResponse.body.token;
-    walletId = registerResponse.body.walletId;
+    authToken = registerResponse.body.data.token;
+    walletId = registerResponse.body.data.walletId;
 
     // 4. Depositar 200 USD para fondear la cuenta
     await request(app)

@@ -32,9 +32,10 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         .send(testUser);
 
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty("token");
-      expect(response.body).toHaveProperty("walletId");
-      expect(response.body.user).toEqual({
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty("token");
+      expect(response.body.data).toHaveProperty("walletId");
+      expect(response.body.data.user).toEqual({
         id: expect.any(String),
         email: testUser.email,
         firstName: testUser.firstName,
@@ -43,7 +44,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         phone: "+5493511234567", // E.164 normalizado
       });
 
-      const { walletId, user } = response.body;
+      const { walletId, user } = response.body.data;
 
       // Verificar en la base de datos que se haya creado la wallet
       const dbWallet = await findWalletByUserId(user.id);
@@ -175,9 +176,10 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("token");
-      expect(response.body).toHaveProperty("walletId");
-      expect(response.body.user).toEqual({
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty("token");
+      expect(response.body.data).toHaveProperty("walletId");
+      expect(response.body.data.user).toEqual({
         id: expect.any(String),
         email: testUser.email,
         firstName: testUser.firstName,
@@ -230,7 +232,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
           email: testUser.email,
           password: testUser.password,
         });
-      validToken = loginResponse.body.token;
+      validToken = loginResponse.body.data.token;
     });
 
     it("debería retornar el perfil del usuario autenticado con un token válido", async () => {
@@ -239,10 +241,11 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         .set("Authorization", `Bearer ${validToken}`);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("walletId");
-      expect(response.body).toHaveProperty("balances");
-      expect(Array.isArray(response.body.balances)).toBe(true);
-      expect(response.body.user).toEqual({
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty("walletId");
+      expect(response.body.data).toHaveProperty("balances");
+      expect(Array.isArray(response.body.data.balances)).toBe(true);
+      expect(response.body.data.user).toEqual({
         id: expect.any(String),
         email: testUser.email,
         firstName: testUser.firstName,
@@ -300,7 +303,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
           email: testUser.email,
           password: testUser.password,
         });
-      validToken = loginResponse.body.token;
+      validToken = loginResponse.body.data.token;
     });
 
     it("debería retornar 200 OK y un mensaje de éxito si el usuario está autenticado", async () => {
