@@ -9,6 +9,10 @@ export interface User {
   last_name: string;
   date_of_birth: Date | string | null;
   phone: string | null;
+  // Opcionales: solo los devuelven las queries que explícitamente los seleccionan
+  // (createUser/findUserByEmail/findUserById no los incluyen en su SELECT/RETURNING).
+  password_reset_token_hash?: string | null;
+  password_reset_expires_at?: Date | string | null;
   created_at: string | Date;
   updated_at: string | Date;
 }
@@ -73,4 +77,45 @@ export async function findUserByEmail(email: string): Promise<User | null> {
   `;
   const result = await query(sql, [email]);
   return result.rows[0] || null;
+}
+
+/**
+ * Stores a hashed password reset token and its expiration for a user, overwriting any previous one.
+ * @param userId - User UUID
+ * @param tokenHash - SHA-256 hash of the raw reset token (never store the raw token)
+ * @param expiresAt - Expiration timestamp for the token
+ */
+export async function setPasswordResetToken(
+  userId: string,
+  tokenHash: string,
+  expiresAt: Date
+): Promise<void> {
+  const sql = `
+    UPDATE users
+    SET password_reset_token_hash = $1, password_reset_expires_at = $2, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $3
+  `;
+  await query(sql, [tokenHash, expiresAt, userId]);
+}
+
+/**
+ * Atomically validates a password reset token and updates the password in a single UPDATE,
+ * so the token can't be reused by a second concurrent request racing against the first
+ * (the WHERE clause re-checks the token on each attempt, and Postgres serializes concurrent
+ * updates to the same row — once one clears the token, the other's WHERE no longer matches).
+ * @param tokenHash - SHA-256 hash of the raw reset token
+ * @param passwordHash - New hashed password
+ * @returns true if a matching, non-expired token was found and the password was updated.
+ */
+export async function resetPasswordWithValidToken(
+  tokenHash: string,
+  passwordHash: string
+): Promise<boolean> {
+  const sql = `
+    UPDATE users
+    SET password_hash = $1, password_reset_token_hash = NULL, password_reset_expires_at = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE password_reset_token_hash = $2 AND password_reset_expires_at > NOW()
+  `;
+  const result = await query(sql, [passwordHash, tokenHash]);
+  return (result.rowCount ?? 0) > 0;
 }

@@ -6,6 +6,11 @@ import { router } from "./routes/index.js";
 
 export const app = express();
 
+// Confía en el primer hop del proxy solo en producción (Railway agrega X-Forwarded-For
+// delante de la app ahí). Fuera de producción no hay proxy real, así que dejarlo en false
+// evita que cualquiera spoofee su IP vía ese header y evada el rate limiting.
+app.set("trust proxy", process.env.NODE_ENV === "production" ? 1 : false);
+
 const whitelist = ["http://localhost:5173"];
 if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.trim() !== "") {
   whitelist.push(process.env.FRONTEND_URL.trim().replace(/\/$/, ""));
