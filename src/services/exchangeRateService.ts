@@ -95,7 +95,7 @@ export async function updateExchangeRatesCache(): Promise<Record<string, any>> {
                     throw new Error(`ExchangeRate-API respondió con estado ${fallbackResponse.status}`);
                 }
 
-                const fallbackData = await fallbackResponse.json();
+                const fallbackData = (await fallbackResponse.json()) as any;
                 if (!fallbackData || !fallbackData.rates) {
                     throw new Error("Respuesta inválida de ExchangeRate-API");
                 }
