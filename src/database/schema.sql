@@ -63,3 +63,4 @@ CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id)
 -- Actualizaciones de Esquema (Migraciones de compatibilidad)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;

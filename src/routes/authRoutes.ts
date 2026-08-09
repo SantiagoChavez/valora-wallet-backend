@@ -4,10 +4,11 @@ import {
   loginController,
   meController,
   logoutController,
+  googleLoginController,
 } from "../controllers/authController.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { validateSchema } from "../middlewares/validateSchema.js";
-import { registerSchema, loginSchema } from "../schemas/authSchema.js";
+import { registerSchema, loginSchema, googleLoginSchema } from "../schemas/authSchema.js";
 
 export const authRouter = Router();
 
@@ -15,3 +16,4 @@ authRouter.post("/register", validateSchema(registerSchema), registerController)
 authRouter.post("/login", validateSchema(loginSchema), loginController);
 authRouter.get("/me", authMiddleware, meController);
 authRouter.post("/logout", authMiddleware, logoutController);
+authRouter.post("/google", validateSchema(googleLoginSchema), googleLoginController);
