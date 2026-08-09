@@ -1,11 +1,25 @@
 import type { Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { generateToken } from "../utils/jwt.js";
-import { createUser, findUserByEmail, findUserById, type User } from "../models/userModel.js";
+import {
+  createUser,
+  findUserByEmail,
+  findUserById,
+  setPasswordResetToken,
+  findUserByValidResetToken,
+  resetPasswordAndClearToken,
+  type User,
+} from "../models/userModel.js";
 import { createWallet, findWalletByUserId } from "../models/walletModel.js";
 import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel.js";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { pool } from "../database/db.js";
+import { enviarEmailConfirmacion } from "../services/sesService.js";
+
+const PASSWORD_RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutos
+const PASSWORD_RESET_GENERIC_MESSAGE =
+  "Si el correo está registrado, vas a recibir instrucciones para restablecer tu contraseña.";
 
 export interface UserResponse {
   id: string;
@@ -265,4 +279,76 @@ export function logoutController(
     success: true,
     message: "Sesión cerrada correctamente. Por favor, descarta el token en el cliente."
   });
+}
+
+/**
+ * Controlador para solicitar la recuperación de contraseña.
+ * Siempre responde con el mismo mensaje genérico, exista o no el email, para no revelar
+ * qué correos están registrados. Si el fallo es al enviar el email, tampoco se filtra al cliente.
+ */
+export async function forgotPasswordController(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { email } = req.body;
+
+    const user = await findUserByEmail(email);
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS);
+
+      await setPasswordResetToken(user.id, tokenHash, expiresAt);
+
+      const frontendUrl = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
+      const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
+
+      try {
+        await enviarEmailConfirmacion({
+          destinatario: user.email,
+          asunto: "Recuperación de contraseña - Valora Wallet",
+          cuerpoHtml: `<p>Recibimos una solicitud para restablecer tu contraseña en Valora Wallet.</p><p><a href="${resetLink}">Hacé clic acá para elegir una nueva contraseña</a></p><p>Este link expira en 30 minutos. Si no fuiste vos quien lo solicitó, podés ignorar este mensaje.</p>`,
+        });
+      } catch (emailError) {
+        console.error("Fallo al enviar el email de recuperación de contraseña:", emailError);
+      }
+    }
+
+    res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+  } catch (error: unknown) {
+    next(error);
+  }
+}
+
+/**
+ * Controlador para restablecer la contraseña usando un token válido y no expirado.
+ */
+export async function resetPasswordController(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { token, password } = req.body;
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await findUserByValidResetToken(tokenHash);
+    if (!user) {
+      res.status(400).json({
+        success: false,
+        error: "InvalidTokenError",
+        message: "El link de recuperación no es válido o expiró."
+      });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await resetPasswordAndClearToken(user.id, passwordHash);
+
+    res.status(200).json({ message: "Tu contraseña fue actualizada correctamente." });
+  } catch (error: unknown) {
+    next(error);
+  }
 }

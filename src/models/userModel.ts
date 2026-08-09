@@ -9,6 +9,8 @@ export interface User {
   last_name: string;
   date_of_birth: Date | string | null;
   phone: string | null;
+  password_reset_token_hash: string | null;
+  password_reset_expires_at: Date | string | null;
   created_at: string | Date;
   updated_at: string | Date;
 }
@@ -73,4 +75,52 @@ export async function findUserByEmail(email: string): Promise<User | null> {
   `;
   const result = await query(sql, [email]);
   return result.rows[0] || null;
+}
+
+/**
+ * Stores a hashed password reset token and its expiration for a user, overwriting any previous one.
+ * @param userId - User UUID
+ * @param tokenHash - SHA-256 hash of the raw reset token (never store the raw token)
+ * @param expiresAt - Expiration timestamp for the token
+ */
+export async function setPasswordResetToken(
+  userId: string,
+  tokenHash: string,
+  expiresAt: Date
+): Promise<void> {
+  const sql = `
+    UPDATE users
+    SET password_reset_token_hash = $1, password_reset_expires_at = $2
+    WHERE id = $3
+  `;
+  await query(sql, [tokenHash, expiresAt, userId]);
+}
+
+/**
+ * Finds a user by a non-expired password reset token hash.
+ * @param tokenHash - SHA-256 hash of the raw reset token
+ * @returns The user object if the token is valid and not expired, or null otherwise.
+ */
+export async function findUserByValidResetToken(tokenHash: string): Promise<User | null> {
+  const sql = `
+    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, created_at, updated_at
+    FROM users
+    WHERE password_reset_token_hash = $1 AND password_reset_expires_at > NOW()
+  `;
+  const result = await query(sql, [tokenHash]);
+  return result.rows[0] || null;
+}
+
+/**
+ * Updates a user's password and invalidates their reset token (single-use).
+ * @param userId - User UUID
+ * @param passwordHash - New hashed password
+ */
+export async function resetPasswordAndClearToken(userId: string, passwordHash: string): Promise<void> {
+  const sql = `
+    UPDATE users
+    SET password_hash = $1, password_reset_token_hash = NULL, password_reset_expires_at = NULL
+    WHERE id = $2
+  `;
+  await query(sql, [passwordHash, userId]);
 }
