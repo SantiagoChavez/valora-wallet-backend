@@ -6,6 +6,11 @@ import { router } from "./routes/index.js";
 
 export const app = express();
 
+// Confía en el primer hop del proxy (Railway agrega X-Forwarded-For delante de la app).
+// Necesario para que express-rate-limit identifique la IP real del cliente sin explotar
+// por el header X-Forwarded-For inesperado cuando trust proxy queda en false (default de Express).
+app.set("trust proxy", 1);
+
 const whitelist = ["http://localhost:5173"];
 if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.trim() !== "") {
   whitelist.push(process.env.FRONTEND_URL.trim().replace(/\/$/, ""));
