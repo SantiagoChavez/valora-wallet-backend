@@ -101,8 +101,37 @@ export const loginSchema = z.object({
         .min(1, "La contraseña no puede estar vacía."),
 });
 
+/**
+ * Esquema de validación para solicitar la recuperación de contraseña
+ */
+export const forgotPasswordSchema = z.object({
+    email: z
+        .string({ message: "El correo electrónico es requerido." })
+        .trim()
+        .toLowerCase()
+        .refine((val) => emailRegex.test(val), {
+            message: "El correo electrónico provisto no tiene un formato válido.",
+        }),
+});
+
+/**
+ * Esquema de validación para restablecer la contraseña con un token
+ */
+export const resetPasswordSchema = z.object({
+    token: z
+        .string({ message: "El token es requerido." })
+        .trim()
+        .min(1, "El token es requerido."),
+    password: z
+        .string({ message: "La contraseña es requerida." })
+        .trim()
+        .min(6, "La contraseña debe tener al menos 6 caracteres."),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 /**
  * Esquema de validación para el inicio de sesión con Google
