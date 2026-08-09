@@ -285,6 +285,9 @@ export function logoutController(
  * Controlador para solicitar la recuperación de contraseña.
  * Siempre responde con el mismo mensaje genérico, exista o no el email, para no revelar
  * qué correos están registrados. Si el fallo es al enviar el email, tampoco se filtra al cliente.
+ * El envío del email no se espera (fire-and-forget): es la parte más lenta del flujo (red hacia
+ * SES) y esperarla permitiría distinguir por timing si el email existe o no, aunque la respuesta
+ * sea idéntica en ambos casos.
  */
 export async function forgotPasswordController(
   req: AuthenticatedRequest,
@@ -305,15 +308,13 @@ export async function forgotPasswordController(
       const frontendUrl = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
       const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
-      try {
-        await enviarEmailConfirmacion({
-          destinatario: user.email,
-          asunto: "Recuperación de contraseña - Valora Wallet",
-          cuerpoHtml: `<p>Recibimos una solicitud para restablecer tu contraseña en Valora Wallet.</p><p><a href="${resetLink}">Hacé clic acá para elegir una nueva contraseña</a></p><p>Este link expira en 30 minutos. Si no fuiste vos quien lo solicitó, podés ignorar este mensaje.</p>`,
-        });
-      } catch (emailError) {
+      enviarEmailConfirmacion({
+        destinatario: user.email,
+        asunto: "Recuperación de contraseña - Valora Wallet",
+        cuerpoHtml: `<p>Recibimos una solicitud para restablecer tu contraseña en Valora Wallet.</p><p><a href="${resetLink}">Hacé clic acá para elegir una nueva contraseña</a></p><p>Este link expira en 30 minutos. Si no fuiste vos quien lo solicitó, podés ignorar este mensaje.</p>`,
+      }).catch((emailError: unknown) => {
         console.error("Fallo al enviar el email de recuperación de contraseña:", emailError);
-      }
+      });
     }
 
     res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
