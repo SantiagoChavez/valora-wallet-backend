@@ -61,10 +61,14 @@ CREATE TABLE IF NOT EXISTS transactions (
 -- Índices de Rendimiento
 -- Optimizan búsquedas frecuentes por billetera y filtrado en transacciones.
 CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);
-CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users(password_reset_token_hash);
 
 -- Actualizaciones de Esquema (Migraciones de compatibilidad)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token_hash VARCHAR(64);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMP WITH TIME ZONE;
+
+-- El índice va después del ALTER TABLE que agrega la columna: en una base existente
+-- (sin este ALTER todavía aplicado) crear el índice antes rompería todo el deploy,
+-- ya que deploy.ts ejecuta este archivo entero como una sola consulta.
+CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users(password_reset_token_hash);
