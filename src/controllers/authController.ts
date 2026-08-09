@@ -305,6 +305,9 @@ export async function forgotPasswordController(
       await setPasswordResetToken(user.id, tokenHash, expiresAt);
 
       const frontendUrl = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
+      if (!frontendUrl) {
+        console.error("FRONTEND_URL no está configurada: el link de recuperación de contraseña quedará roto en el email.");
+      }
       const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
       // No se loguea acá: sesService.ts ya loguea el error internamente antes de re-lanzarlo.
