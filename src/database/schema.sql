@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 -- Índices de Rendimiento
 -- Optimizan búsquedas frecuentes por billetera y filtrado en transacciones.
 CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id);
+CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users(password_reset_token_hash);
 
 -- Actualizaciones de Esquema (Migraciones de compatibilidad)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
