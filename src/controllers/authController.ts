@@ -7,8 +7,7 @@ import {
   findUserByEmail,
   findUserById,
   setPasswordResetToken,
-  findUserByValidResetToken,
-  resetPasswordAndClearToken,
+  resetPasswordWithValidToken,
   type User,
 } from "../models/userModel.js";
 import { createWallet, findWalletByUserId } from "../models/walletModel.js";
@@ -325,6 +324,8 @@ export async function forgotPasswordController(
 
 /**
  * Controlador para restablecer la contraseña usando un token válido y no expirado.
+ * La validación e invalidación del token ocurren en una única query atómica para que
+ * dos requests concurrentes con el mismo token no puedan resetear la contraseña dos veces.
  */
 export async function resetPasswordController(
   req: AuthenticatedRequest,
@@ -334,9 +335,10 @@ export async function resetPasswordController(
   try {
     const { token, password } = req.body;
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    const user = await findUserByValidResetToken(tokenHash);
-    if (!user) {
+    const wasReset = await resetPasswordWithValidToken(tokenHash, passwordHash);
+    if (!wasReset) {
       res.status(400).json({
         success: false,
         error: "InvalidTokenError",
@@ -344,9 +346,6 @@ export async function resetPasswordController(
       });
       return;
     }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    await resetPasswordAndClearToken(user.id, passwordHash);
 
     res.status(200).json({ message: "Tu contraseña fue actualizada correctamente." });
   } catch (error: unknown) {
