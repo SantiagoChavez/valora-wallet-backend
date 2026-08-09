@@ -11,7 +11,7 @@ import {
   resetPasswordWithValidToken,
   type User,
 } from "../models/userModel.js";
-import { createWallet, findWalletByUserId } from "../models/walletModel.js";
+import { createWallet, findWalletByUserId, type Wallet } from "../models/walletModel.js";
 import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel.js";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { pool } from "../database/db.js";
@@ -28,6 +28,8 @@ export interface UserResponse {
   lastName: string;
   dateOfBirth?: string | null;
   phone?: string | null;
+  country?: string;
+  du?: string | null;
 }
 
 function formatDate(dateInput: Date | string | null | undefined): string | null {
@@ -64,6 +66,8 @@ export function toUserResponse(user: User, includePII = true): UserResponse {
   if (includePII) {
     response.dateOfBirth = formatDate(user.date_of_birth);
     response.phone = user.phone || null;
+    response.country = user.country;
+    response.du = user.du || null;
   }
 
   return response;
@@ -72,14 +76,18 @@ export function toUserResponse(user: User, includePII = true): UserResponse {
 /**
  * HELPER DRY: Genera la respuesta estándar de sesión (Token + Perfil + Wallet)
  */
-function sendAuthSuccess(res: Response, statusCode: number, user: User, walletId: string) {
+function sendAuthSuccess(res: Response, statusCode: number, user: User, wallet: Wallet) {
   const token = generateToken({ userId: user.id, email: user.email });
   res.status(statusCode).json({
     success: true,
     data: {
       token,
       user: toUserResponse(user),
-      walletId
+      wallet: {
+        id: wallet.id,
+        cvu: wallet.cvu,
+        alias: wallet.alias
+      }
     }
   });
 }
@@ -90,7 +98,7 @@ export async function registerController(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { email, password, firstName, lastName, dateOfBirth, phone } = req.body;
+    const { email, password, firstName, lastName, dateOfBirth, phone, country, du } = req.body;
 
     const existingUser = await findUserByEmail(email);
     if (existingUser) {
@@ -107,13 +115,13 @@ export async function registerController(
 
     try {
       await client.query("BEGIN");
-      const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, phone, client);
-      const wallet = await createWallet(user.id, client);
+      const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, phone, country, du, client);
+      const wallet = await createWallet(user.id, firstName, client);
       await createOrUpdateBalance(wallet.id, "USD", "0.00000000", client);
       
       await client.query("COMMIT");
       
-      sendAuthSuccess(res, 201, user, wallet.id);
+      sendAuthSuccess(res, 201, user, wallet);
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch (e) { /* Ignorar error de rollback */ }
       throw error;
@@ -168,7 +176,7 @@ export async function loginController(
       return;
     }
 
-    sendAuthSuccess(res, 200, user, wallet.id);
+    sendAuthSuccess(res, 200, user, wallet);
   } catch (error: unknown) {
     next(error);
   }
@@ -205,7 +213,11 @@ export async function meController(
       success: true,
       data: {
         user: toUserResponse(user),
-        walletId: wallet.id,
+        wallet: {
+          id: wallet.id,
+          cvu: wallet.cvu,
+          alias: wallet.alias
+        },
         balances
       }
     });
@@ -221,7 +233,9 @@ export function logoutController(_req: AuthenticatedRequest, res: Response): voi
   });
 }
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = process.env.GOOGLE_CLIENT_ID 
+  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) 
+  : null;
 
 export async function googleLoginController(
   req: AuthenticatedRequest,
@@ -229,6 +243,15 @@ export async function googleLoginController(
   next: NextFunction
 ): Promise<void> {
   try {
+    if (!googleClient) {
+      res.status(500).json({
+        success: false,
+        error: "InternalServerError",
+        message: "El inicio de sesión con Google no está configurado en este servidor."
+      });
+      return;
+    }
+
     const { idToken } = req.body;
 
     const ticket = await googleClient.verifyIdToken({
@@ -237,14 +260,18 @@ export async function googleLoginController(
     });
     
     const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      res.status(401).json({ success: false, error: "UnauthorizedError", message: "Token inválido." });
+    if (!payload || !payload.email || !payload.email_verified) {
+      res.status(401).json({ 
+        success: false, 
+        error: "UnauthorizedError", 
+        message: "Token inválido o email no verificado por Google." 
+      });
       return;
     }
 
     const { email, given_name, family_name } = payload;
     let user = await findUserByEmail(email);
-    let walletId: string;
+    let wallet: Wallet | undefined;
 
     if (user) {
       if (user.password_hash !== null) {
@@ -255,18 +282,18 @@ export async function googleLoginController(
         });
         return;
       }
-      const wallet = await findWalletByUserId(user.id);
-      if (!wallet) throw new Error("El usuario de Google existe pero no tiene billetera.");
-      walletId = wallet.id;
+      const existingWallet = await findWalletByUserId(user.id);
+      if (!existingWallet) throw new Error("El usuario de Google existe pero no tiene billetera.");
+      wallet = existingWallet;
     } else {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-        user = await createUser(email, null, given_name || "Usuario", family_name || "", null, null, client);
-        const newWallet = await createWallet(user.id, client);
+        user = await createUser(email, null, given_name || "Usuario", family_name || "", "1990-01-01", "+5491100000000", "AR", null, client);
+        const newWallet = await createWallet(user.id, given_name || "Usuario", client);
         await createOrUpdateBalance(newWallet.id, "USD", "0.00000000", client);
         await client.query("COMMIT");
-        walletId = newWallet.id;
+        wallet = newWallet;
       } catch (error) {
         try { await client.query("ROLLBACK"); } catch (e) { /* Ignorar */ }
         
@@ -276,7 +303,11 @@ export async function googleLoginController(
           user = await findUserByEmail(email);
           if (user) {
              const existingWallet = await findWalletByUserId(user.id);
-             walletId = existingWallet?.id || "";
+             if (existingWallet) {
+               wallet = existingWallet;
+             } else {
+               throw new Error("Error de consistencia en base de datos al buscar billetera existente.");
+             }
           } else {
              throw error; 
           }
@@ -288,7 +319,7 @@ export async function googleLoginController(
       }
     }
 
-    sendAuthSuccess(res, 200, user, walletId);
+    sendAuthSuccess(res, 200, user, wallet!);
   } catch (error: unknown) {
     next(error);
   }
