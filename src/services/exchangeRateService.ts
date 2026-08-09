@@ -1,90 +1,189 @@
-interface ExchangeApiResponse {
-    amount?: number;
-    base?: string;
-    date?: string;
-    rates: Record<string, number>;
-}
-
 interface ExchangeRateCacheState {
-    rates: Record<string, number>;
+    rates: Record<string, any>;
     fetchedAt: number;
 }
 
 let ratesCache: ExchangeRateCacheState | null = null;
+let activeRefreshPromise: Promise<Record<string, any>> | null = null;
 
-// Constante de tiempo: 1 hora en milisegundos
-const CACHE_TTL = 60 * 60 * 1000;
-
-export async function getExchangeRates(): Promise<Record<string, number>> {
-    const now = Date.now();
-
-    // 1. Devolver caché fresca si es válida
-    if (ratesCache && (now - ratesCache.fetchedAt) < CACHE_TTL) {
+/**
+ * Obtiene las tasas de cambio vigentes directamente desde la caché.
+ * Si la caché está vacía (por ejemplo, en el arranque inicial del servidor), 
+ * fuerza una carga inicial antes de responder.
+ * 
+ * Si ya hay una carga en progreso, reutiliza la promesa activa para evitar 
+ * consultas redundantes paralelas.
+ */
+export async function getExchangeRates(): Promise<Record<string, any>> {
+    if (ratesCache) {
         return ratesCache.rates;
     }
 
-    try {
-        // 2. Proveedor Principal (Frankfurter)
-        const response = await fetch("https://api.frankfurter.app/latest?from=USD");
-        if (!response.ok) {
-            throw new Error(`Frankfurter respondió con estado ${response.status}`);
-        }
+    if (activeRefreshPromise) {
+        console.log("[Exchange Service] Carga inicial ya en progreso, esperando promesa activa...");
+        return await activeRefreshPromise;
+    }
 
-        const data = (await response.json()) as ExchangeApiResponse;
-        return procesarYGuardarCache(data.rates);
+    console.warn("[Exchange Service] Caché vacía. Iniciando carga forzada inicial...");
+    return await updateExchangeRatesCache();
+}
 
-    } catch (primaryError: unknown) {
-        console.warn(`[Exchange Service] Proveedor principal falló. Iniciando Fallback... (${(primaryError as Error).message})`);
+/**
+ * Realiza la consulta a las APIs externas para actualizar la caché en memoria.
+ * Intenta con Frankfurter v2 y tiene fallback a ExchangeRate-API.
+ * 
+ * Utiliza tiempos de espera (timeouts) de 5 segundos y evita llamadas 
+ * concurrentes compartiendo la promesa en curso.
+ */
+export async function updateExchangeRatesCache(): Promise<Record<string, any>> {
+    if (activeRefreshPromise) {
+        return activeRefreshPromise;
+    }
 
+    activeRefreshPromise = (async () => {
         try {
-            // 3. Proveedor de Respaldo (ExchangeRate-API)
-            const fallbackResponse = await fetch("https://open.er-api.com/v6/latest/USD");
-            if (!fallbackResponse.ok) {
-                throw new Error(`ExchangeRate-API respondió con estado ${fallbackResponse.status}`);
+            // 1. Proveedor Principal: Frankfurter v2 con timeout
+            const response = await fetch("https://api.frankfurter.dev/v2/rates", {
+                signal: AbortSignal.timeout(5000)
+            });
+            if (!response.ok) {
+                throw new Error(`Frankfurter v2 respondió con estado ${response.status}`);
             }
 
-            const fallbackData = (await fallbackResponse.json()) as ExchangeApiResponse;
-            // Ambos proveedores exponen una propiedad 'rates' con formato similar
-            return procesarYGuardarCache(fallbackData.rates);
-
-        } catch (fallbackError: unknown) {
-            console.error(`[Exchange Service] Fallo Crítico: Ambos proveedores cayeron. (${(fallbackError as Error).message})`);
-
-            // 4. Último Recurso: Devolver caché obsoleta si existe (Alta Disponibilidad)
-            if (ratesCache) {
-                console.warn("[Exchange Service] Devolviendo caché en memoria obsoleta para evitar fallo del sistema.");
-                return ratesCache.rates;
+            const data = await response.json();
+            if (!Array.isArray(data)) {
+                throw new Error("La respuesta de Frankfurter v2 no es un array válido");
             }
 
-            throw new Error("No se pudieron obtener las tasas de cambio y no hay historial en caché disponible.");
+            let eurToUsd: number | undefined;
+            let eurToArs: number | undefined;
+
+            for (const entry of data) {
+                if (entry && typeof entry === "object" && entry.base === "EUR") {
+                    if (entry.quote === "USD" && entry.rate !== undefined) {
+                        eurToUsd = Number(entry.rate);
+                    } else if (entry.quote === "ARS" && entry.rate !== undefined) {
+                        eurToArs = Number(entry.rate);
+                    }
+                }
+            }
+
+            if (!eurToUsd || !Number.isFinite(eurToUsd) || eurToUsd <= 0) {
+                throw new Error("La API no devolvió la cotización de USD");
+            }
+            if (!eurToArs || !Number.isFinite(eurToArs) || eurToArs <= 0) {
+                throw new Error("La API no devolvió la cotización de ARS");
+            }
+
+            const rawRates = {
+                USD: 1.0,
+                EUR: 1.0 / eurToUsd,
+                ARS: eurToArs / eurToUsd
+            };
+
+            return procesarYGuardarCache(rawRates);
+
+        } catch (primaryError: any) {
+            console.warn(`[Exchange Service] Proveedor principal falló. Iniciando Fallback... (${primaryError.message})`);
+
+            try {
+                // 2. Proveedor de Respaldo: ExchangeRate-API con timeout
+                const fallbackResponse = await fetch("https://open.er-api.com/v6/latest/USD", {
+                    signal: AbortSignal.timeout(5000)
+                });
+                if (!fallbackResponse.ok) {
+                    throw new Error(`ExchangeRate-API respondió con estado ${fallbackResponse.status}`);
+                }
+
+                const fallbackData = await fallbackResponse.json();
+                if (!fallbackData || !fallbackData.rates) {
+                    throw new Error("Respuesta inválida de ExchangeRate-API");
+                }
+
+                const eurRate = Number(fallbackData.rates.EUR);
+                const arsRate = Number(fallbackData.rates.ARS);
+
+                if (!eurRate || !Number.isFinite(eurRate) || eurRate <= 0) {
+                    throw new Error("La API de respaldo no devolvió la cotización de EUR");
+                }
+                if (!arsRate || !Number.isFinite(arsRate) || arsRate <= 0) {
+                    throw new Error("La API de respaldo no devolvió la cotización de ARS");
+                }
+
+                const rawRates = {
+                    USD: 1.0,
+                    EUR: eurRate,
+                    ARS: arsRate
+                };
+
+                return procesarYGuardarCache(rawRates);
+
+            } catch (fallbackError: any) {
+                console.error(`[Exchange Service] Fallo Crítico: Ambos proveedores cayeron. (${fallbackError.message})`);
+
+                // Si ya hay un historial en caché, lo mantenemos para evitar la caída del servidor.
+                if (ratesCache) {
+                    console.warn("[Exchange Service] Devolviendo caché en memoria existente debido a fallas de red.");
+                    return ratesCache.rates;
+                }
+
+                throw new Error("Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar");
+            }
         }
+    })();
+
+    try {
+        return await activeRefreshPromise;
+    } finally {
+        activeRefreshPromise = null;
     }
 }
 
 /**
- * Filtra solo las monedas que soporta el sistema (USD, EUR, ARS).
- * Si falta alguna de las monedas requeridas, lanza un error para obligar 
- * al sistema a usar el fallback o fallar ruidosamente.
+ * Procesa las tasas relativas a USD y genera todas las combinaciones directas, 
+ * inversas y cruzadas (P2P-compatible y compatible con compras/ventas estándar).
  */
-function procesarYGuardarCache(rawRates: Record<string, number>): Record<string, number> {
-    const nextRates: Record<string, number> = { USD: 1 };
+function procesarYGuardarCache(rawRates: { USD: number; EUR: number; ARS: number }): Record<string, any> {
+    const nextRates: Record<string, any> = {
+        USD: 1.0,
+        EUR: rawRates.EUR,
+        ARS: rawRates.ARS
+    };
 
-    if (typeof rawRates.EUR === "number" && Number.isFinite(rawRates.EUR)) {
-        nextRates.EUR = rawRates.EUR;
-    } else {
-        throw new Error("La API no devolvió la cotización de EUR");
-    }
+    const eurRate = rawRates.EUR;
+    const arsRate = rawRates.ARS;
 
-    if (typeof rawRates.ARS === "number" && Number.isFinite(rawRates.ARS)) {
-        nextRates.ARS = rawRates.ARS;
-    } else {
-        throw new Error("La API no devolvió la cotización de ARS");
-    }
+    // Pares cruzados y formatos P2P
+    nextRates.USD_USD = { value: 1.0 };
+    nextRates.USD_EUR = { value: eurRate };
+    nextRates.USD_ARS = { value: arsRate };
+
+    nextRates.EUR_USD = { value: 1.0 / eurRate };
+    nextRates.EUR_EUR = { value: 1.0 };
+    nextRates.EUR_ARS = { value: arsRate / eurRate };
+
+    nextRates.ARS_USD = { value: 1.0 / arsRate };
+    nextRates.ARS_EUR = { value: eurRate / arsRate };
+    nextRates.ARS_ARS = { value: 1.0 };
 
     ratesCache = {
         rates: nextRates,
-        fetchedAt: Date.now(),
+        fetchedAt: Date.now()
     };
 
     return ratesCache.rates;
+}
+
+// Configurar el arranque e intervalo en segundo plano (omitido en ambiente de pruebas para evitar colgar el recolector de hilos)
+if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
+    updateExchangeRatesCache().catch((err) => {
+        console.error("[Exchange Service] Error al realizar la carga inicial de cotizaciones:", err);
+    });
+
+    setInterval(() => {
+        console.log("[Exchange Service] Actualizando caché de cotizaciones en segundo plano...");
+        updateExchangeRatesCache().catch((err) => {
+            console.error("[Exchange Service] Falló la actualización de cotizaciones en segundo plano:", err);
+        });
+    }, 2 * 60 * 60 * 1000);
 }

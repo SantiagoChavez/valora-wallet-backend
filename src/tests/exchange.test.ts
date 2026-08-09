@@ -23,7 +23,7 @@ describe("Exchange Rate Service Integration Tests", () => {
 
         // We expect the service to fail gracefully and throw our custom Spanish error
         await expect(getExchangeRates()).rejects.toThrow(
-            "No se pudieron obtener las tasas de cambio en este momento"
+            "Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar"
         );
     });
 });
