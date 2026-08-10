@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     date_of_birth DATE,
-    phone VARCHAR(20),
+    phone VARCHAR(20) UNIQUE,
+    phone_verificado BOOLEAN DEFAULT false NOT NULL,
     country VARCHAR(5) DEFAULT 'AR' NOT NULL,
     du VARCHAR(20) UNIQUE NOT NULL,
     password_reset_token_hash VARCHAR(64),
@@ -76,6 +77,13 @@ ALTER TABLE wallets ADD COLUMN IF NOT EXISTS alias VARCHAR(100) UNIQUE;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token_hash VARCHAR(64);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verificado BOOLEAN DEFAULT false NOT NULL;
+-- NOTA: a diferencia del resto de las columnas de esta sección, a propósito NO agregamos acá
+-- "ALTER TABLE users ADD CONSTRAINT ... UNIQUE (phone)". Hay teléfonos duplicados reales en
+-- producción hoy (cuentas de prueba) y ese ALTER fallaría y cortaría el deploy entero, ya que
+-- deploy.ts ejecuta este archivo completo como una sola consulta. El UNIQUE en el CREATE TABLE
+-- de arriba solo aplica a instalaciones nuevas. Limpiar los duplicados y agregar el constraint
+-- acá queda pendiente como tarea aparte.
 
 -- El índice va después del ALTER TABLE que agrega la columna: en una base existente
 -- (sin este ALTER todavía aplicado) crear el índice antes rompería todo el deploy,
