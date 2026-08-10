@@ -51,7 +51,13 @@ export async function depositController(req: AuthenticatedRequest, res: Response
  */
 export async function quoteController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+        const userId = req.user?.userId;
         const { fromCurrency, toCurrency, amount } = req.body;
+
+        if (!userId) {
+            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
+            return;
+        }
         
         const quote = await getExchangeQuote(fromCurrency, toCurrency, amount);
 
