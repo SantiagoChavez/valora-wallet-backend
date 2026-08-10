@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "./authMiddleware.js";
 import { findUserById } from "../models/userModel.js";
+import { DOCUMENTO_POR_PAIS } from "../utils/documentValidation.js";
 
 /**
  * Bloquea operaciones de billetera (depositar, comprar, vender, intercambiar) hasta que
@@ -28,10 +29,13 @@ export async function requireCompleteProfile(
     }
 
     if (!user.phone || !user.du) {
+      // El label del documento varía por país (CPF, CURP, CI, etc.) — "DNI" a secas
+      // solo es correcto para Argentina.
+      const documentoLabel = DOCUMENTO_POR_PAIS[user.country] ?? "documento de identidad";
       res.status(403).json({
         success: false,
         error: "IncompleteProfileError",
-        message: "Completá tu celular y tu DNI antes de operar con tu billetera.",
+        message: `Completá tu celular y tu ${documentoLabel} antes de operar con tu billetera.`,
       });
       return;
     }

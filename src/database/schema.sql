@@ -79,6 +79,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS du VARCHAR(20) UNIQUE;
 ALTER TABLE wallets ADD COLUMN IF NOT EXISTS cvu VARCHAR(22) UNIQUE;
 ALTER TABLE wallets ADD COLUMN IF NOT EXISTS alias VARCHAR(100) UNIQUE;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+-- Por si alguna instalación llegó a crear la tabla con el CREATE TABLE que tenía
+-- "du ... NOT NULL" (ver historial): sin este ALTER, esas instalaciones seguirían
+-- rechazando el alta con Google (que inserta du = NULL) aunque el CREATE TABLE de
+-- arriba ya esté corregido, porque CREATE TABLE IF NOT EXISTS no toca tablas existentes.
+-- No-op si la columna ya es nullable (como en Railway y en instalaciones nuevas).
+ALTER TABLE users ALTER COLUMN du DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token_hash VARCHAR(64);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verificado BOOLEAN DEFAULT false NOT NULL;

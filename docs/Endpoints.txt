@@ -229,12 +229,12 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
       "issues": ["El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado."]
     }
     ```
-*   **Respuesta de Error (400 Bad Request - Celular o DU ya en uso):**
+*   **Respuesta de Error (400 Bad Request - Celular o DU ya en uso):** el mensaje es genérico a propósito — no confirma si el dato ya existe, para no habilitar que se use este endpoint para probar si un celular o DNI específico ya está registrado.
     ```json
     {
       "success": false,
       "error": "DuplicateFieldError",
-      "message": "El número de celular provisto ya está en uso por otra cuenta."
+      "message": "No pudimos guardar esos datos. Si creés que se trata de un error, escribinos a nexot.solutions@gmail.com."
     }
     ```
 
