@@ -3,19 +3,19 @@ export interface ExchangeRatePair {
 }
 
 export interface ExchangeRates {
-    // Definimos los pares cruzados comunes para evitar errores de tipo en los tests
-    USD_USD?: ExchangeRatePair;
-    USD_EUR?: ExchangeRatePair;
-    USD_ARS?: ExchangeRatePair;
-    EUR_USD?: ExchangeRatePair;
-    EUR_EUR?: ExchangeRatePair;
-    EUR_ARS?: ExchangeRatePair;
-    ARS_USD?: ExchangeRatePair;
-    ARS_EUR?: ExchangeRatePair;
-    ARS_ARS?: ExchangeRatePair;
+    // 1. Tasas base estrictas (relativas a USD)
+    USD: number;
+    EUR: number;
+    ARS: number;
 
-    // Firma de índice para admitir el acceso por cualquier otra moneda o par cruzado
-    [key: string]: number | ExchangeRatePair | undefined;
+    // 2. Solo los 6 pares cruzados válidos. Cero self-pairs.
+    // Al no haber [key: string], TypeScript bloqueará cualquier moneda inválida.
+    USD_EUR: ExchangeRatePair;
+    USD_ARS: ExchangeRatePair;
+    EUR_USD: ExchangeRatePair;
+    EUR_ARS: ExchangeRatePair;
+    ARS_USD: ExchangeRatePair;
+    ARS_EUR: ExchangeRatePair;
 }
 
 interface ExchangeRateCacheState {
@@ -37,14 +37,6 @@ function isValidRate(rate: any): rate is number {
     return typeof rate === "number" && Number.isFinite(rate) && rate > 0;
 }
 
-/**
- * Obtiene las tasas de cambio vigentes directamente desde la caché.
- * Si la caché está vacía (por ejemplo, en el arranque inicial del servidor), 
- * fuerza una carga inicial antes de responder.
- * 
- * Si ya hay una carga en progreso, reutiliza la promesa activa para evitar 
- * consultas redundantes paralelas.
- */
 export async function getExchangeRates(): Promise<ExchangeRates> {
     if (ratesCache) {
         const cacheAge = Date.now() - ratesCache.fetchedAt;
@@ -73,13 +65,6 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
     return await updateExchangeRatesCache();
 }
 
-/**
- * Realiza la consulta a las APIs externas para actualizar la caché en memoria.
- * Intenta con Frankfurter v2 y tiene fallback a ExchangeRate-API.
- * 
- * Utiliza tiempos de espera (timeouts) de 5 segundos y evita llamadas 
- * concurrentes compartiendo la promesa en curso.
- */
 export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
     if (activeRefreshPromise) {
         return activeRefreshPromise;
@@ -138,7 +123,6 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
 
                 const fallbackData = await fallbackResponse.json() as unknown;
                 
-                // Tipado estricto sin ANY para proteger contratos frágiles de API
                 if (typeof fallbackData !== "object" || fallbackData === null || !("rates" in fallbackData)) {
                     throw new Error("Respuesta inválida o estructura mutada de ExchangeRate-API");
                 }
@@ -165,13 +149,9 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
                 const retryDelay = Math.min(5 * 60 * 1000 * Math.pow(2, consecutiveFailures - 1), 60 * 60 * 1000);
                 nextRetryAt = Date.now() + retryDelay;
 
-                // Si ya hay un historial en caché, lo mantenemos para evitar la caída del servidor.
                 if (ratesCache) {
                     console.warn("[Exchange Service] Devolviendo caché en memoria existente debido a fallas de red.");
-                    
-                    // Ajustamos la marca temporal fetchedAt para retrasar el próximo intento de refresco asíncrono
                     ratesCache.fetchedAt = Date.now() - (CACHE_TTL - retryDelay);
-                    
                     return ratesCache.rates;
                 }
 
@@ -191,44 +171,36 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
 }
 
 /**
- * Procesa las tasas relativas a USD y genera todas las combinaciones directas, 
- * inversas y cruzadas (P2P-compatible y compatible con compras/ventas estándar) de forma dinámica.
+ * Construye de forma explícita y estricta el objeto de tasas, omitiendo self-pairs
+ * y cumpliendo con el contrato estricto de ExchangeRates.
  */
-function procesarYGuardarCache(rawRates: Record<string, number>): ExchangeRates {
-    const nextRates: ExchangeRates = {};
-    const currencies = Object.keys(rawRates);
-
-    // 1. Guardar las tasas base relativas a USD
-    for (const cur of currencies) {
-        nextRates[cur] = rawRates[cur];
-    }
-
-    // 2. Generar todos los pares cruzados dinámicamente
-    for (const fromCur of currencies) {
-        for (const toCur of currencies) {
-            const rateFrom = rawRates[fromCur];
-            const rateTo = rawRates[toCur];
-            nextRates[`${fromCur}_${toCur}`] = {
-                value: rateTo / rateFrom
-            };
-        }
-    }
+function procesarYGuardarCache(rawRates: { USD: number; EUR: number; ARS: number }): ExchangeRates {
+    const { EUR: eurRate, ARS: arsRate } = rawRates;
 
     ratesCache = {
-        rates: nextRates,
+        rates: {
+            USD: 1.0,
+            EUR: eurRate,
+            ARS: arsRate,
+
+            USD_EUR: { value: eurRate },
+            USD_ARS: { value: arsRate },
+
+            EUR_USD: { value: 1.0 / eurRate },
+            EUR_ARS: { value: arsRate / eurRate },
+
+            ARS_USD: { value: 1.0 / arsRate },
+            ARS_EUR: { value: eurRate / arsRate }
+        },
         fetchedAt: Date.now()
     };
 
-    consecutiveFailures = 0; // Restablecer contador de fallos tras éxito
-    nextRetryAt = 0; // Restablecer cooldown
+    consecutiveFailures = 0;
+    nextRetryAt = 0;
 
     return ratesCache.rates;
 }
 
-/**
- * Solo para propósitos de prueba: limpia la caché en memoria para garantizar
- * aislamiento en las pruebas unitarias.
- */
 export function clearCacheForTesting(): void {
     ratesCache = null;
     activeRefreshPromise = null;
@@ -236,7 +208,6 @@ export function clearCacheForTesting(): void {
     nextRetryAt = 0;
 }
 
-// Configurar el arranque e intervalo en segundo plano (omitido en ambiente de pruebas para evitar mantener abierto el bucle de eventos)
 if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
     updateExchangeRatesCache().catch((err) => {
         console.error("[Exchange Service] Error al realizar la carga inicial de cotizaciones:", err);

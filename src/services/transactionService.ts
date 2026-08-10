@@ -75,8 +75,8 @@ async function executeConversion(
 
     // Fetch exchange rates from Day 1 service BEFORE acquiring DB connection
     const rates = await getExchangeRates();
-    const rateFrom = rates[fromCurrency];
-    const rateTo = rates[toCurrency];
+    const rateFrom = rates[fromCurrency as keyof typeof rates];
+    const rateTo = rates[toCurrency as keyof typeof rates];
 
     // Validar que existan las tasas, que correspondan a valores numéricos finitos y sean mayores a cero
     if (
