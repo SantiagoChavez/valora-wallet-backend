@@ -22,6 +22,8 @@ describe("Pruebas de integración de recuperación de contraseña", () => {
     lastName: "Test",
     dateOfBirth: "15/05/1995",
     phone: "+54 9 351 123-4567",
+    country: "AR",
+    du: "44444444",
   };
 
   async function requestResetTokenLink(): Promise<string> {

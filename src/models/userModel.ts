@@ -9,8 +9,10 @@ export interface User {
   last_name: string;
   date_of_birth: Date | string | null;
   phone: string | null;
+  country: string;
+  du: string | null;
   // Opcionales: solo los devuelven las queries que explícitamente los seleccionan
-  // (createUser/findUserByEmail/findUserById no los incluyen en su SELECT/RETURNING).
+  // (createUser/findUserByEmail/findUserById excluyen explícitamente estos tokens/hashes por seguridad).
   password_reset_token_hash?: string | null;
   password_reset_expires_at?: Date | string | null;
   created_at: string | Date;
@@ -33,16 +35,18 @@ export async function createUser(
   lastName: string,
   dateOfBirth: string | null,
   phone: string | null,
+  country: string,
+  du: string | null,
   client?: PoolClient
 ): Promise<User> {
   const sql = `
-    INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth, phone)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, created_at, updated_at
+    INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth, phone, country, du)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
   `;
   const result = client
-    ? await client.query(sql, [email, passwordHash, firstName, lastName, dateOfBirth, phone])
-    : await query(sql, [email, passwordHash, firstName, lastName, dateOfBirth, phone]);
+    ? await client.query(sql, [email, passwordHash, firstName, lastName, dateOfBirth, phone, country, du])
+    : await query(sql, [email, passwordHash, firstName, lastName, dateOfBirth, phone, country, du]);
   if (result.rows.length === 0) {
     throw new Error("No se pudo registrar el usuario en la base de datos.");
   }
@@ -56,7 +60,7 @@ export async function createUser(
  */
 export async function findUserById(id: string): Promise<User | null> {
   const sql = `
-    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, created_at, updated_at
+    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
     FROM users
     WHERE id = $1
   `;
@@ -71,7 +75,7 @@ export async function findUserById(id: string): Promise<User | null> {
  */
 export async function findUserByEmail(email: string): Promise<User | null> {
   const sql = `
-    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, created_at, updated_at
+    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
     FROM users
     WHERE email = $1
   `;

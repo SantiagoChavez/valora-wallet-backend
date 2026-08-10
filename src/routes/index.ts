@@ -3,6 +3,7 @@ import { authRouter } from "./authRoutes.js";
 import { transactionRouter } from "./transactionRoutes.js";
 import { balanceRouter } from "./balanceRoutes.js";
 import { chatbotRouter } from "./chatbotRoutes.js";
+import { walletRouter } from "./walletRoutes.js";
 
 export const router = Router();
 
@@ -14,3 +15,4 @@ router.use("/auth", authRouter);
 router.use("/transactions", transactionRouter);
 router.use("/balances", balanceRouter);
 router.use("/chatbot", chatbotRouter);
+router.use("/wallet", walletRouter);

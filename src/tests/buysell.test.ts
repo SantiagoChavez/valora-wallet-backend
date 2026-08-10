@@ -11,6 +11,8 @@ describe("Pruebas de integración para compra y venta (BUY/SELL)", () => {
     lastName: "Chavez",
     dateOfBirth: "15/05/1995",
     phone: "+5493511234567",
+    country: "AR",
+    du: "22222222",
   };
 
   const originalFetch = global.fetch;
@@ -38,7 +40,7 @@ describe("Pruebas de integración para compra y venta (BUY/SELL)", () => {
       .send(testUser);
 
     authToken = registerResponse.body.data.token;
-    walletId = registerResponse.body.data.walletId;
+    walletId = registerResponse.body.data.wallet.id;
 
     // 4. Depositar 200 USD para fondear la cuenta
     await request(app)

@@ -82,6 +82,46 @@ export const registerSchema = z.object({
             }
             return phoneNumber.number; // E.164 format guaranteed
         }),
+    country: z.enum(["AR", "PE", "MX", "CO"]).default("AR"),
+    du: z
+        .string({ message: "El documento único es requerido." })
+        .trim()
+        .transform((val) => val.replace(/[\s.-]/g, "").toUpperCase()),
+}).superRefine((data, ctx) => {
+    const du = data.du;
+    const country = data.country;
+    let isValid = false;
+    let expectedFormat = "";
+
+    switch (country) {
+        case "AR":
+            isValid = /^\d{7,8}$/.test(du);
+            expectedFormat = "7 u 8 dígitos numéricos";
+            break;
+        case "PE":
+            isValid = /^\d{8}$/.test(du);
+            expectedFormat = "8 dígitos numéricos";
+            break;
+        case "CO":
+            isValid = /^\d{8,10}$/.test(du);
+            expectedFormat = "8 a 10 dígitos numéricos";
+            break;
+        case "MX":
+            isValid = /^[A-Z0-9]{10,18}$/.test(du);
+            expectedFormat = "10 a 18 caracteres alfanuméricos";
+            break;
+        default:
+            isValid = /^[A-Z0-9]{6,18}$/.test(du);
+            expectedFormat = "6 a 18 caracteres alfanuméricos";
+    }
+
+    if (!isValid) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `El documento único para ${country} no es válido. Formato esperado: ${expectedFormat}.`,
+            path: ["du"],
+        });
+    }
 });
 
 /**
