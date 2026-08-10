@@ -73,12 +73,25 @@ async function executeConversion(
     const wallet = await findWalletByUserId(userId);
     if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
+    type BaseCurrency = "USD" | "EUR" | "ARS";
+    const isValidCurrency = (cur: string): cur is BaseCurrency => ["USD", "EUR", "ARS"].includes(cur);
+
+    if (!isValidCurrency(fromCurrency) || !isValidCurrency(toCurrency)) {
+        throw Object.assign(new Error("Moneda no soportada para conversión."), { status: 400, code: "UNSUPPORTED_CURRENCY" });
+    }
+
     // Fetch exchange rates from Day 1 service BEFORE acquiring DB connection
     const rates = await getExchangeRates();
     const rateFrom = rates[fromCurrency];
     const rateTo = rates[toCurrency];
 
-    if (!rateFrom || !rateTo) {
+    // Validar que existan las tasas, que correspondan a valores numéricos finitos y sean mayores a cero
+    if (
+        !Number.isFinite(rateFrom) || 
+        !Number.isFinite(rateTo) || 
+        rateFrom <= 0 || 
+        rateTo <= 0
+    ) {
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
