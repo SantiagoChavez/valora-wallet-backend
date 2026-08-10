@@ -33,16 +33,22 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
     {
       "success": true,
       "data": {
+        "token": "eyJhbGciOiJIUzI1...",
         "user": {
           "id": "uuid",
           "email": "carlos.prueba@email.com",
           "firstName": "Carlos",
           "lastName": "Lopez",
+          "dateOfBirth": "10/10/1995",
+          "phone": "+525512345678",
           "country": "AR",
-          "du": "12345678",
-          "createdAt": "2023-10-25T10:00:00.000Z"
+          "du": "12345678"
         },
-        "token": "eyJhbGciOiJIUzI1..."
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        }
       }
     }
     ```
@@ -50,8 +56,8 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
     ```json
     {
       "success": false,
-      "error": "UserAlreadyExists",
-      "message": "El correo electrónico ya está registrado."
+      "error": "DuplicateEmailError",
+      "message": "El correo electrónico ya se encuentra registrado"
     }
     ```
 
@@ -71,7 +77,17 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
       "success": true,
       "data": {
         "token": "eyJhbGciOiJIUzI1...",
-        "user": { "email": "carlos.prueba@email.com" }
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@email.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez"
+        },
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        }
       }
     }
     ```
@@ -85,8 +101,30 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
     {
       "success": true,
       "data": {
-        "user": { "email": "carlos.prueba@email.com" },
-        "wallets": [ { "id": "uuid", "cvu": "...", "alias": "..." } ]
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@email.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "dateOfBirth": "10/10/1995",
+          "phone": "+525512345678",
+          "country": "AR",
+          "du": "12345678"
+        },
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        },
+        "balances": [
+          {
+            "id": "uuid-balance",
+            "walletId": "uuid-wallet",
+            "currency": "USD",
+            "amount": "500.00000000",
+            "updatedAt": "2023-10-25T10:00:00.000Z"
+          }
+        ]
       }
     }
     ```
@@ -110,8 +148,13 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
     {
       "success": true,
       "data": {
-        "wallet": { "alias": "mi.nuevo.alias", "cvu": "..." }
-      }
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "mi.nuevo.alias"
+        }
+      },
+      "message": "Alias actualizado correctamente."
     }
     ```
 *   **Respuesta de Error (409 Conflict - Alias ocupado):**
@@ -137,12 +180,21 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
       "amount": 500
     }
     ```
-*   **Respuesta de Exito (201 Created):**
+*   **Respuesta de Exito (200 OK):**
     ```json
     {
       "success": true,
       "data": {
-        "transaction": { "transactionType": "DEPOSIT", "amount": 500, "currency": "USD" }
+        "id": "uuid-tx",
+        "walletId": "uuid-wallet",
+        "transactionType": "DEPOSIT",
+        "sourceCurrency": null,
+        "targetCurrency": "USD",
+        "sourceAmount": null,
+        "targetAmount": 500,
+        "exchangeRate": null,
+        "resultingBalance": 500,
+        "createdAt": "2023-10-25T10:00:00.000Z"
       }
     }
     ```
@@ -158,12 +210,21 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
       "amount": 100
     }
     ```
-*   **Respuesta de Exito (201 Created):**
+*   **Respuesta de Exito (200 OK):**
     ```json
     {
       "success": true,
       "data": {
-        "transaction": { "transactionType": "EXCHANGE", "fromCurrency": "USD", "toCurrency": "ARS", "exchangeRate": 1050.50 }
+        "id": "uuid-tx",
+        "walletId": "uuid-wallet",
+        "transactionType": "EXCHANGE",
+        "sourceCurrency": "USD",
+        "targetCurrency": "ARS",
+        "sourceAmount": 100,
+        "targetAmount": 105050,
+        "exchangeRate": 1050.50,
+        "resultingBalance": 400,
+        "createdAt": "2023-10-25T10:05:00.000Z"
       }
     }
     ```
@@ -171,7 +232,7 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
     ```json
     {
       "success": false,
-      "error": "InsufficientFunds",
+      "error": "INSUFFICIENT_FUNDS",
       "message": "Saldo insuficiente para realizar la operación."
     }
     ```
