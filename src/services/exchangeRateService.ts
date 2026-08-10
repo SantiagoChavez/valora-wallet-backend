@@ -1,10 +1,35 @@
+export interface ExchangeRatePair {
+    value: number;
+}
+
+export interface ExchangeRates {
+    // Tasas base (relativas a USD)
+    USD: number;
+    EUR: number;
+    ARS: number;
+
+    // Pares cruzados en formato P2P
+    USD_USD: ExchangeRatePair;
+    USD_EUR: ExchangeRatePair;
+    USD_ARS: ExchangeRatePair;
+    EUR_USD: ExchangeRatePair;
+    EUR_EUR: ExchangeRatePair;
+    EUR_ARS: ExchangeRatePair;
+    ARS_USD: ExchangeRatePair;
+    ARS_EUR: ExchangeRatePair;
+    ARS_ARS: ExchangeRatePair;
+
+    // Firma de índice para admitir el acceso por strings dinámicos de monedas
+    [key: string]: number | ExchangeRatePair | undefined;
+}
+
 interface ExchangeRateCacheState {
-    rates: Record<string, any>;
+    rates: ExchangeRates;
     fetchedAt: number;
 }
 
 let ratesCache: ExchangeRateCacheState | null = null;
-let activeRefreshPromise: Promise<Record<string, any>> | null = null;
+let activeRefreshPromise: Promise<ExchangeRates> | null = null;
 
 /**
  * Obtiene las tasas de cambio vigentes directamente desde la caché.
@@ -14,7 +39,7 @@ let activeRefreshPromise: Promise<Record<string, any>> | null = null;
  * Si ya hay una carga en progreso, reutiliza la promesa activa para evitar 
  * consultas redundantes paralelas.
  */
-export async function getExchangeRates(): Promise<Record<string, any>> {
+export async function getExchangeRates(): Promise<ExchangeRates> {
     if (ratesCache) {
         return ratesCache.rates;
     }
@@ -35,7 +60,7 @@ export async function getExchangeRates(): Promise<Record<string, any>> {
  * Utiliza tiempos de espera (timeouts) de 5 segundos y evita llamadas 
  * concurrentes compartiendo la promesa en curso.
  */
-export async function updateExchangeRatesCache(): Promise<Record<string, any>> {
+export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
     if (activeRefreshPromise) {
         return activeRefreshPromise;
     }
@@ -143,28 +168,28 @@ export async function updateExchangeRatesCache(): Promise<Record<string, any>> {
  * Procesa las tasas relativas a USD y genera todas las combinaciones directas, 
  * inversas y cruzadas (P2P-compatible y compatible con compras/ventas estándar).
  */
-function procesarYGuardarCache(rawRates: { USD: number; EUR: number; ARS: number }): Record<string, any> {
-    const nextRates: Record<string, any> = {
-        USD: 1.0,
-        EUR: rawRates.EUR,
-        ARS: rawRates.ARS
-    };
-
+function procesarYGuardarCache(rawRates: { USD: number; EUR: number; ARS: number }): ExchangeRates {
     const eurRate = rawRates.EUR;
     const arsRate = rawRates.ARS;
 
-    // Pares cruzados y formatos P2P
-    nextRates.USD_USD = { value: 1.0 };
-    nextRates.USD_EUR = { value: eurRate };
-    nextRates.USD_ARS = { value: arsRate };
+    const nextRates: ExchangeRates = {
+        USD: 1.0,
+        EUR: eurRate,
+        ARS: arsRate,
 
-    nextRates.EUR_USD = { value: 1.0 / eurRate };
-    nextRates.EUR_EUR = { value: 1.0 };
-    nextRates.EUR_ARS = { value: arsRate / eurRate };
+        // Pares cruzados y formatos P2P
+        USD_USD: { value: 1.0 },
+        USD_EUR: { value: eurRate },
+        USD_ARS: { value: arsRate },
 
-    nextRates.ARS_USD = { value: 1.0 / arsRate };
-    nextRates.ARS_EUR = { value: eurRate / arsRate };
-    nextRates.ARS_ARS = { value: 1.0 };
+        EUR_USD: { value: 1.0 / eurRate },
+        EUR_EUR: { value: 1.0 },
+        EUR_ARS: { value: arsRate / eurRate },
+
+        ARS_USD: { value: 1.0 / arsRate },
+        ARS_EUR: { value: eurRate / arsRate },
+        ARS_ARS: { value: 1.0 }
+    };
 
     ratesCache = {
         rates: nextRates,
