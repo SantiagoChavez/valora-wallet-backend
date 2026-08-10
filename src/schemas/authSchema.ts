@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import { emailRegex } from "../utils/emailValidation.js";
+import { validarDocumento } from "../utils/documentValidation.js";
+
+/**
+ * Códigos ISO 3166-1 alpha-2 de los 19 países de LATAM soportados para país/documento.
+ */
+export const PAISES_LATAM = [
+    "AR", "BO", "BR", "CL", "CO", "CR", "CU", "EC", "SV",
+    "GT", "HN", "MX", "NI", "PA", "PY", "PE", "DO", "UY", "VE",
+] as const;
 
 /**
  * Esquema de validación para el registro de usuarios
@@ -82,43 +91,19 @@ export const registerSchema = z.object({
             }
             return phoneNumber.number; // E.164 format guaranteed
         }),
-    country: z.enum(["AR", "PE", "MX", "CO"]).default("AR"),
+    country: z.enum(PAISES_LATAM, {
+        message: "El país provisto no está soportado.",
+    }).default("AR"),
     du: z
         .string({ message: "El documento único es requerido." })
         .trim()
         .transform((val) => val.replace(/[\s.-]/g, "").toUpperCase()),
 }).superRefine((data, ctx) => {
-    const du = data.du;
-    const country = data.country;
-    let isValid = false;
-    let expectedFormat = "";
-
-    switch (country) {
-        case "AR":
-            isValid = /^\d{7,8}$/.test(du);
-            expectedFormat = "7 u 8 dígitos numéricos";
-            break;
-        case "PE":
-            isValid = /^\d{8}$/.test(du);
-            expectedFormat = "8 dígitos numéricos";
-            break;
-        case "CO":
-            isValid = /^\d{8,10}$/.test(du);
-            expectedFormat = "8 a 10 dígitos numéricos";
-            break;
-        case "MX":
-            isValid = /^[A-Z0-9]{10,18}$/.test(du);
-            expectedFormat = "10 a 18 caracteres alfanuméricos";
-            break;
-        default:
-            isValid = /^[A-Z0-9]{6,18}$/.test(du);
-            expectedFormat = "6 a 18 caracteres alfanuméricos";
-    }
-
-    if (!isValid) {
+    const { valido, label } = validarDocumento(data.du, data.country);
+    if (!valido) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `El documento único para ${country} no es válido. Formato esperado: ${expectedFormat}.`,
+            message: `El ${label} debe tener entre 5 y 15 caracteres alfanuméricos.`,
             path: ["du"],
         });
     }
