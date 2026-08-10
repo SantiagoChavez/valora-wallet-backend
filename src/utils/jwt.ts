@@ -18,7 +18,7 @@ function getJwtSecret(): string {
 }
 
 /**
- * Genera un token JWT firmado con validez de 24 horas.
+ * Genera un token JWT firmado con validez de 15 minutos.
  * @param payload - Datos del usuario a incluir en el token.
  * @returns El token JWT firmado.
  */
