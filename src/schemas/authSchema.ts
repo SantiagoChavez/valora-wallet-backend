@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import { emailRegex } from "../utils/emailValidation.js";
 import { validarDocumento } from "../utils/documentValidation.js";
+import { validarCelular } from "../utils/phoneValidation.js";
 
 /**
  * Códigos ISO 3166-1 alpha-2 de los 19 países de LATAM soportados para país/documento.
@@ -76,21 +76,7 @@ export const registerSchema = z.object({
     phone: z
         .string({ message: "El número de teléfono es requerido." })
         .trim()
-        .transform((val, ctx) => {
-            const defaultCountry: CountryCode = "AR";
-            const phoneNumber = val.startsWith("+")
-                ? parsePhoneNumberFromString(val)
-                : parsePhoneNumberFromString(val, defaultCountry);
-
-            if (!phoneNumber || !phoneNumber.isValid()) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "El número de teléfono provisto no es válido.",
-                });
-                return z.NEVER;
-            }
-            return phoneNumber.number; // E.164 format guaranteed
-        }),
+        .min(1, "El número de teléfono es requerido."),
     country: z.enum(PAISES_LATAM, {
         message: "El país provisto no está soportado.",
     }).default("AR"),
@@ -105,6 +91,15 @@ export const registerSchema = z.object({
             code: z.ZodIssueCode.custom,
             message: `El ${label} debe tener entre 5 y 15 caracteres alfanuméricos.`,
             path: ["du"],
+        });
+    }
+
+    const celular = validarCelular(data.phone, data.country);
+    if (!celular.valido) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
+            path: ["phone"],
         });
     }
 });

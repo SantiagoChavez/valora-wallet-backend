@@ -16,6 +16,7 @@ import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balance
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { pool } from "../database/db.js";
 import { enviarEmailConfirmacion } from "../services/sesService.js";
+import { validarCelular } from "../utils/phoneValidation.js";
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutos
 const PASSWORD_RESET_GENERIC_MESSAGE =
@@ -110,12 +111,24 @@ export async function registerController(
       return;
     }
 
+    // El schema de Zod ya validó que sea un celular real vía validarCelular; acá lo volvemos
+    // a llamar para obtener el valor normalizado en E.164 y nunca persistir el string crudo.
+    const celular = validarCelular(phone, country);
+    if (!celular.e164) {
+      res.status(400).json({
+        success: false,
+        error: "ValidationError",
+        message: "El número de celular provisto no es válido."
+      });
+      return;
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const client = await pool.connect();
 
     try {
       await client.query("BEGIN");
-      const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, phone, country, du, client);
+      const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, celular.e164, country, du, client);
       const wallet = await createWallet(user.id, firstName, client);
       await createOrUpdateBalance(wallet.id, "USD", "0.00000000", client);
       
