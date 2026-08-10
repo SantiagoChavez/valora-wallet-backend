@@ -284,10 +284,10 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
 > {
 >   "success": false,
 >   "error": "IncompleteProfileError",
->   "message": "Completá tu celular y tu DNI antes de operar con tu billetera."
+>   "message": "Completá tu celular y tu <documento> antes de operar con tu billetera."
 > }
 > ```
-> con status `403`. Cotizar (`/quote`) es de solo lectura y **no** requiere perfil completo.
+> con status `403`. `<documento>` varía según el `country` de la cuenta (DNI, CPF, CURP, CI, etc. — ver seccion 1.5 y `GET /catalogs/document-types`), no es siempre "DNI". Cotizar (`/quote`) es de solo lectura y **no** requiere perfil completo.
 
 ### 3.1 Realizar un Deposito 🔒
 *   **Metodo:** `POST`

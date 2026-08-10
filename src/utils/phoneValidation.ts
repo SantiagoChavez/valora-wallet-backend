@@ -27,8 +27,10 @@ export function validarCelular(numero: string, paisIso: string): ValidarCelularR
   }
 
   const tipo = phoneNumber.getType();
-  // MOBILE y FIXED_LINE_OR_MOBILE (ambiguo, común en varios países LATAM) se aceptan;
-  // FIXED_LINE se rechaza explícitamente porque el campo es para celular.
+  // Se acepta cualquier tipo excepto FIXED_LINE (incluye MOBILE, el ambiguo
+  // FIXED_LINE_OR_MOBILE común en varios países LATAM, y tipos indeterminados como
+  // undefined). Es un rechazo explícito de línea fija, no una lista blanca de "celular
+  // puro" — así lo pedía la consigna original.
   const esCelular = tipo !== "FIXED_LINE";
 
   return {

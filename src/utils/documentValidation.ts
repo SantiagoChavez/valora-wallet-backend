@@ -39,8 +39,9 @@ export interface ValidarDocumentoResult {
  * @returns Si es válido, y el label del documento correspondiente al país ("Documento" si no está en el mapa).
  */
 export function validarDocumento(numero: string, paisIso: string): ValidarDocumentoResult {
+  const paisNormalizado = paisIso.trim().toUpperCase();
   return {
     valido: GENERIC_DOCUMENT_REGEX.test(numero),
-    label: DOCUMENTO_POR_PAIS[paisIso] ?? "Documento",
+    label: DOCUMENTO_POR_PAIS[paisNormalizado] ?? "Documento",
   };
 }

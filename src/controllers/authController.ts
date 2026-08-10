@@ -126,7 +126,7 @@ export async function registerController(
     if (!celular.e164) {
       res.status(400).json({
         success: false,
-        error: "ValidationError",
+        error: "VALIDATION_ERROR",
         message: "El número de celular provisto no es válido."
       });
       return;
@@ -284,7 +284,7 @@ export async function completeProfileController(
     if (!celular.e164) {
       res.status(400).json({
         success: false,
-        error: "ValidationError",
+        error: "VALIDATION_ERROR",
         message: "El número de celular provisto no es válido."
       });
       return;
