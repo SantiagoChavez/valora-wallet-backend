@@ -73,6 +73,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         phone: "+5491123456789", // E.164 normalizado
         country: "AR",
         du: "11111111",
+        profileComplete: true,
       });
 
       const { wallet, user } = response.body.data;
@@ -217,6 +218,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         phone: "+5491123456789",
         country: "AR",
         du: "11111111",
+        profileComplete: true,
       });
     });
 
@@ -285,6 +287,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         phone: "+5491123456789",
         country: "AR",
         du: "11111111",
+        profileComplete: true,
       });
     });
 

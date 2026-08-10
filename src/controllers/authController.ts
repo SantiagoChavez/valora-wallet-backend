@@ -32,6 +32,7 @@ export interface UserResponse {
   phone?: string | null;
   country?: string;
   du?: string | null;
+  profileComplete?: boolean;
 }
 
 function formatDate(dateInput: Date | string | null | undefined): string | null {
@@ -70,6 +71,10 @@ export function toUserResponse(user: User, includePII = true): UserResponse {
     response.phone = user.phone || null;
     response.country = user.country;
     response.du = user.du || null;
+    // Le indica al frontend cuándo mostrar el paso de "completar perfil" (ej. tras un
+    // alta por Google, que arranca sin celular ni DU) — ver requireCompleteProfile.ts,
+    // que es quien realmente bloquea las operaciones de billetera del lado del backend.
+    response.profileComplete = Boolean(user.phone) && Boolean(user.du);
   }
 
   return response;
