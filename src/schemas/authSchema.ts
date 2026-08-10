@@ -12,6 +12,33 @@ export const PAISES_LATAM = [
 ] as const;
 
 /**
+ * Validación cruzada compartida entre registro y "completar perfil": el DU y el celular
+ * dependen del país elegido, así que no se pueden validar campo por campo de forma aislada.
+ */
+function duYCelularRefinement(
+    data: { du: string; country: (typeof PAISES_LATAM)[number]; phone: string },
+    ctx: z.RefinementCtx
+): void {
+    const { valido, label } = validarDocumento(data.du, data.country);
+    if (!valido) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `El ${label} debe tener entre 5 y 15 caracteres alfanuméricos.`,
+            path: ["du"],
+        });
+    }
+
+    const celular = validarCelular(data.phone, data.country);
+    if (!celular.valido) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
+            path: ["phone"],
+        });
+    }
+}
+
+/**
  * Esquema de validación para el registro de usuarios
  */
 export const registerSchema = z.object({
@@ -84,25 +111,26 @@ export const registerSchema = z.object({
         .string({ message: "El documento único es requerido." })
         .trim()
         .transform((val) => val.replace(/[\s.-]/g, "").toUpperCase()),
-}).superRefine((data, ctx) => {
-    const { valido, label } = validarDocumento(data.du, data.country);
-    if (!valido) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `El ${label} debe tener entre 5 y 15 caracteres alfanuméricos.`,
-            path: ["du"],
-        });
-    }
+}).superRefine(duYCelularRefinement);
 
-    const celular = validarCelular(data.phone, data.country);
-    if (!celular.valido) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
-            path: ["phone"],
-        });
-    }
-});
+/**
+ * Esquema para completar celular, país y DU luego del registro (ej. cuentas creadas
+ * vía Google, que no piden estos datos en el alta). Reutiliza la misma validación
+ * que el registro para no tener dos criterios distintos de "celular/DU válido".
+ */
+export const completeProfileSchema = z.object({
+    phone: z
+        .string({ message: "El número de teléfono es requerido." })
+        .trim()
+        .min(1, "El número de teléfono es requerido."),
+    country: z.enum(PAISES_LATAM, {
+        message: "El país provisto no está soportado.",
+    }),
+    du: z
+        .string({ message: "El documento único es requerido." })
+        .trim()
+        .transform((val) => val.replace(/[\s.-]/g, "").toUpperCase()),
+}).superRefine(duYCelularRefinement);
 
 /**
  * Esquema de validación para el inicio de sesión
@@ -149,6 +177,7 @@ export const resetPasswordSchema = z.object({
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type CompleteProfileInput = z.infer<typeof completeProfileSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

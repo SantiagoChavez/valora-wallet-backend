@@ -37,14 +37,18 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
     du: "11111111",
   };
 
+  const googleTestEmail = "google_test@valora.com";
+
   // Limpieza previa a la ejecución de pruebas
   beforeAll(async () => {
     await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+    await query("DELETE FROM users WHERE email = $1", [googleTestEmail]);
   });
 
   // Limpieza posterior
   afterAll(async () => {
     await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+    await query("DELETE FROM users WHERE email = $1", [googleTestEmail]);
   });
 
   describe("POST /auth/register", () => {
@@ -368,6 +372,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty("token");
       expect(response.body.data.user.email).toBe("google_test@valora.com");
+      // El alta con Google no debe inventar celular ni DU: quedan sin completar.
+      expect(response.body.data.user.phone).toBeNull();
+      expect(response.body.data.user.du).toBeNull();
       expect(response.body.data.wallet).toHaveProperty("id");
       expect(response.body.data.wallet).toHaveProperty("cvu");
       expect(response.body.data.wallet).toHaveProperty("alias");
@@ -391,6 +398,61 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.status).toBe(401);
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain("Token de Google inválido");
+    });
+  });
+
+  describe("PATCH /auth/me", () => {
+    let googleToken: string;
+
+    beforeAll(async () => {
+      // Reutiliza la cuenta de Google ya creada en el describe anterior (login idempotente).
+      const loginResponse = await request(app)
+        .post("/auth/google")
+        .send({ idToken: "valid-token" });
+      googleToken = loginResponse.body.data.token;
+    });
+
+    it("debería completar celular, país y DU de una cuenta de Google", async () => {
+      const response = await request(app)
+        .patch("/auth/me")
+        .set("Authorization", `Bearer ${googleToken}`)
+        .send({ phone: "+54 9 11 3456-7890", country: "AR", du: "22222222" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.user.phone).toBe("+5491134567890");
+      expect(response.body.data.user.du).toBe("22222222");
+    });
+
+    it("debería rechazar la petición sin token", async () => {
+      const response = await request(app)
+        .patch("/auth/me")
+        .send({ phone: "+54 9 11 3456-7890", country: "AR", du: "22222222" });
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+
+    it("debería rechazar un celular que sea línea fija", async () => {
+      const response = await request(app)
+        .patch("/auth/me")
+        .set("Authorization", `Bearer ${googleToken}`)
+        .send({ phone: "+541123456789", country: "AR", du: "23232323" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain("celular");
+    });
+
+    it("debería rechazar un DU que ya está en uso por otra cuenta", async () => {
+      const response = await request(app)
+        .patch("/auth/me")
+        .set("Authorization", `Bearer ${googleToken}`)
+        .send({ phone: "+54 9 11 4567-8901", country: "AR", du: testUser.du });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("DuplicateFieldError");
     });
   });
 });

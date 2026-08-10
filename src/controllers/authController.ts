@@ -7,6 +7,7 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
+  updateUserProfile,
   setPasswordResetToken,
   resetPasswordWithValidToken,
   type User,
@@ -239,6 +240,53 @@ export async function meController(
   }
 }
 
+/**
+ * Completa (o edita) celular, país y DU de la cuenta autenticada. Pensado sobre todo
+ * para las cuentas creadas vía Google, que no piden estos datos en el alta.
+ */
+export async function completeProfileController(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "UnauthorizedError", message: "Token no proporcionado." });
+      return;
+    }
+
+    const { phone, country, du } = req.body;
+
+    // El schema de Zod ya validó que sea un celular real vía validarCelular; acá lo volvemos
+    // a llamar para obtener el valor normalizado en E.164 y nunca persistir el string crudo.
+    const celular = validarCelular(phone, country);
+    if (!celular.e164) {
+      res.status(400).json({
+        success: false,
+        error: "ValidationError",
+        message: "El número de celular provisto no es válido."
+      });
+      return;
+    }
+
+    const user = await updateUserProfile(userId, celular.e164, country, du);
+    res.status(200).json({ success: true, data: { user: toUserResponse(user) } });
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+      const constraint = "constraint" in error ? String((error as { constraint?: unknown }).constraint) : "";
+      const message = constraint.includes("phone")
+        ? "El número de celular provisto ya está en uso por otra cuenta."
+        : constraint.includes("du")
+          ? "El documento provisto ya está en uso por otra cuenta."
+          : "El celular o el documento provisto ya está en uso por otra cuenta.";
+      res.status(400).json({ success: false, error: "DuplicateFieldError", message });
+      return;
+    }
+    next(error);
+  }
+}
+
 export function logoutController(_req: AuthenticatedRequest, res: Response): void {
   res.status(200).json({
     success: true,
@@ -312,7 +360,10 @@ export async function googleLoginController(
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-        user = await createUser(email, null, given_name || "Usuario", family_name || "", "1990-01-01", "+5491100000000", "AR", null, client);
+        // Celular, país y DU no se piden en el alta con Google: quedan sin completar
+        // (en vez de un placeholder inventado) hasta que el usuario los cargue desde
+        // PATCH /auth/me.
+        user = await createUser(email, null, given_name || "Usuario", family_name || "", "1990-01-01", null, "AR", null, client);
         const newWallet = await createWallet(user.id, given_name || "Usuario", client);
         await createOrUpdateBalance(newWallet.id, "USD", "0.00000000", client);
         await client.query("COMMIT");
