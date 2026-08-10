@@ -12,6 +12,8 @@ describe("Pruebas de integración de transacciones", () => {
     lastName: "Chavez",
     dateOfBirth: "15/05/1995",
     phone: "+5493511234567",
+    country: "AR",
+    du: "33333333",
   };
 
   const originalFetch = global.fetch;
@@ -36,7 +38,7 @@ describe("Pruebas de integración de transacciones", () => {
       .send(testUser);
 
     authToken = registerResponse.body.data.token;
-    walletId = registerResponse.body.data.walletId;
+    walletId = registerResponse.body.data.wallet.id;
   });
 
   afterAll(async () => {

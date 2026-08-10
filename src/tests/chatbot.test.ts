@@ -20,6 +20,8 @@ describe("Pruebas de integración del Chatbot", () => {
         lastName: "Test",
         dateOfBirth: "01/01/1990",
         phone: "+54 9 351 111-2222",
+        country: "AR",
+        du: "55555555",
     };
 
     beforeAll(async () => {
