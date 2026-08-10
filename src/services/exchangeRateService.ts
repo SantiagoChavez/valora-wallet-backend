@@ -31,6 +31,13 @@ let nextRetryAt = 0;
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 horas
 
 /**
+ * Validador helper (DRY) para garantizar que una tasa de cambio sea finita y mayor a cero.
+ */
+function isValidRate(rate: any): rate is number {
+    return typeof rate === "number" && Number.isFinite(rate) && rate > 0;
+}
+
+/**
  * Obtiene las tasas de cambio vigentes directamente desde la caché.
  * Si la caché está vacía (por ejemplo, en el arranque inicial del servidor), 
  * fuerza una carga inicial antes de responder.
@@ -51,7 +58,10 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
     }
 
     if (Date.now() < nextRetryAt) {
-        throw new Error("Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar (cooldown activo)");
+        throw Object.assign(
+            new Error("Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar (cooldown activo)"),
+            { status: 503, code: "SERVICE_UNAVAILABLE" }
+        );
     }
 
     if (activeRefreshPromise) {
@@ -103,12 +113,8 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
                 }
             }
 
-            if (!eurToUsd || !Number.isFinite(eurToUsd) || eurToUsd <= 0) {
-                throw new Error("La API no devolvió la cotización de USD");
-            }
-            if (!eurToArs || !Number.isFinite(eurToArs) || eurToArs <= 0) {
-                throw new Error("La API no devolvió la cotización de ARS");
-            }
+            if (!isValidRate(eurToUsd)) throw new Error("La API no devolvió la cotización válida de USD");
+            if (!isValidRate(eurToArs)) throw new Error("La API no devolvió la cotización válida de ARS");
 
             const rawRates = {
                 USD: 1.0,
@@ -130,20 +136,19 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
                     throw new Error(`ExchangeRate-API respondió con estado ${fallbackResponse.status}`);
                 }
 
-                const fallbackData = (await fallbackResponse.json()) as any;
-                if (!fallbackData || !fallbackData.rates) {
-                    throw new Error("Respuesta inválida de ExchangeRate-API");
+                const fallbackData = await fallbackResponse.json() as unknown;
+                
+                // Tipado estricto sin ANY para proteger contratos frágiles de API
+                if (typeof fallbackData !== "object" || fallbackData === null || !("rates" in fallbackData)) {
+                    throw new Error("Respuesta inválida o estructura mutada de ExchangeRate-API");
                 }
 
-                const eurRate = Number(fallbackData.rates.EUR);
-                const arsRate = Number(fallbackData.rates.ARS);
+                const ratesObj = (fallbackData as { rates: Record<string, any> }).rates;
+                const eurRate = Number(ratesObj.EUR);
+                const arsRate = Number(ratesObj.ARS);
 
-                if (!eurRate || !Number.isFinite(eurRate) || eurRate <= 0) {
-                    throw new Error("La API de respaldo no devolvió la cotización de EUR");
-                }
-                if (!arsRate || !Number.isFinite(arsRate) || arsRate <= 0) {
-                    throw new Error("La API de respaldo no devolvió la cotización de ARS");
-                }
+                if (!isValidRate(eurRate)) throw new Error("La API de respaldo no devolvió la cotización válida de EUR");
+                if (!isValidRate(arsRate)) throw new Error("La API de respaldo no devolvió la cotización válida de ARS");
 
                 const rawRates = {
                     USD: 1.0,
@@ -170,7 +175,10 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
                     return ratesCache.rates;
                 }
 
-                throw new Error("Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar");
+                throw Object.assign(
+                    new Error("Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar"),
+                    { status: 503, code: "SERVICE_UNAVAILABLE" }
+                );
             }
         }
     })();
