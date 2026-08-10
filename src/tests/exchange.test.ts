@@ -94,4 +94,28 @@ describe("Exchange Rate Service Integration Tests", () => {
         expect(rates.EUR_ARS).toBeDefined();
         expect(rates.EUR_ARS!.value).toBeCloseTo(1000 / 0.925, 5);
     });
+
+    it("should prevent aggressive retries and throw cooldown error on consecutive failures", async () => {
+        // Simulamos un error 500 de ambas APIs (falla total)
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 500,
+        }) as typeof fetch;
+
+        // Primera petición: falla y establece el cooldown
+        await expect(getExchangeRates()).rejects.toThrow(
+            "Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar"
+        );
+
+        // Verificamos que fetch se llamó 2 veces (Frankfurter + Fallback)
+        expect(global.fetch).toHaveBeenCalledTimes(2);
+
+        // Segunda petición INMEDIATA (dentro del cooldown): debe bloquearse SIN llamar a fetch
+        await expect(getExchangeRates()).rejects.toThrow(
+            "Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar (cooldown activo)"
+        );
+
+        // Verificamos que fetch SIGUE habiendo sido llamado 2 veces (no aumentó, el short-circuit funcionó)
+        expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
 });
