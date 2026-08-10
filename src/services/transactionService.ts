@@ -78,8 +78,15 @@ async function executeConversion(
     const rateFrom = rates[fromCurrency];
     const rateTo = rates[toCurrency];
 
-    // Validar que existan las tasas y que correspondan a valores numéricos válidos (no a objetos de pares cruzados)
-    if (typeof rateFrom !== "number" || typeof rateTo !== "number") {
+    // Validar que existan las tasas, que correspondan a valores numéricos finitos y sean mayores a cero
+    if (
+        typeof rateFrom !== "number" || 
+        typeof rateTo !== "number" || 
+        !Number.isFinite(rateFrom) || 
+        !Number.isFinite(rateTo) || 
+        rateFrom <= 0 || 
+        rateTo <= 0
+    ) {
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
