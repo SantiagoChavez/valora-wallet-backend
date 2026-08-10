@@ -23,7 +23,7 @@ const PASSWORD_RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutos
 const PASSWORD_RESET_GENERIC_MESSAGE =
   "Si el correo está registrado, vas a recibir instrucciones para restablecer tu contraseña.";
 const SUPPORT_EMAIL = "nexot.solutions@gmail.com";
-const DUPLICATE_DU_GENERIC_MESSAGE =
+const DUPLICATE_FIELD_GENERIC_MESSAGE =
   `No pudimos guardar esos datos. Si creés que se trata de un error, escribinos a ${SUPPORT_EMAIL}.`;
 
 export interface UserResponse {
@@ -152,10 +152,22 @@ export async function registerController(
     }
   } catch (error: unknown) {
     if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+      const constraint = "constraint" in error ? String((error as { constraint?: unknown }).constraint) : "";
+      if (constraint.includes("email")) {
+        res.status(400).json({
+          success: false,
+          error: "DuplicateEmailError",
+          message: "El correo electrónico ya se encuentra registrado"
+        });
+        return;
+      }
+      // Colisión en otra columna (ej. DU): mensaje genérico a propósito, no confirmar que
+      // "ese DNI ya existe" evita que el registro sirva para probar si un DNI específico
+      // ya está en el sistema.
       res.status(400).json({
         success: false,
-        error: "DuplicateEmailError",
-        message: "El correo electrónico ya se encuentra registrado"
+        error: "DuplicateFieldError",
+        message: DUPLICATE_FIELD_GENERIC_MESSAGE,
       });
       return;
     }
@@ -282,15 +294,14 @@ export async function completeProfileController(
     res.status(200).json({ success: true, data: { user: toUserResponse(user) } });
   } catch (error: unknown) {
     if (error && typeof error === "object" && "code" in error && error.code === "23505") {
-      const constraint = "constraint" in error ? String((error as { constraint?: unknown }).constraint) : "";
-      // El celular duplicado se informa tal cual (no es un dato sensible de identidad). El DU
-      // duplicado (y cualquier caso ambiguo) usa un mensaje genérico a propósito: no confirmar
-      // que "ese DNI ya existe" evita que este endpoint sirva para probar si un DNI específico
+      // Mensaje genérico a propósito para celular y DU por igual: no confirmar que "ese dato
+      // ya existe" evita que este endpoint sirva para probar si un DNI o celular específico
       // ya está registrado en el sistema.
-      const message = constraint.includes("phone")
-        ? "El número de celular provisto ya está en uso por otra cuenta."
-        : DUPLICATE_DU_GENERIC_MESSAGE;
-      res.status(400).json({ success: false, error: "DuplicateFieldError", message });
+      res.status(400).json({
+        success: false,
+        error: "DuplicateFieldError",
+        message: DUPLICATE_FIELD_GENERIC_MESSAGE,
+      });
       return;
     }
     next(error);

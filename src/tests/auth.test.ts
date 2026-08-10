@@ -103,6 +103,24 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       });
     });
 
+    it("debería fallar al registrar con un DU duplicado (email nuevo), sin confirmar que ese DU existe", async () => {
+      const response = await request(app)
+        .post("/auth/register")
+        .send({
+          ...testUser,
+          email: "du_duplicado_test@valora.com",
+          du: testUser.du,
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("DuplicateFieldError");
+      expect(response.body.message).not.toContain(testUser.du);
+      expect(response.body.message.toLowerCase()).not.toContain("documento");
+      expect(response.body.message).not.toContain("correo");
+      expect(response.body.message).toContain("nexot.solutions@gmail.com");
+    });
+
     it("debería fallar al registrar si faltan campos requeridos", async () => {
       const response = await request(app)
         .post("/auth/register")
