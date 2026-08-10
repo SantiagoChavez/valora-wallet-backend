@@ -254,10 +254,20 @@ export async function googleLoginController(
 
     const { idToken } = req.body;
 
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (err) {
+      res.status(401).json({ 
+        success: false, 
+        error: "UnauthorizedError", 
+        message: "Token de Google inválido o expirado." 
+      });
+      return;
+    }
     
     const payload = ticket.getPayload();
     if (!payload || !payload.email || !payload.email_verified) {

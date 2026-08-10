@@ -388,7 +388,9 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         .post("/auth/google")
         .send({ idToken: "invalid-token" });
 
-      expect(response.status).toBe(500); // verifyIdToken throws Error which goes to next(err) -> 500
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain("Token de Google inválido");
     });
   });
 });
