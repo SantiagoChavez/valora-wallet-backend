@@ -180,10 +180,11 @@ if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
         console.error("[Exchange Service] Error al realizar la carga inicial de cotizaciones:", err);
     });
 
-    setInterval(() => {
+    const refreshInterval = setInterval(() => {
         console.log("[Exchange Service] Actualizando caché de cotizaciones en segundo plano...");
         updateExchangeRatesCache().catch((err) => {
             console.error("[Exchange Service] Falló la actualización de cotizaciones en segundo plano:", err);
         });
     }, 2 * 60 * 60 * 1000);
+    refreshInterval.unref?.();
 }
