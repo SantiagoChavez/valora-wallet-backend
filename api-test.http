@@ -15,7 +15,7 @@ Content-Type: application/json
   "firstName": "Santiago",
   "lastName": "Chavez",
   "dateOfBirth": "15/05/1995",
-  "phone": "+5493511234567",
+  "phone": "+5491123456789",
   "country": "AR",
   "du": "12345678"
 }
@@ -34,7 +34,20 @@ Content-Type: application/json
 GET {{baseUrl}}/auth/me
 Authorization: Bearer {{token}}
 
-### 4. Configurar Alias (Wallet)
+### 4. Completar/Editar Celular, País y DU (Auth)
+# Sirve para completar el perfil de una cuenta creada con Google (arranca sin celular/DU)
+# o para editar estos datos en cualquier cuenta ya existente.
+PATCH {{baseUrl}}/auth/me
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "phone": "+54 9 11 2345-6789",
+  "country": "AR",
+  "du": "12345678"
+}
+
+### 5. Configurar Alias (Wallet)
 PUT {{baseUrl}}/wallet/alias
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -43,7 +56,7 @@ Authorization: Bearer {{token}}
   "alias": "santiago.valora"
 }
 
-### 5. Realizar Depósito (Transactions)
+### 6. Realizar Depósito (Transactions)
 POST {{baseUrl}}/transactions/deposit
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -53,7 +66,7 @@ Authorization: Bearer {{token}}
   "amount": 500
 }
 
-### 6. Realizar Intercambio (Transactions)
+### 7. Realizar Intercambio (Transactions)
 POST {{baseUrl}}/transactions/exchange
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -64,15 +77,15 @@ Authorization: Bearer {{token}}
   "amount": 100
 }
 
-### 7. Ver Transacciones (Transactions)
+### 8. Ver Transacciones (Transactions)
 GET {{baseUrl}}/transactions?limit=10&page=1
 Authorization: Bearer {{token}}
 
-### 8. Ver Saldos Actuales (Balances)
+### 9. Ver Saldos Actuales (Balances)
 GET {{baseUrl}}/balances
 Authorization: Bearer {{token}}
 
-### 9. Chatbot - Asistente Financiero
+### 10. Chatbot - Asistente Financiero
 POST {{baseUrl}}/chatbot/message
 Content-Type: application/json
 Authorization: Bearer {{token}}

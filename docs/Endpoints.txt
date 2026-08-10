@@ -58,7 +58,8 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
           "dateOfBirth": "10/10/1995",
           "phone": "+525512345678",
           "country": "AR",
-          "du": "12345678"
+          "du": "12345678",
+          "profileComplete": true
         },
         "wallet": {
           "id": "uuid-wallet",
@@ -101,7 +102,8 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
           "dateOfBirth": "10/10/1995",
           "phone": "+525512345678",
           "country": "AR",
-          "du": "12345678"
+          "du": "12345678",
+          "profileComplete": true
         },
         "wallet": {
           "id": "uuid-wallet",
@@ -129,7 +131,8 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
           "dateOfBirth": "10/10/1995",
           "phone": "+525512345678",
           "country": "AR",
-          "du": "12345678"
+          "du": "12345678",
+          "profileComplete": true
         },
         "wallet": {
           "id": "uuid-wallet",
@@ -146,6 +149,92 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
           }
         ]
       }
+    }
+    ```
+
+### 1.4 Iniciar Sesion con Google
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/auth/google`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "idToken": "<idToken devuelto por el SDK de Google en el frontend>"
+    }
+    ```
+*   **Respuesta de Exito (200 OK):** Si la cuenta ya existia, la loguea. Si no existia, la crea **sin celular ni DU** (esos datos no los provee Google) — ver 1.5 para completarlos.
+    ```json
+    {
+      "success": true,
+      "data": {
+        "token": "eyJhbGciOiJIUzI1...",
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@gmail.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "dateOfBirth": null,
+          "phone": null,
+          "country": "AR",
+          "du": null,
+          "profileComplete": false
+        },
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        }
+      }
+    }
+    ```
+*   ⚠️ Mientras `profileComplete` sea `false`, el backend rechaza con `403` cualquier intento de depositar, comprar, vender o intercambiar (ver nota al final de la sección 3). El frontend deberia mostrar un paso de "completar perfil" apenas detecte `profileComplete: false`.
+
+### 1.5 Completar/Editar Celular, Pais y DU 🔒
+*   **Metodo:** `PATCH`
+*   **URL:** `http://localhost:3000/auth/me`
+*   **Headers:** `Authorization: Bearer <TOKEN>`
+*   Sirve tanto para completar el perfil de una cuenta creada con Google como para editar estos datos en cualquier cuenta ya existente. Los tres campos van siempre juntos (la validacion del DU depende del pais, y la del celular depende de que sea un celular real, no linea fija).
+*   **Request Body (JSON):**
+    ```json
+    {
+      "phone": "+54 9 11 2345-6789",
+      "country": "AR",
+      "du": "12345678"
+    }
+    ```
+    `phone` puede venir en cualquier formato razonable (con espacios, guiones, etc.) — el backend lo normaliza a E.164 antes de guardarlo. Tiene que incluir el codigo de pais del celular (`+54...`), que puede ser distinto al `country` de residencia.
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@gmail.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "phone": "+5491123456789",
+          "country": "AR",
+          "du": "12345678",
+          "profileComplete": true
+        }
+      }
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - Celular invalido o linea fija):**
+    ```json
+    {
+      "success": false,
+      "error": "VALIDATION_ERROR",
+      "message": "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
+      "issues": ["El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado."]
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - Celular o DU ya en uso):**
+    ```json
+    {
+      "success": false,
+      "error": "DuplicateFieldError",
+      "message": "El número de celular provisto ya está en uso por otra cuenta."
     }
     ```
 
@@ -189,6 +278,16 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
 ---
 
 ## 3. Transacciones (`/transactions`)
+
+> ⚠️ **Perfil incompleto:** depositar, comprar (`/buy`), vender (`/sell`) e intercambiar (`/exchange`) requieren que la cuenta tenga celular y DU cargados (`profileComplete: true` en el usuario — ver seccion 1.4 y 1.5). Si no, devuelven:
+> ```json
+> {
+>   "success": false,
+>   "error": "IncompleteProfileError",
+>   "message": "Completá tu celular y tu DNI antes de operar con tu billetera."
+> }
+> ```
+> con status `403`. Cotizar (`/quote`) es de solo lectura y **no** requiere perfil completo.
 
 ### 3.1 Realizar un Deposito 🔒
 *   **Metodo:** `POST`
