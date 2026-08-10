@@ -45,7 +45,7 @@ const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 horas
 export async function getExchangeRates(): Promise<ExchangeRates> {
     if (ratesCache) {
         const cacheAge = Date.now() - ratesCache.fetchedAt;
-        if (cacheAge > CACHE_TTL) {
+        if (cacheAge > CACHE_TTL && !activeRefreshPromise) {
             console.log("[Exchange Service] Caché obsoleta detectada. Iniciando refresco asíncrono en segundo plano...");
             updateExchangeRatesCache().catch((err) => {
                 console.error("[Exchange Service] Falló la actualización asíncrona de cotizaciones en segundo plano:", err);
