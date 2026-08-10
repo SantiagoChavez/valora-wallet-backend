@@ -56,6 +56,43 @@ export async function executeDeposit(userId: string, currency: string, amount: n
 }
 
 /**
+ * Obtiene una cotización en tiempo real sin abrir conexiones a la base de datos.
+ * @param fromCurrency Moneda de origen
+ * @param toCurrency Moneda de destino
+ * @param amount Monto a convertir
+ * @returns Tasa de cambio y monto a recibir
+ */
+export async function getExchangeQuote(fromCurrency: string, toCurrency: string, amount: number) {
+    if (amount <= 0) throw Object.assign(new Error("El monto a cotizar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
+    if (fromCurrency === toCurrency) throw Object.assign(new Error("Las monedas de origen y destino no pueden ser iguales."), { status: 400, code: "SAME_CURRENCY" });
+
+    type BaseCurrency = "USD" | "EUR" | "ARS";
+    const isValidCurrency = (cur: string): cur is BaseCurrency => ["USD", "EUR", "ARS"].includes(cur);
+
+    if (!isValidCurrency(fromCurrency) || !isValidCurrency(toCurrency)) {
+        throw Object.assign(new Error("Moneda no soportada para cotización."), { status: 400, code: "UNSUPPORTED_CURRENCY" });
+    }
+
+    const rates = await getExchangeRates();
+    const rateFrom = rates[fromCurrency];
+    const rateTo = rates[toCurrency];
+
+    if (!Number.isFinite(rateFrom) || !Number.isFinite(rateTo) || rateFrom <= 0 || rateTo <= 0) {
+        throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
+    }
+
+    //Redondeo de los numeros
+    const exchangeRate = Number((rateTo / rateFrom).toFixed(8));
+    const amountInUsd = amount / rateFrom;
+    const targetAmount = Number((amountInUsd * rateTo).toFixed(8));
+
+    return {
+        exchangeRate,
+        targetAmount
+    };
+}
+
+/**
  * Lógica común privada para ejecutar conversiones de moneda (EXCHANGE, BUY, SELL)
  * garantizando ACID y evitando retener conexiones de base de datos durante llamadas de red externas.
  */
@@ -87,9 +124,9 @@ async function executeConversion(
 
     // Validar que existan las tasas, que correspondan a valores numéricos finitos y sean mayores a cero
     if (
-        !Number.isFinite(rateFrom) || 
-        !Number.isFinite(rateTo) || 
-        rateFrom <= 0 || 
+        !Number.isFinite(rateFrom) ||
+        !Number.isFinite(rateTo) ||
+        rateFrom <= 0 ||
         rateTo <= 0
     ) {
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
@@ -106,7 +143,7 @@ async function executeConversion(
 
         // Deduct from source currency (negative amount)
         await updateUserBalance(client, wallet.id, fromCurrency, -amount);
-        
+
         // Add to target currency (positive amount)
         const newTargetBalance = await updateUserBalance(client, wallet.id, toCurrency, targetAmount);
 

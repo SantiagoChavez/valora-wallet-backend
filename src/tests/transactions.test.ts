@@ -119,6 +119,37 @@ describe("Pruebas de integración de transacciones", () => {
     });
   });
 
+  describe("POST /transactions/quote", () => {
+    it("debería retornar una cotización válida (Caso Feliz)", async () => {
+      const response = await request(app)
+        .post("/transactions/quote")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "ARS", amount: 100 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty("exchangeRate");
+      expect(response.body.data).toHaveProperty("targetAmount");
+      // Según el mock definido en el beforeAll: ARS = 1000, USD = base (1)
+      expect(response.body.data.exchangeRate).toBe(1000);
+      expect(response.body.data.targetAmount).toBe(100000);
+    });
+
+    it("debería rechazar una cotización con una moneda no soportada (Caso Inválido)", async () => {
+      const response = await request(app)
+        .post("/transactions/quote")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "BRL", amount: 100 });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "UNSUPPORTED_CURRENCY",
+        message: "Moneda no soportada para cotización."
+      });
+    });
+  });
+
   describe("GET /transactions", () => {
     it("debería retornar la lista de transacciones del usuario autenticado", async () => {
       const response = await request(app)
