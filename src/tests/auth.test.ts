@@ -480,5 +480,20 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.body.message.toLowerCase()).not.toContain("documento");
       expect(response.body.message).toContain("nexot.solutions@gmail.com");
     });
+
+    it("debería devolver 404 si el token es válido pero la cuenta ya no existe", async () => {
+      // Último test del bloque: borra la cuenta de Google que vienen reutilizando los
+      // tests anteriores, así no rompe nada más de este describe.
+      await query("DELETE FROM users WHERE email = $1", [googleTestEmail]);
+
+      const response = await request(app)
+        .patch("/auth/me")
+        .set("Authorization", `Bearer ${googleToken}`)
+        .send({ phone: "+54 9 11 8765-4321", country: "AR", du: "60606060" });
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("NotFoundError");
+    });
   });
 });

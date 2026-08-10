@@ -60,14 +60,15 @@ export async function createUser(
  * @param phone - Celular en formato E.164
  * @param country - Código ISO 3166-1 alpha-2
  * @param du - Documento único, normalizado
- * @returns The updated user object.
+ * @returns The updated user object, or null si el userId no corresponde a ningún usuario
+ * (ej. token válido de una cuenta borrada mientras tanto) — igual que findUserById.
  */
 export async function updateUserProfile(
   userId: string,
   phone: string,
   country: string,
   du: string
-): Promise<User> {
+): Promise<User | null> {
   const sql = `
     UPDATE users
     SET phone = $1, country = $2, du = $3, updated_at = CURRENT_TIMESTAMP
@@ -75,10 +76,7 @@ export async function updateUserProfile(
     RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
   `;
   const result = await query(sql, [phone, country, du, userId]);
-  if (result.rows.length === 0) {
-    throw new Error("No se pudo actualizar el perfil del usuario.");
-  }
-  return result.rows[0];
+  return result.rows[0] || null;
 }
 
 /**

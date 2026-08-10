@@ -291,6 +291,10 @@ export async function completeProfileController(
     }
 
     const user = await updateUserProfile(userId, celular.e164, country, du);
+    if (!user) {
+      res.status(404).json({ success: false, error: "NotFoundError", message: "Usuario no encontrado." });
+      return;
+    }
     res.status(200).json({ success: true, data: { user: toUserResponse(user) } });
   } catch (error: unknown) {
     if (error && typeof error === "object" && "code" in error && error.code === "23505") {
