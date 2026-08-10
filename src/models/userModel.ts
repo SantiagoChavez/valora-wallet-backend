@@ -12,7 +12,7 @@ export interface User {
   country: string;
   du: string | null;
   // Opcionales: solo los devuelven las queries que explícitamente los seleccionan
-  // (createUser/findUserByEmail/findUserById no los incluyen en su SELECT/RETURNING).
+  // (createUser/findUserByEmail/findUserById excluyen explícitamente estos tokens/hashes por seguridad).
   password_reset_token_hash?: string | null;
   password_reset_expires_at?: Date | string | null;
   created_at: string | Date;

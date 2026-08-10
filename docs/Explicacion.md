@@ -21,13 +21,13 @@ Como encargado del motor financiero, trabajaste en toda la vertical de transacci
 ### Pruebas y Documentación (Día 4)
 - **`src/tests/exchange.test.ts`**: Pruebas de integración con Mocks (`vi.mock`) para simular la caída de la API de cotizaciones.
 - **`src/tests/transactions.test.ts`**: Pruebas de tus unhappy paths (intentar operar sin saldo suficiente).
-- **`Endpoints.txt`** y **`Tecnisismo.md`**: Tu documentación técnica para el equipo y Frontend.
+- **`Endpoints.txt`**: Tu documentación técnica para el equipo y Frontend.
 
 ---
 
 # 🧠 2. Detalle Técnico: ¿Por qué lo hiciste así? (Tu Defensa)
 
-Si te preguntan por qué programaste las cosas de esta manera, esta es tu argumentación técnica (basada en el documento `Tecnisismo.md` que armaste):
+Si te preguntan por qué programaste las cosas de esta manera, esta es tu argumentación técnica:
 
 - **Caché en Memoria y Alta Disponibilidad (Exchange)**: No consumes la API externa en cada petición porque agotarías la cuota (Rate Limiting) y harías la app muy lenta. Implementaste una caché en memoria (`ratesCache`) con un TTL de 1 hora. Además, aplicaste un patrón Fail-Fast y Fallback: si la API de divisas se cae, tu código devuelve la última caché válida guardada para que los usuarios puedan seguir operando sin bloqueos.
 

@@ -7,7 +7,7 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
 > ```env
 > DB_SSL_REJECT_UNAUTHORIZED=false
 > ```
-> *Si acabas de agregar esto, no olvides reiniciar tu servidor (`npm run dev`) antes de probar en Insomnia.*
+> *(Esta configuración deshabilita la verificación TLS estricta. Es un workaround válido solo para desarrollo local, y está fuertemente desaconsejado en entornos de producción reales).*
 
 ---
 
