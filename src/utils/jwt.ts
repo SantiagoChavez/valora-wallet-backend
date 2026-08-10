@@ -24,7 +24,7 @@ function getJwtSecret(): string {
  */
 export function generateToken(payload: JwtPayload): string {
   const secret = getJwtSecret();
-  return jwt.sign(payload, secret, { algorithm: "HS256", expiresIn: "24h" });
+  return jwt.sign(payload, secret, { algorithm: "HS256", expiresIn: "15m" });
 }
 
 /**
