@@ -31,6 +31,7 @@ interface ExchangeRateCacheState {
 let ratesCache: ExchangeRateCacheState | null = null;
 let activeRefreshPromise: Promise<ExchangeRates> | null = null;
 let consecutiveFailures = 0;
+let nextRetryAt = 0;
 
 const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 horas
 
@@ -52,6 +53,10 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
             });
         }
         return ratesCache.rates;
+    }
+
+    if (Date.now() < nextRetryAt) {
+        throw new Error("Imposible realizar cotización porque las cotizaciones se cayeron o no hay forma de cotizar (cooldown activo)");
     }
 
     if (activeRefreshPromise) {
@@ -156,13 +161,13 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
             } catch (fallbackError: any) {
                 console.error(`[Exchange Service] Fallo Crítico: Ambos proveedores cayeron. (${fallbackError.message})`);
 
+                consecutiveFailures++;
+                const retryDelay = Math.min(5 * 60 * 1000 * Math.pow(2, consecutiveFailures - 1), 60 * 60 * 1000);
+                nextRetryAt = Date.now() + retryDelay;
+
                 // Si ya hay un historial en caché, lo mantenemos para evitar la caída del servidor.
                 if (ratesCache) {
                     console.warn("[Exchange Service] Devolviendo caché en memoria existente debido a fallas de red.");
-                    
-                    // Incrementamos el contador de fallos y calculamos un retry cooldown con backoff exponencial (máximo 1 hora)
-                    consecutiveFailures++;
-                    const retryDelay = Math.min(5 * 60 * 1000 * Math.pow(2, consecutiveFailures - 1), 60 * 60 * 1000);
                     
                     // Ajustamos la marca temporal fetchedAt para retrasar el próximo intento de refresco asíncrono
                     ratesCache.fetchedAt = Date.now() - (CACHE_TTL - retryDelay);
@@ -215,6 +220,7 @@ function procesarYGuardarCache(rawRates: { USD: number; EUR: number; ARS: number
     };
 
     consecutiveFailures = 0; // Restablecer contador de fallos tras éxito
+    nextRetryAt = 0; // Restablecer cooldown
 
     return ratesCache.rates;
 }
@@ -227,6 +233,7 @@ export function clearCacheForTesting(): void {
     ratesCache = null;
     activeRefreshPromise = null;
     consecutiveFailures = 0;
+    nextRetryAt = 0;
 }
 
 // Configurar el arranque e intervalo en segundo plano (omitido en ambiente de pruebas para evitar mantener abierto el bucle de eventos)
