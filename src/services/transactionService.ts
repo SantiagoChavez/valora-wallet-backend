@@ -3,6 +3,12 @@ import { findWalletByUserId } from "../models/walletModel.js";
 import { updateUserBalance } from "../models/balanceModel.js";
 import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
+import { enviarEmailConfirmacion } from "./sesService.js";
+import { findUserById } from "../models/userModel.js";
+
+function sanitizeHtmlString(input: string): string {
+    return input.replace(/[<&>"']/g, "");
+}
 
 /**
  * Executes a deposit transaction securely using ACID properties.
@@ -27,6 +33,19 @@ export async function executeDeposit(userId: string, currency: string, amount: n
         );
 
         await client.query("COMMIT");
+
+        // Disparar email asíncrono
+        void findUserById(userId).then(user => {
+            if (user) {
+                const safeCurrency = sanitizeHtmlString(currency);
+                enviarEmailConfirmacion({
+                    destinatario: user.email,
+                    asunto: "Depósito Confirmado - Valora Wallet",
+                    cuerpoHtml: `<h1>Depósito Exitoso</h1><p>Has depositado ${amount} ${safeCurrency} en tu billetera.</p>`
+                }).catch(err => console.error("Error enviando email SES:", err));
+            }
+        }).catch(err => console.error("Error buscando usuario para email:", err));
+
         return transaction;
     } catch (error: unknown) {
         await client.query("ROLLBACK");
@@ -84,6 +103,21 @@ async function executeConversion(
         );
 
         await client.query("COMMIT");
+
+        // Disparar email asíncrono
+        void findUserById(userId).then(user => {
+            if (user) {
+                const actionName = type === "EXCHANGE" ? "Intercambio" : type === "BUY" ? "Compra" : "Venta";
+                const safeFrom = sanitizeHtmlString(fromCurrency);
+                const safeTo = sanitizeHtmlString(toCurrency);
+                enviarEmailConfirmacion({
+                    destinatario: user.email,
+                    asunto: `${actionName} Confirmada - Valora Wallet`,
+                    cuerpoHtml: `<h1>${actionName} Exitosa</h1><p>Operación: ${amount} ${safeFrom} por ${targetAmount.toFixed(2)} ${safeTo}</p>`
+                }).catch(err => console.error("Error enviando email SES:", err));
+            }
+        }).catch(err => console.error("Error buscando usuario para email:", err));
+
         return transaction;
     } catch (error: unknown) {
         await client.query("ROLLBACK");

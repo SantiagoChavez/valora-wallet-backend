@@ -4,7 +4,7 @@ import { query } from "../database/db";
 export interface User {
   id: string;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
   first_name: string;
   last_name: string;
   date_of_birth: Date | string | null;
@@ -28,7 +28,7 @@ export interface User {
  */
 export async function createUser(
   email: string,
-  passwordHash: string,
+  passwordHash: string | null,
   firstName: string,
   lastName: string,
   dateOfBirth: string | null,

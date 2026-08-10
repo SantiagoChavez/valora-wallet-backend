@@ -132,3 +132,15 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/**
+ * Esquema de validación para el inicio de sesión con Google
+ */
+export const googleLoginSchema = z.object({
+    idToken: z
+        .string({ message: "El idToken de Google es requerido." })
+        .trim()
+        .min(1, "El idToken no puede estar vacío."),
+});
+
+export type GoogleLoginInput = z.infer<typeof googleLoginSchema>;

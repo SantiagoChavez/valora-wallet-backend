@@ -35,8 +35,8 @@ describe("Pruebas de integración de transacciones", () => {
       .post("/auth/register")
       .send(testUser);
 
-    authToken = registerResponse.body.token;
-    walletId = registerResponse.body.walletId;
+    authToken = registerResponse.body.data.token;
+    walletId = registerResponse.body.data.walletId;
   });
 
   afterAll(async () => {
