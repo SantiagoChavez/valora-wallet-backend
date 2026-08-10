@@ -208,7 +208,16 @@ function procesarYGuardarCache(rawRates: { USD: number; EUR: number; ARS: number
     return ratesCache.rates;
 }
 
-// Configurar el arranque e intervalo en segundo plano (omitido en ambiente de pruebas para evitar colgar el recolector de hilos)
+/**
+ * Solo para propósitos de prueba: limpia la caché en memoria para garantizar
+ * aislamiento en las pruebas unitarias.
+ */
+export function clearCacheForTesting(): void {
+    ratesCache = null;
+    activeRefreshPromise = null;
+}
+
+// Configurar el arranque e intervalo en segundo plano (omitido en ambiente de pruebas para evitar mantener abierto el bucle de eventos)
 if (process.env.NODE_ENV !== "test" && !process.env.VITEST) {
     updateExchangeRatesCache().catch((err) => {
         console.error("[Exchange Service] Error al realizar la carga inicial de cotizaciones:", err);
