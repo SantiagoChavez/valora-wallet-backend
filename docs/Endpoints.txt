@@ -2,11 +2,27 @@
 
 Esta es la guia paso a paso para probar tu backend localmente utilizando **Insomnia** o cualquier cliente HTTP.
 
-> ⚠️ **IMPORTANTE: Configuracion de Base de Datos**
-> Antes de empezar, asegurate de que tu archivo `.env` contenga la siguiente variable al final. Esto soluciona el error `self-signed certificate` con la base de datos de Railway:
+> ⚠️ **IMPORTANTE: Configuracion de Base de Datos y Seguridad TLS**
+> Antes de empezar, asegurate de que tu archivo `.env` contenga la siguiente variable al final. Esto soluciona el error `self-signed certificate` con la base de datos de Railway.
+> *Advertencia: Esto deshabilita la verificación TLS estricta. Utilízalo únicamente para desarrollo local, o si el proveedor proxy remoto (Railway) requiere tolerancia a certificados auto-firmados.*
 > ```env
 > DB_SSL_REJECT_UNAUTHORIZED=false
 > ```
+
+---
+
+## 0. Utilidades (`/health`)
+
+### 0.1 Verificar Estado del Servidor
+*   **Metodo:** `GET`
+*   **URL:** `http://localhost:3000/health`
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "status": "UP",
+      "timestamp": "2023-10-25T10:00:00.000Z"
+    }
+    ```
 
 ---
 
@@ -81,7 +97,11 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
           "id": "uuid",
           "email": "carlos.prueba@email.com",
           "firstName": "Carlos",
-          "lastName": "Lopez"
+          "lastName": "Lopez",
+          "dateOfBirth": "10/10/1995",
+          "phone": "+525512345678",
+          "country": "AR",
+          "du": "12345678"
         },
         "wallet": {
           "id": "uuid-wallet",
@@ -264,7 +284,7 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
     ```json
     {
       "success": false,
-      "error": "AI_Service_Error",
-      "message": "No pudimos procesar tu consulta en este momento."
+      "error": "InternalServerError",
+      "message": "Error interno del servidor. Por favor, inténtelo de nuevo más tarde."
     }
     ```
