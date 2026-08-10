@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     date_of_birth DATE,
     phone VARCHAR(20),
     country VARCHAR(5) DEFAULT 'AR' NOT NULL,
-    du VARCHAR(20) UNIQUE NOT NULL,
+    du VARCHAR(20) UNIQUE,
     password_reset_token_hash VARCHAR(64),
     password_reset_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
