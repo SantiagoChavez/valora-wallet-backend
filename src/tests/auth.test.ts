@@ -32,7 +32,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
     firstName: "Santiago",
     lastName: "Chavez",
     dateOfBirth: "15/05/1995",
-    phone: "+54 9 351 123-4567",
+    phone: "+54 9 11 2345-6789",
     country: "AR",
     du: "11111111",
   };
@@ -66,7 +66,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         firstName: testUser.firstName,
         lastName: testUser.lastName,
         dateOfBirth: "15/05/1995",
-        phone: "+5493511234567", // E.164 normalizado
+        phone: "+5491123456789", // E.164 normalizado
         country: "AR",
         du: "11111111",
       });
@@ -167,8 +167,8 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.body).toEqual({
         success: false,
         error: "VALIDATION_ERROR",
-        message: "El número de teléfono provisto no es válido.",
-        issues: ["El número de teléfono provisto no es válido."],
+        message: "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
+        issues: ["El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado."],
       });
     });
 
@@ -210,7 +210,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         firstName: testUser.firstName,
         lastName: testUser.lastName,
         dateOfBirth: "15/05/1995",
-        phone: "+5493511234567",
+        phone: "+5491123456789",
         country: "AR",
         du: "11111111",
       });
@@ -278,7 +278,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         firstName: testUser.firstName,
         lastName: testUser.lastName,
         dateOfBirth: "15/05/1995",
-        phone: "+5493511234567",
+        phone: "+5491123456789",
         country: "AR",
         du: "11111111",
       });

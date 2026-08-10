@@ -28,7 +28,7 @@ describe("POST /auth/register con validación genérica de documento", () => {
       firstName: "Joao",
       lastName: "Silva",
       dateOfBirth: "15/05/1995",
-      phone: "+54 9 351 123-4567",
+      phone: "+54 9 11 2345-6789",
       country: "BR",
       du: "A1B2C3D4E5",
     });
