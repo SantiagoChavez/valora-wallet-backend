@@ -31,6 +31,8 @@ interface ExchangeRateCacheState {
 let ratesCache: ExchangeRateCacheState | null = null;
 let activeRefreshPromise: Promise<ExchangeRates> | null = null;
 
+const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 horas
+
 /**
  * Obtiene las tasas de cambio vigentes directamente desde la caché.
  * Si la caché está vacía (por ejemplo, en el arranque inicial del servidor), 
@@ -41,6 +43,13 @@ let activeRefreshPromise: Promise<ExchangeRates> | null = null;
  */
 export async function getExchangeRates(): Promise<ExchangeRates> {
     if (ratesCache) {
+        const cacheAge = Date.now() - ratesCache.fetchedAt;
+        if (cacheAge > CACHE_TTL) {
+            console.log("[Exchange Service] Caché obsoleta detectada. Iniciando refresco asíncrono en segundo plano...");
+            updateExchangeRatesCache().catch((err) => {
+                console.error("[Exchange Service] Falló la actualización asíncrona de cotizaciones en segundo plano:", err);
+            });
+        }
         return ratesCache.rates;
     }
 
