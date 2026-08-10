@@ -22,6 +22,9 @@ import { validarCelular } from "../utils/phoneValidation.js";
 const PASSWORD_RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutos
 const PASSWORD_RESET_GENERIC_MESSAGE =
   "Si el correo está registrado, vas a recibir instrucciones para restablecer tu contraseña.";
+const SUPPORT_EMAIL = "nexot.solutions@gmail.com";
+const DUPLICATE_DU_GENERIC_MESSAGE =
+  `No pudimos guardar esos datos. Si creés que se trata de un error, escribinos a ${SUPPORT_EMAIL}.`;
 
 export interface UserResponse {
   id: string;
@@ -280,11 +283,13 @@ export async function completeProfileController(
   } catch (error: unknown) {
     if (error && typeof error === "object" && "code" in error && error.code === "23505") {
       const constraint = "constraint" in error ? String((error as { constraint?: unknown }).constraint) : "";
+      // El celular duplicado se informa tal cual (no es un dato sensible de identidad). El DU
+      // duplicado (y cualquier caso ambiguo) usa un mensaje genérico a propósito: no confirmar
+      // que "ese DNI ya existe" evita que este endpoint sirva para probar si un DNI específico
+      // ya está registrado en el sistema.
       const message = constraint.includes("phone")
         ? "El número de celular provisto ya está en uso por otra cuenta."
-        : constraint.includes("du")
-          ? "El documento provisto ya está en uso por otra cuenta."
-          : "El celular o el documento provisto ya está en uso por otra cuenta.";
+        : DUPLICATE_DU_GENERIC_MESSAGE;
       res.status(400).json({ success: false, error: "DuplicateFieldError", message });
       return;
     }

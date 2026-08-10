@@ -447,7 +447,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.body.message).toContain("celular");
     });
 
-    it("debería rechazar un DU que ya está en uso por otra cuenta", async () => {
+    it("debería rechazar un DU que ya está en uso por otra cuenta, sin confirmar que ese DU existe", async () => {
       const response = await request(app)
         .patch("/auth/me")
         .set("Authorization", `Bearer ${googleToken}`)
@@ -456,6 +456,11 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe("DuplicateFieldError");
+      // El mensaje no debe confirmar que el DU ya existe (evita que se use el endpoint
+      // para probar si un DNI específico está registrado en el sistema).
+      expect(response.body.message).not.toContain(testUser.du);
+      expect(response.body.message.toLowerCase()).not.toContain("documento");
+      expect(response.body.message).toContain("nexot.solutions@gmail.com");
     });
   });
 });

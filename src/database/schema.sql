@@ -18,7 +18,11 @@ CREATE TABLE IF NOT EXISTS users (
     phone VARCHAR(20) UNIQUE,
     phone_verificado BOOLEAN DEFAULT false NOT NULL,
     country VARCHAR(5) DEFAULT 'AR' NOT NULL,
-    du VARCHAR(20) UNIQUE NOT NULL,
+    -- Nullable a propósito (igual que phone): las cuentas creadas con Google no traen DU
+    -- del alta y quedan sin completar hasta que el usuario lo carga vía PATCH /auth/me.
+    -- Postgres permite múltiples NULL en una columna UNIQUE sin problema, así que esto no
+    -- debilita la regla de "un DNI, una cuenta" una vez que el valor sí está cargado.
+    du VARCHAR(20) UNIQUE,
     password_reset_token_hash VARCHAR(64),
     password_reset_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
