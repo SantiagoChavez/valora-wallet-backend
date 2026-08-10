@@ -23,14 +23,18 @@ export async function updateAliasController(
         }
 
         const updatedWallet = await updateWalletAlias(wallet.id, alias);
+        if (!updatedWallet) {
+            res.status(500).json({ success: false, error: "InternalServerError", message: "No se pudo actualizar el alias." });
+            return;
+        }
         
         res.status(200).json({
             success: true,
             data: {
                 wallet: {
-                    id: updatedWallet?.id,
-                    cvu: updatedWallet?.cvu,
-                    alias: updatedWallet?.alias
+                    id: updatedWallet.id,
+                    cvu: updatedWallet.cvu,
+                    alias: updatedWallet.alias
                 }
             },
             message: "Alias actualizado correctamente."

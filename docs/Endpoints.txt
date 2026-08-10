@@ -28,7 +28,9 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
       "firstName": "Carlos",
       "lastName": "Lopez",
       "dateOfBirth": "10/10/1995",
-      "phone": "+525512345678"
+      "phone": "+525512345678",
+      "country": "AR",
+      "du": "12345678"
     }
     ```
     4. Haz clic en **Send**. Deberias recibir una respuesta indicando que el registro fue exitoso.
@@ -55,7 +57,7 @@ Esta es la guia paso a paso para probar tu backend localmente utilizando **Insom
 *   **Descripcion:** Devuelve los datos del perfil de Carlos. Requiere autenticacion.
 *   **Como probarlo en Insomnia:**
     1. Crea un nuevo Request `GET` con la URL.
-    2. Ve a la pestana **Auth** y selecciona **Bearer Token**.
+    2. Ve a la pestana **Auth** y selecciona la opcion `Bearer Token`.
     3. En el campo **Token**, pega el texto que copiaste en el paso anterior.
     4. Haz clic en **Send**. *(No requiere Body)*.
 
