@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(100) NOT NULL,
     date_of_birth DATE,
     phone VARCHAR(20),
+    country VARCHAR(5) DEFAULT 'AR' NOT NULL,
+    du VARCHAR(20) UNIQUE NOT NULL,
+    password_reset_token_hash VARCHAR(64),
+    password_reset_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -25,6 +29,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS wallets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cvu VARCHAR(22) UNIQUE NOT NULL,
+    alias VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -63,3 +69,15 @@ CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id)
 -- Actualizaciones de Esquema (Migraciones de compatibilidad)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(5) DEFAULT 'AR';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS du VARCHAR(20) UNIQUE;
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS cvu VARCHAR(22) UNIQUE;
+ALTER TABLE wallets ADD COLUMN IF NOT EXISTS alias VARCHAR(100) UNIQUE;
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token_hash VARCHAR(64);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMP WITH TIME ZONE;
+
+-- El índice va después del ALTER TABLE que agrega la columna: en una base existente
+-- (sin este ALTER todavía aplicado) crear el índice antes rompería todo el deploy,
+-- ya que deploy.ts ejecuta este archivo entero como una sola consulta.
+CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users(password_reset_token_hash);

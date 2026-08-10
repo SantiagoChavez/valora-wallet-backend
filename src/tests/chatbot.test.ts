@@ -20,6 +20,8 @@ describe("Pruebas de integración del Chatbot", () => {
         lastName: "Test",
         dateOfBirth: "01/01/1990",
         phone: "+54 9 351 111-2222",
+        country: "AR",
+        du: "55555555",
     };
 
     beforeAll(async () => {
@@ -31,7 +33,7 @@ describe("Pruebas de integración del Chatbot", () => {
         await query("DELETE FROM users WHERE email = $1", [testUser.email]);
 
         const res = await request(app).post("/auth/register").send(testUser);
-        token = res.body.token;
+        token = res.body.data.token;
     });
 
     afterAll(async () => {
