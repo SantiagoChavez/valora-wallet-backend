@@ -3,23 +3,18 @@ export interface ExchangeRatePair {
 }
 
 export interface ExchangeRates {
-    // Tasas base (relativas a USD)
-    USD: number;
-    EUR: number;
-    ARS: number;
+    // Definimos los pares cruzados comunes para evitar errores de tipo en los tests
+    USD_USD?: ExchangeRatePair;
+    USD_EUR?: ExchangeRatePair;
+    USD_ARS?: ExchangeRatePair;
+    EUR_USD?: ExchangeRatePair;
+    EUR_EUR?: ExchangeRatePair;
+    EUR_ARS?: ExchangeRatePair;
+    ARS_USD?: ExchangeRatePair;
+    ARS_EUR?: ExchangeRatePair;
+    ARS_ARS?: ExchangeRatePair;
 
-    // Pares cruzados en formato P2P
-    USD_USD: ExchangeRatePair;
-    USD_EUR: ExchangeRatePair;
-    USD_ARS: ExchangeRatePair;
-    EUR_USD: ExchangeRatePair;
-    EUR_EUR: ExchangeRatePair;
-    EUR_ARS: ExchangeRatePair;
-    ARS_USD: ExchangeRatePair;
-    ARS_EUR: ExchangeRatePair;
-    ARS_ARS: ExchangeRatePair;
-
-    // Firma de índice para admitir el acceso por strings dinámicos de monedas
+    // Firma de índice para admitir el acceso por cualquier otra moneda o par cruzado
     [key: string]: number | ExchangeRatePair | undefined;
 }
 
@@ -189,30 +184,27 @@ export async function updateExchangeRatesCache(): Promise<ExchangeRates> {
 
 /**
  * Procesa las tasas relativas a USD y genera todas las combinaciones directas, 
- * inversas y cruzadas (P2P-compatible y compatible con compras/ventas estándar).
+ * inversas y cruzadas (P2P-compatible y compatible con compras/ventas estándar) de forma dinámica.
  */
-function procesarYGuardarCache(rawRates: { USD: number; EUR: number; ARS: number }): ExchangeRates {
-    const eurRate = rawRates.EUR;
-    const arsRate = rawRates.ARS;
+function procesarYGuardarCache(rawRates: Record<string, number>): ExchangeRates {
+    const nextRates: ExchangeRates = {};
+    const currencies = Object.keys(rawRates);
 
-    const nextRates: ExchangeRates = {
-        USD: 1.0,
-        EUR: eurRate,
-        ARS: arsRate,
+    // 1. Guardar las tasas base relativas a USD
+    for (const cur of currencies) {
+        nextRates[cur] = rawRates[cur];
+    }
 
-        // Pares cruzados y formatos P2P
-        USD_USD: { value: 1.0 },
-        USD_EUR: { value: eurRate },
-        USD_ARS: { value: arsRate },
-
-        EUR_USD: { value: 1.0 / eurRate },
-        EUR_EUR: { value: 1.0 },
-        EUR_ARS: { value: arsRate / eurRate },
-
-        ARS_USD: { value: 1.0 / arsRate },
-        ARS_EUR: { value: eurRate / arsRate },
-        ARS_ARS: { value: 1.0 }
-    };
+    // 2. Generar todos los pares cruzados dinámicamente
+    for (const fromCur of currencies) {
+        for (const toCur of currencies) {
+            const rateFrom = rawRates[fromCur];
+            const rateTo = rawRates[toCur];
+            nextRates[`${fromCur}_${toCur}`] = {
+                value: rateTo / rateFrom
+            };
+        }
+    }
 
     ratesCache = {
         rates: nextRates,
