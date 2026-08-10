@@ -110,10 +110,11 @@ async function executeConversion(
                 const actionName = type === "EXCHANGE" ? "Intercambio" : type === "BUY" ? "Compra" : "Venta";
                 const safeFrom = sanitizeHtmlString(fromCurrency);
                 const safeTo = sanitizeHtmlString(toCurrency);
+                const timestamp = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
                 enviarEmailConfirmacion({
                     destinatario: user.email,
                     asunto: `${actionName} Confirmada - Valora Wallet`,
-                    cuerpoHtml: `<h1>${actionName} Exitosa</h1><p>Operación: ${amount} ${safeFrom} por ${targetAmount.toFixed(2)} ${safeTo}</p>`
+                    cuerpoHtml: `<h1>${actionName} Exitosa</h1><p>Operación: ${amount} ${safeFrom} por ${targetAmount.toFixed(2)} ${safeTo}</p><p>Fecha y hora: ${timestamp}</p>`
                 }).catch(err => console.error("Error enviando email SES:", err));
             }
         }).catch(err => console.error("Error buscando usuario para email:", err));
