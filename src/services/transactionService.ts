@@ -81,9 +81,10 @@ export async function getExchangeQuote(fromCurrency: string, toCurrency: string,
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
-    const exchangeRate = rateTo / rateFrom;
+    // Aplicamos truncamiento a 8 decimales para igualar la precisión de la base de datos
+    const exchangeRate = Number((rateTo / rateFrom).toFixed(8));
     const amountInUsd = amount / rateFrom;
-    const targetAmount = amountInUsd * rateTo;
+    const targetAmount = Number((amountInUsd * rateTo).toFixed(8));
 
     return {
         exchangeRate,
