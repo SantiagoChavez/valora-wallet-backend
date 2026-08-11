@@ -24,7 +24,7 @@ describe("Pruebas de integración de transacciones", () => {
     dateOfBirth: "20/08/1990",
     phone: "+5491123456799",
     country: "AR",
-    du: "44444444",
+    du: "55555555",
   };
 
   const originalFetch = global.fetch;
