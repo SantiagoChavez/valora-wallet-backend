@@ -20,6 +20,11 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     exchangeRate: tx.exchange_rate ? Number(parseFloat(tx.exchange_rate).toFixed(2)) : null,
     resultingBalance: tx.resulting_balance ? Number(parseFloat(tx.resulting_balance).toFixed(2)) : null,
     createdAt: tx.created_at,
+    counterpartyId: tx.counterparty_id ?? null,
+    counterpartyName: tx.counterparty_name ?? null,
+    counterpartyLastName: tx.counterparty_last_name ?? null,
+    counterpartyEmail: tx.counterparty_email ?? null,
+    counterpartyWallet: tx.counterparty_wallet ?? null,
 });
 
 /**
@@ -27,13 +32,8 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
  */
 export async function depositController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user!.userId;
         const { currency, amount } = req.body;
-
-        if (!userId) {
-            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
 
         const transaction = await executeDeposit(userId, currency, amount);
 
@@ -51,14 +51,7 @@ export async function depositController(req: AuthenticatedRequest, res: Response
  */
 export async function quoteController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
         const { fromCurrency, toCurrency, amount } = req.body;
-
-        if (!userId) {
-            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
-        
         const quote = await getExchangeQuote(fromCurrency, toCurrency, amount);
 
         res.status(200).json({
@@ -75,13 +68,8 @@ export async function quoteController(req: AuthenticatedRequest, res: Response, 
  */
 export async function exchangeController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user!.userId;
         const { fromCurrency, toCurrency, amount } = req.body;
-
-        if (!userId) {
-            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
 
         const transaction = await executeExchange(userId, fromCurrency, toCurrency, amount);
 
@@ -103,16 +91,7 @@ export async function getTransactionsController(
     next: NextFunction
 ): Promise<void> {
     try {
-        const userId = req.user?.userId;
-
-        if (!userId) {
-            res.status(401).json({
-                success: false,
-                error: "AUTH_ERROR",
-                message: "Usuario no autorizado."
-            });
-            return;
-        }
+        const userId = req.user!.userId;
 
         // Extraer los query params ya validados y parseados por el middleware validateSchema
         const { limit, page, type } = req.validatedQuery as unknown as GetTransactionsQuery;
@@ -135,17 +114,8 @@ export async function getTransactionsController(
  */
 export async function buyController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user!.userId;
         const { fromCurrency, toCurrency, amount } = req.body;
-
-        if (!userId) {
-            res.status(401).json({
-                success: false,
-                error: "AUTH_ERROR",
-                message: "Usuario no autorizado."
-            });
-            return;
-        }
 
         const transaction = await executeBuy(userId, fromCurrency, toCurrency, amount);
 
@@ -163,17 +133,8 @@ export async function buyController(req: AuthenticatedRequest, res: Response, ne
  */
 export async function sellController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user!.userId;
         const { fromCurrency, toCurrency, amount } = req.body;
-
-        if (!userId) {
-            res.status(401).json({
-                success: false,
-                error: "AUTH_ERROR",
-                message: "Usuario no autorizado."
-            });
-            return;
-        }
 
         const transaction = await executeSell(userId, fromCurrency, toCurrency, amount);
 
@@ -218,13 +179,8 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
  */
 export async function transferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user!.userId;
         const { currency, amount, destination } = req.body;
-
-        if (!userId) {
-            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
 
         const transaction = await executeTransfer(userId, currency, amount, destination);
 
