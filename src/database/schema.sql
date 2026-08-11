@@ -100,3 +100,27 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verificado BOOLEAN DEFAULT fals
 -- (sin este ALTER todavía aplicado) crear el índice antes rompería todo el deploy,
 -- ya que deploy.ts ejecuta este archivo entero como una sola consulta.
 CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users(password_reset_token_hash);
+
+-- Soportar TRANSFER_OUT y TRANSFER_IN en historial de transacciones
+ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_transaction_type_check;
+ALTER TABLE transactions ADD CONSTRAINT transactions_transaction_type_check CHECK (transaction_type IN ('BUY', 'SELL', 'EXCHANGE', 'DEPOSIT', 'TRANSFER_OUT', 'TRANSFER_IN'));
+
+-- Añadir metadatos de contraparte para transferencias (Efecto Fantasma mitigado)
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_id UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_name VARCHAR(100);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_last_name VARCHAR(100);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_email VARCHAR(255);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_wallet UUID REFERENCES wallets(id) ON DELETE SET NULL;
+
+-- Tabla de Historial del Chatbot
+-- Almacena las conversaciones previas para dar contexto continuo a Gemini.
+CREATE TABLE IF NOT EXISTS chatbot_histories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'model')),
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Índice para búsquedas rápidas por usuario en el historial
+CREATE INDEX IF NOT EXISTS idx_chatbot_histories_user_id ON chatbot_histories(user_id);
