@@ -240,6 +240,12 @@ export async function executeTransfer(senderUserId: string, currency: string, am
     try {
         await client.query("BEGIN");
 
+        // Bloqueo determinístico para prevenir Deadlocks en transferencias concurrentes
+        await client.query(
+            `SELECT id FROM wallets WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
+            [[senderWallet.id, recipientInfo.wallet_id]]
+        );
+
         let senderUpdatedBalance;
         try {
             senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
