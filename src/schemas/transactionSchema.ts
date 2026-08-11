@@ -5,7 +5,7 @@ import { z } from "zod";
 // -----------------------------------------------------------------------------
 
 // Bloquea espacios, etiquetas HTML (<, >), comillas y caracteres raros (Anti-XSS).
-const validIdentifierRegex = /^[a-zA-Z0-9.@_-]+$/;
+const validIdentifierRegex = /^[a-zA-Z0-9.@_+-]+$/;
 
 // Validación estricta para monedas (Ej. ARS, USD). Previene DoS por strings gigantes.
 const currencyBaseSchema = z
@@ -19,11 +19,10 @@ const amountBaseSchema = z
   .number({ message: "El monto debe ser numérico." })
   .positive("El monto debe ser un número mayor a cero.")
   .max(1000000000, "El monto excede el límite operativo permitido por transacción.")
-  .safe("El monto excede la precisión segura de JavaScript.")
   .refine((val) => {
-    // Garantiza que máximo haya 2 decimales exactos
-    return Math.round(val * 100) / 100 === val;
-  }, "El monto no puede tener más de 2 decimales.");
+    // Garantiza que máximo haya 4 decimales exactos (Regla de negocio Fiat: ARS/USD/EUR)
+    return Math.round(val * 10000) / 10000 === val;
+  }, "El monto no puede tener más de 4 decimales.");
 
 // -----------------------------------------------------------------------------
 // 2. ESQUEMAS DE ENDPOINTS (Limpios, Cortos y Seguros)
