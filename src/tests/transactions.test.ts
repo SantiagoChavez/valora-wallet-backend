@@ -49,12 +49,18 @@ describe("Pruebas de integración de transacciones", () => {
       .post("/auth/register")
       .send(testUser);
 
+    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.body.success).toBe(true);
+
     authToken = registerResponse.body.data.token;
     walletId = registerResponse.body.data.wallet.id;
 
     const recipientResponse = await request(app)
       .post("/auth/register")
       .send(testRecipient);
+    
+    expect(recipientResponse.status).toBe(201);
+    expect(recipientResponse.body.success).toBe(true);
     
     recipientWalletId = recipientResponse.body.data.wallet.id;
   });
