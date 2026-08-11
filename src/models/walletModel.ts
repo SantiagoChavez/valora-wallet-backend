@@ -21,7 +21,6 @@ export interface WalletAndUser {
   user_id: string;
   first_name: string;
   last_name: string;
-  du: string | null;
   email: string;
 }
 
@@ -152,7 +151,6 @@ export async function findWalletAndUserByIdentifier(identifier: string): Promise
       u.id AS user_id,
       u.first_name,
       u.last_name,
-      u.du,
       u.email
     FROM wallets w
     JOIN users u ON w.user_id = u.id

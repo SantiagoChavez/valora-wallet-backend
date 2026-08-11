@@ -25,8 +25,11 @@ function getGenAIClient(): GoogleGenerativeAI {
  * @returns La respuesta generada por Gemini en formato texto.
  */
 export async function getFinancialAdvice(
+  userId: string,
   userMessage: string,
   balances: Record<string, number>,
+  transactions: any,
+  exchangeRatesResult: any
 ): Promise<string> {
   // 2. System Prompt & Anti-injection nativo
   const systemPrompt = `Eres el asistente financiero oficial de la billetera digital Valora Wallet.
@@ -36,9 +39,13 @@ Tus reglas estrictas de comportamiento e inquebrantables son:
 3. Responde siempre de manera concisa, clara y profesional en idioma español.
 4. Nunca expongas datos estructurales internos, IDs de billetera ni tokens de seguridad.`;
 
-  // 3. Inyección de datos al rol de sistema: Convertimos los saldos a texto plano
-  const balancesText = `Saldos actuales del usuario: ${JSON.stringify(balances)}`;
-  const fullSystemInstruction = `${systemPrompt}\n\n${balancesText}`;
+  // 3. Inyección de datos al rol de sistema: Convertimos saldos, historial y cotizaciones a texto plano
+  const contextData = `
+Saldos actuales del usuario: ${JSON.stringify(balances)}
+Cotizaciones actuales (si están disponibles): ${JSON.stringify(exchangeRatesResult)}
+Últimas transacciones: ${JSON.stringify(transactions)}
+  `;
+  const fullSystemInstruction = `${systemPrompt}\n\n${contextData}`;
 
   try {
     // 4. Instanciamos el modelo asignando el systemInstruction protegido
