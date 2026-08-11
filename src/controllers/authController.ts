@@ -347,10 +347,13 @@ export async function googleLoginController(
         audience: process.env.GOOGLE_CLIENT_ID,
       });
     } catch (err) {
-      res.status(401).json({ 
-        success: false, 
-        error: "UnauthorizedError", 
-        message: "Token de Google inválido o expirado." 
+      // TODO: log temporal para diagnosticar por qué falla verifyIdToken en Railway
+      // (client_id/audience confirmados idénticos en front y env var) — sacar una vez resuelto.
+      console.error("[googleLoginController] verifyIdToken falló:", err);
+      res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token de Google inválido o expirado."
       });
       return;
     }
