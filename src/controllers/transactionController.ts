@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import type { Transaction } from "../models/transactionModel.js";
-import { executeDeposit, executeExchange, getUserTransactions, executeBuy, executeSell, getExchangeQuote } from "../services/transactionService.js";
+import { executeDeposit, executeExchange, getUserTransactions, executeBuy, executeSell, getExchangeQuote, resolveTransferDestination, executeTransfer } from "../services/transactionService.js";
 import type { GetTransactionsQuery } from "../schemas/transactionSchema.js";
 
 /**
@@ -146,8 +146,6 @@ export async function sellController(req: AuthenticatedRequest, res: Response, n
         next(error);
     }
 }
-
-import { resolveTransferDestination, executeTransfer } from "../services/transactionService.js";
 
 /**
  * Controller to handle resolving a transfer destination by identifier (email, cvu, alias).
