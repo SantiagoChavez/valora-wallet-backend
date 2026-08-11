@@ -268,8 +268,8 @@ export async function executeTransfer(senderUserId: string, currency: string, am
 
         await client.query("COMMIT");
 
-        notifyUserAsync(senderUserId, "Transferencia Enviada - Valora Wallet", `<h1>Transferencia Exitosa</h1><p>Has enviado ${amount} ${currency} a ${recipientInfo.first_name} ${recipientInfo.last_name}.</p>`);
-        notifyUserAsync(recipientInfo.user_id, "Transferencia Recibida - Valora Wallet", `<h1>Has recibido una transferencia</h1><p>Has recibido ${amount} ${currency}.</p>`);
+        notifyUserAsync(senderUserId, "Transferencia Enviada - Valora Wallet", `<h1>Transferencia Exitosa</h1><p>Has enviado ${amount} ${sanitizeHtmlString(currency)} a ${sanitizeHtmlString(recipientInfo.first_name)} ${sanitizeHtmlString(recipientInfo.last_name)}.</p>`);
+        notifyUserAsync(recipientInfo.user_id, "Transferencia Recibida - Valora Wallet", `<h1>Has recibido una transferencia</h1><p>Has recibido ${amount} ${sanitizeHtmlString(currency)}.</p>`);
 
         return senderTransaction;
     } catch (error: unknown) {
