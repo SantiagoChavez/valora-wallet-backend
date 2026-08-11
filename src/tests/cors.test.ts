@@ -37,6 +37,23 @@ describe("Pruebas de CORS, JSON malformado y stack traces", () => {
       expect(response.body.error).toBe("CORS_ERROR");
       expect(response.body.message).toBe("No permitido por CORS");
     });
+
+    it("debería permitir previews de Vercel de este proyecto (ramas/PRs)", async () => {
+      const response = await request(app)
+        .get("/health")
+        .set("Origin", "https://valora-wallet-frontend-git-analia-nexotsolutions.vercel.app");
+
+      expect(response.status).toBe(200);
+    });
+
+    it("no debería permitir un dominio de Vercel de otro proyecto", async () => {
+      const response = await request(app)
+        .get("/health")
+        .set("Origin", "https://otro-proyecto.vercel.app");
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe("CORS_ERROR");
+    });
   });
 
   describe("Manejo de JSON Malformado", () => {
