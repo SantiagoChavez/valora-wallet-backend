@@ -248,3 +248,93 @@ export async function getUserTransactions(
         }
     };
 }
+
+import { findWalletAndUserByIdentifier } from "../models/walletModel.js";
+
+/**
+ * Resuelve el destino de una transferencia basándose en un email, alias o CVU.
+ */
+export async function resolveTransferDestination(identifier: string) {
+    const destination = await findWalletAndUserByIdentifier(identifier);
+    if (!destination) {
+        throw Object.assign(new Error("No existe un usuario con estos datos."), { status: 404, code: "USER_NOT_FOUND" });
+    }
+    return destination;
+}
+
+/**
+ * Ejecuta una transferencia de fondos de un usuario a otro.
+ */
+export async function executeTransfer(senderUserId: string, currency: string, amount: number, destinationIdentifier: string) {
+    if (amount <= 0) throw Object.assign(new Error("El monto a transferir debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
+    
+    // Buscar billetera del remitente
+    const senderWallet = await findWalletByUserId(senderUserId);
+    if (!senderWallet) throw Object.assign(new Error("Billetera de origen no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
+
+    // Buscar destinatario
+    const recipientInfo = await findWalletAndUserByIdentifier(destinationIdentifier);
+    if (!recipientInfo) throw Object.assign(new Error("No existe un usuario con estos datos."), { status: 404, code: "USER_NOT_FOUND" });
+
+    // Prevenir auto-transferencia
+    if (senderWallet.id === recipientInfo.wallet_id) {
+        throw Object.assign(new Error("No puedes transferir fondos a tu propia cuenta."), { status: 400, code: "SELF_TRANSFER" });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+
+        let senderUpdatedBalance;
+        try {
+            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
+        } catch (error: any) {
+            if (error.constraint === "balances_amount_check" || (error.message && error.message.includes("violates check constraint"))) {
+                throw Object.assign(new Error("No se puede realizar la transacción, saldo insuficiente."), { status: 400, code: "INSUFFICIENT_FUNDS" });
+            }
+            throw error;
+        }
+
+        const recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
+
+        // Insertar registro para el que envía
+        const senderTransaction = await insertTransaction(
+            client, senderWallet.id, "TRANSFER_OUT", currency, currency, amount, null, null, senderUpdatedBalance.amount
+        );
+
+        // Insertar registro para el que recibe
+        await insertTransaction(
+            client, recipientInfo.wallet_id, "TRANSFER_IN", currency, currency, null, amount, null, recipientUpdatedBalance.amount
+        );
+
+        await client.query("COMMIT");
+
+        // Disparar email asíncrono
+        void findUserById(senderUserId).then(user => {
+            if (user) {
+                enviarEmailConfirmacion({
+                    destinatario: user.email,
+                    asunto: "Transferencia Enviada - Valora Wallet",
+                    cuerpoHtml: `<h1>Transferencia Exitosa</h1><p>Has enviado ${amount} ${currency} a ${recipientInfo.first_name} ${recipientInfo.last_name}.</p>`
+                }).catch(err => console.error("Error enviando email SES:", err));
+            }
+        }).catch(err => console.error("Error buscando usuario para email:", err));
+
+        void findUserById(recipientInfo.user_id).then(user => {
+            if (user) {
+                enviarEmailConfirmacion({
+                    destinatario: user.email,
+                    asunto: "Transferencia Recibida - Valora Wallet",
+                    cuerpoHtml: `<h1>Has recibido una transferencia</h1><p>Has recibido ${amount} ${currency}.</p>`
+                }).catch(err => console.error("Error enviando email SES:", err));
+            }
+        }).catch(err => console.error("Error buscando usuario para email:", err));
+
+        return senderTransaction;
+    } catch (error: unknown) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        client.release();
+    }
+}

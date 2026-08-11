@@ -4,7 +4,7 @@ import { query } from "../database/db.js";
 export interface Transaction {
   id: string;
   wallet_id: string;
-  transaction_type: 'BUY' | 'SELL' | 'EXCHANGE' | 'DEPOSIT';
+  transaction_type: 'BUY' | 'SELL' | 'EXCHANGE' | 'DEPOSIT' | 'TRANSFER_OUT' | 'TRANSFER_IN';
   source_currency: string | null;
   target_currency: string | null;
   source_amount: string | null; // NUMERIC is returned as a string from node-pg to preserve precision
@@ -31,7 +31,7 @@ export interface Transaction {
 export async function insertTransaction(
   client: PoolClient,
   walletId: string,
-  type: 'BUY' | 'SELL' | 'EXCHANGE' | 'DEPOSIT',
+  type: 'BUY' | 'SELL' | 'EXCHANGE' | 'DEPOSIT' | 'TRANSFER_OUT' | 'TRANSFER_IN',
   sourceCurrency: string | null,
   targetCurrency: string | null,
   sourceAmount: number | string | null,

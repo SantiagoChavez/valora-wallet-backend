@@ -123,3 +123,26 @@ export async function updateWalletAlias(walletId: string, newAlias: string): Pro
   const result = await query(sql, [newAlias, walletId]);
   return result.rows[0] || null;
 }
+
+/**
+ * Encuentra una billetera y los datos de su dueño buscando por email, cvu o alias.
+ * @param identifier - email, cvu, o alias
+ */
+export async function findWalletAndUserByIdentifier(identifier: string) {
+  const sql = `
+    SELECT 
+      w.id AS wallet_id,
+      w.cvu,
+      w.alias,
+      u.id AS user_id,
+      u.first_name,
+      u.last_name,
+      u.du,
+      u.email
+    FROM wallets w
+    JOIN users u ON w.user_id = u.id
+    WHERE u.email = $1 OR w.cvu = $1 OR w.alias = $1
+  `;
+  const result = await query(sql, [identifier]);
+  return result.rows[0] || null;
+}

@@ -15,10 +15,10 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     transactionType: tx.transaction_type,
     sourceCurrency: tx.source_currency,
     targetCurrency: tx.target_currency,
-    sourceAmount: tx.source_amount ? parseFloat(tx.source_amount) : null,
-    targetAmount: tx.target_amount ? parseFloat(tx.target_amount) : null,
-    exchangeRate: tx.exchange_rate ? parseFloat(tx.exchange_rate) : null,
-    resultingBalance: tx.resulting_balance ? parseFloat(tx.resulting_balance) : null,
+    sourceAmount: tx.source_amount ? Number(parseFloat(tx.source_amount).toFixed(2)) : null,
+    targetAmount: tx.target_amount ? Number(parseFloat(tx.target_amount).toFixed(2)) : null,
+    exchangeRate: tx.exchange_rate ? Number(parseFloat(tx.exchange_rate).toFixed(2)) : null,
+    resultingBalance: tx.resulting_balance ? Number(parseFloat(tx.resulting_balance).toFixed(2)) : null,
     createdAt: tx.created_at,
 });
 
@@ -176,6 +176,57 @@ export async function sellController(req: AuthenticatedRequest, res: Response, n
         }
 
         const transaction = await executeSell(userId, fromCurrency, toCurrency, amount);
+
+        res.status(200).json({
+            success: true,
+            data: mapTransactionToCamelCase(transaction)
+        });
+    } catch (error: unknown) {
+        next(error);
+    }
+}
+
+import { resolveTransferDestination, executeTransfer } from "../services/transactionService.js";
+
+/**
+ * Controller to handle resolving a transfer destination by identifier (email, cvu, alias).
+ */
+export async function resolveTransferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const { identifier } = req.body;
+        
+        const destination = await resolveTransferDestination(identifier);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                firstName: destination.first_name,
+                lastName: destination.last_name,
+                du: destination.du,
+                alias: destination.alias,
+                cvu: destination.cvu,
+                email: destination.email
+            }
+        });
+    } catch (error: unknown) {
+        next(error);
+    }
+}
+
+/**
+ * Controller to handle executing a transfer to a third party.
+ */
+export async function transferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const userId = req.user?.userId;
+        const { currency, amount, destination } = req.body;
+
+        if (!userId) {
+            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
+            return;
+        }
+
+        const transaction = await executeTransfer(userId, currency, amount, destination);
 
         res.status(200).json({
             success: true,

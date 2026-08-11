@@ -347,10 +347,10 @@ export async function googleLoginController(
         audience: process.env.GOOGLE_CLIENT_ID,
       });
     } catch (err) {
-      res.status(401).json({ 
-        success: false, 
-        error: "UnauthorizedError", 
-        message: "Token de Google inválido o expirado." 
+      res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token de Google inválido o expirado."
       });
       return;
     }

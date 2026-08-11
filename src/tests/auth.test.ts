@@ -437,18 +437,18 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       const response = await request(app)
         .patch("/auth/me")
         .set("Authorization", `Bearer ${googleToken}`)
-        .send({ phone: "+54 9 11 3456-7890", country: "AR", du: "22222222" });
+        .send({ phone: "+54 9 11 3456-7890", country: "AR", du: "42424242" });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data.user.phone).toBe("+5491134567890");
-      expect(response.body.data.user.du).toBe("22222222");
+      expect(response.body.data.user.du).toBe("42424242");
     });
 
     it("debería rechazar la petición sin token", async () => {
       const response = await request(app)
         .patch("/auth/me")
-        .send({ phone: "+54 9 11 3456-7890", country: "AR", du: "22222222" });
+        .send({ phone: "+54 9 11 3456-7890", country: "AR", du: "42424242" });
 
       expect(response.status).toBe(401);
       expect(response.body.success).toBe(false);

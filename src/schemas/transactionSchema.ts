@@ -52,6 +52,8 @@ export const getTransactionsQuerySchema = z.object({
       z.literal("SELL"),
       z.literal("EXCHANGE"),
       z.literal("DEPOSIT"),
+      z.literal("TRANSFER_OUT"),
+      z.literal("TRANSFER_IN"),
     ], {
       message: "El tipo de transacción no es válido.",
     })
@@ -59,3 +61,13 @@ export const getTransactionsQuerySchema = z.object({
 });
 
 export type GetTransactionsQuery = z.infer<typeof getTransactionsQuerySchema>;
+
+export const resolveUserSchema = z.object({
+  identifier: z.string({ message: "El identificador es obligatorio." }).trim().min(1, "El identificador no puede estar vacío."),
+});
+
+export const transferSchema = z.object({
+  currency: z.string({ message: "La moneda es obligatoria." }).trim().min(1, "La moneda es obligatoria.").toUpperCase(),
+  amount: z.number({ message: "El monto debe ser numérico." }).positive("El monto debe ser un número mayor a cero."),
+  destination: z.string({ message: "El destino es obligatorio." }).trim().min(1, "El destino no puede estar vacío."),
+});

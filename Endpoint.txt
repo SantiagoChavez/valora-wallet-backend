@@ -1,0 +1,268 @@
+=== MÓDULO AUTH (AUTENTICACIÓN) ===
+
+Ruta: /auth/register
+Operacion: POST
+Archivo Json de entrada:
+{
+  "email": "string (email format)",
+  "password": "string (min 8 chars)",
+  "firstName": "string",
+  "lastName": "string",
+  "dateOfBirth": "string (DD/MM/YYYY)",
+  "phone": "string",
+  "country": "string",
+  "du": "string"
+}
+Respuesta: 201 Created
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "user": {
+      "id": "string (uuid)",
+      "email": "string",
+      "firstName": "string",
+      "lastName": "string",
+      "phone": "string",
+      "country": "string",
+      "du": "string",
+      "createdAt": "string (iso date)"
+    },
+    "wallet": {
+      "id": "string (uuid)",
+      "cvu": "string",
+      "alias": "string"
+    },
+    "token": "string (jwt)"
+  }
+}
+
+Ruta: /auth/login
+Operacion: POST
+Archivo Json de entrada:
+{
+  "email": "string",
+  "password": "string"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "user": {
+      "id": "string (uuid)",
+      "email": "string",
+      "firstName": "string",
+      "lastName": "string"
+    },
+    "wallet": {
+      "id": "string (uuid)",
+      "cvu": "string",
+      "alias": "string"
+    },
+    "token": "string (jwt)"
+  }
+}
+
+Ruta: /auth/me
+Operacion: GET
+Archivo Json de entrada: (No requiere, enviar token en Header)
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "id": "string (uuid)",
+    "email": "string",
+    "firstName": "string",
+    "lastName": "string",
+    "phone": "string",
+    "country": "string",
+    "du": "string",
+    "createdAt": "string (iso date)"
+  }
+}
+
+Ruta: /auth/forgot-password
+Operacion: POST
+Archivo Json de entrada:
+{
+  "email": "string"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "message": "string"
+}
+
+Ruta: /auth/reset-password
+Operacion: POST
+Archivo Json de entrada:
+{
+  "token": "string",
+  "newPassword": "string"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "message": "string"
+}
+
+=== MÓDULO WALLET & BALANCES ===
+
+Ruta: /wallets/me
+Operacion: GET
+Archivo Json de entrada: (No requiere, enviar token en Header)
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "id": "string (uuid)",
+    "cvu": "string",
+    "alias": "string"
+  }
+}
+
+Ruta: /balances
+Operacion: GET
+Archivo Json de entrada: (No requiere, enviar token en Header)
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": [
+    {
+      "id": "string (uuid)",
+      "currencyCode": "string",
+      "amount": "string (decimal representation)"
+    }
+  ]
+}
+
+=== MÓDULO TRANSACTIONS ===
+
+Ruta: /transactions/deposit
+Operacion: POST
+Archivo Json de entrada:
+{
+  "currency": "string",
+  "amount": "number"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "id": "string (uuid)",
+    "walletId": "string (uuid)",
+    "transactionType": "string",
+    "targetCurrency": "string",
+    "targetAmount": "number",
+    "resultingBalance": "number o string",
+    "createdAt": "string (iso date)"
+  }
+}
+
+Ruta: /transactions/quote
+Operacion: POST
+Archivo Json de entrada:
+{
+  "fromCurrency": "string",
+  "toCurrency": "string",
+  "amount": "number"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "exchangeRate": "number",
+    "targetAmount": "number"
+  }
+}
+
+Ruta: /transactions/exchange (aplica igual para /buy y /sell)
+Operacion: POST
+Archivo Json de entrada:
+{
+  "fromCurrency": "string",
+  "toCurrency": "string",
+  "amount": "number"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "id": "string (uuid)",
+    "walletId": "string (uuid)",
+    "transactionType": "string",
+    "sourceCurrency": "string",
+    "targetCurrency": "string",
+    "sourceAmount": "number",
+    "targetAmount": "number",
+    "exchangeRate": "number",
+    "resultingBalance": "number o string",
+    "createdAt": "string (iso date)"
+  }
+}
+
+Ruta: /transactions
+Operacion: GET
+Archivo Json de entrada: (Query params opcionales: ?limit=number&page=number)
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": [
+    {
+      "id": "string (uuid)",
+      "walletId": "string (uuid)",
+      "transactionType": "string",
+      "sourceCurrency": "string",
+      "targetCurrency": "string",
+      "sourceAmount": "string (decimal)",
+      "targetAmount": "string (decimal)",
+      "exchangeRate": "string (decimal)",
+      "resultingBalance": "string (decimal)",
+      "createdAt": "string (iso date)"
+    }
+  ],
+  "pagination": {
+    "page": "number",
+    "limit": "number",
+    "totalCount": "number",
+    "totalPages": "number"
+  }
+}
+
+=== MÓDULO CHATBOT ===
+
+Ruta: /chatbot/message
+Operacion: POST
+Archivo Json de entrada:
+{
+  "message": "string"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "reply": "string"
+  }
+}
+
+=== HEALTH CHECK ===
+
+Ruta: /health
+Operacion: GET
+Archivo Json de entrada: (No requiere)
+Respuesta: 200 OK
+Estructura Json:
+{
+  "status": "string"
+}
