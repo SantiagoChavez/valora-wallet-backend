@@ -2,6 +2,11 @@ import request from "supertest";
 import { describe, expect, it, vi, beforeAll, afterAll, afterEach } from "vitest";
 import { query } from "../database/db.js";
 
+// Pilar 4: Importamos los módulos de forma limpia. 
+// Vitest automáticamente inyectará los mocks sobre estos imports gracias a las llamadas de abajo.
+import { getFinancialAdvice } from "../services/geminiService.js";
+import { deleteChatHistoryByUserId } from "../models/chatbotModel.js";
+
 // Mockeamos el servicio de Gemini para evitar llamadas reales a la API
 vi.mock("../services/geminiService.js", () => {
     return {
@@ -9,10 +14,19 @@ vi.mock("../services/geminiService.js", () => {
     };
 });
 
+// Mockeamos el modelo de chatbot para aislar la persistencia del historial
+vi.mock("../models/chatbotModel.js", () => {
+    return {
+        getChatHistoryByUserId: vi.fn().mockResolvedValue([]),
+        saveChatMessage: vi.fn().mockResolvedValue({}),
+        deleteChatHistoryByUserId: vi.fn().mockResolvedValue(undefined)
+    };
+});
+
 describe("Pruebas de integración del Chatbot", () => {
     let app: typeof import("../app.js").app;
-    let getFinancialAdvice: typeof import("../services/geminiService.js").getFinancialAdvice;
     let token = "";
+    
     const testUser = {
         email: "chatbot_test@valora.com",
         password: "PasswordSegura123!",
@@ -21,15 +35,14 @@ describe("Pruebas de integración del Chatbot", () => {
         dateOfBirth: "01/01/1990",
         phone: "+54 9 11 1111-2222",
         country: "AR",
-        du: "55555555",
+        du: "88888888",
     };
 
     beforeAll(async () => {
         const appModule = await import("../app.js");
-        const geminiModule = await import("../services/geminiService.js");
         app = appModule.app;
-        getFinancialAdvice = geminiModule.getFinancialAdvice;
 
+        // Limpieza precautoria
         await query("DELETE FROM users WHERE email = $1", [testUser.email]);
 
         const res = await request(app).post("/auth/register").send(testUser);
@@ -37,7 +50,17 @@ describe("Pruebas de integración del Chatbot", () => {
     });
 
     afterAll(async () => {
-        await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+        // Pilar 2 y 4: Limpieza Defensiva Total (Previene Fallos por Foreign Keys Futuras).
+        // Si el schema no tiene CASCADE, esto borrará limpiamente los dependientes primero.
+        const userRes = await query("SELECT id FROM users WHERE email = $1", [testUser.email]);
+        if (userRes.rows.length > 0) {
+            const userId = userRes.rows[0].id;
+            await query("DELETE FROM balances WHERE wallet_id IN (SELECT id FROM wallets WHERE user_id = $1)", [userId]);
+            await query("DELETE FROM transactions WHERE wallet_id IN (SELECT id FROM wallets WHERE user_id = $1)", [userId]);
+            await query("DELETE FROM chatbot_histories WHERE user_id = $1", [userId]);
+            await query("DELETE FROM wallets WHERE user_id = $1", [userId]);
+            await query("DELETE FROM users WHERE id = $1", [userId]);
+        }
     });
 
     afterEach(() => {
@@ -84,17 +107,33 @@ describe("Pruebas de integración del Chatbot", () => {
             expect(response.body.success).toBe(true);
             expect(response.body.data.reply).toBe("Mocked AI response");
             
-            // Verificamos que el controlador inyecte los saldos y llame al servicio de IA
+            // Pilar 4: Uso seguro y fuertemente tipado de vi.mocked (sin 'as unknown as Mock')
             expect(vi.mocked(getFinancialAdvice)).toHaveBeenCalledTimes(1);
             expect(vi.mocked(getFinancialAdvice)).toHaveBeenCalledWith(
+                expect.any(String), 
                 message, 
-                expect.objectContaining({
+                expect.objectContaining({ 
                     USD: expect.any(Number),
                     EUR: expect.any(Number),
                     ARS: expect.any(Number)
-                })
+                }),
+                expect.any(Object)
             );
         });
     });
-});
 
+    describe("POST /chatbot/reset", () => {
+        it("debería limpiar el historial correctamente", async () => {
+            const response = await request(app)
+                .post("/chatbot/reset")
+                .set("Authorization", `Bearer ${token}`)
+                .send();
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.message).toBe("Historial de chat borrado exitosamente.");
+            
+            expect(vi.mocked(deleteChatHistoryByUserId)).toHaveBeenCalledTimes(1);
+        });
+    });
+});
