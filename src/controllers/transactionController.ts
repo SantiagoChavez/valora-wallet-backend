@@ -29,6 +29,14 @@ function maskEmail(email: string | null): string | null {
 }
 
 /**
+ * Utility function to mask names for privacy.
+ */
+function maskName(name: string | null | undefined): string | null | undefined {
+  if (!name) return name;
+  return `${name.charAt(0)}${'*'.repeat(Math.max(2, name.length - 1))}`;
+}
+
+/**
  * Maps a database transaction record (snake_case) to an API DTO (camelCase).
  * The counterparty email is masked to avoid leaking PII.
  */
@@ -193,8 +201,8 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
         res.status(200).json({
             success: true,
             data: {
-                firstName: destination.first_name,
-                lastName: destination.last_name,
+                firstName: maskName(destination.first_name),
+                lastName: maskName(destination.last_name),
                 alias: destination.alias,
                 // FIX: Usar la función top-level maskEmail (acepta string | null)
                 cvu: destination.cvu ? `***${destination.cvu.slice(-4)}` : null,

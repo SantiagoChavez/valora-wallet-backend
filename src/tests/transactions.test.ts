@@ -224,6 +224,11 @@ describe("Pruebas de integración de transacciones", () => {
   });
 
   describe("Transferencias P2P", () => {
+    function maskName(name: string): string {
+      if (!name) return name;
+      return `${name.charAt(0)}${'*'.repeat(Math.max(2, name.length - 1))}`;
+    }
+
     const expectedMaskedEmail = (() => {
       const atIndex = testRecipient.email.indexOf('@');
       const local = testRecipient.email.slice(0, atIndex);
@@ -242,10 +247,9 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data).toMatchObject({
-        firstName: testRecipient.firstName,
-        lastName: testRecipient.lastName,
-        // El endpoint ahora enmascara el email
-        email: expectedMaskedEmail,
+        firstName: maskName(testRecipient.firstName),
+        lastName: maskName(testRecipient.lastName),
+        email: expectedMaskedEmail
       });
     });
 
