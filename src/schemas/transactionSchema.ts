@@ -20,9 +20,9 @@ const amountBaseSchema = z
   .positive("El monto debe ser un número mayor a cero.")
   .max(1000000000, "El monto excede el límite operativo permitido por transacción.")
   .refine((val) => {
-    // FIX: Aumentamos el límite de validación a 8 decimales (NUMERIC 18,8).
-    // Usamos toFixed() en vez de matemática cruda para evadir los falsos rechazos del formato IEEE-754 de JS.
-    return Number(val.toFixed(8)) === val;
+    // FIX: Permitimos una pequeñísima tolerancia (epsilon) para evitar falsos rechazos 
+    // producidos por el ruido del formato IEEE-754 de JavaScript en operaciones matemáticas (ej. 0.1 + 0.2).
+    return Math.abs(Number(val.toFixed(8)) - val) < 1e-10;
   }, "El monto no puede tener más de 8 decimales.");
 
 // -----------------------------------------------------------------------------

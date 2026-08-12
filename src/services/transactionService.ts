@@ -15,11 +15,18 @@ function sanitizeHtmlString(input: string): string {
 }
 
 /**
- * Normaliza un número a 8 decimales.
- * Nota: en JS la aritmética es IEEE-754; usar toFixed evita truncados erróneos por representación binaria.
+ * Trunca estrictamente un número a 8 decimales sin redondear,
+ * previniendo artefactos contables por coma flotante (IEEE-754).
  */
 function truncateTo8Decimals(value: number): number {
-    return Number(value.toFixed(8));
+    // 1. Limpiamos el "ruido" de la coma flotante redondeando a 12 decimales.
+    //    (Ej: 0.29 puro, que internamente es 0.28999999999999998, se vuelve "0.290000000000")
+    const cleanedString = value.toFixed(12);
+    
+    // 2. Extraemos exactamente hasta el 8vo decimal sin redondear el último dígito.
+    //    (Ej: "1.999999999000" es cortado en "1.99999999")
+    const match = cleanedString.match(/^-?\d+(?:\.\d{0,8})?/);
+    return match ? Number(match[0]) : 0;
 }
 
 /**
