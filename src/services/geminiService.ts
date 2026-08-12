@@ -103,7 +103,7 @@ Cotizaciones actuales (si están disponibles): ${safeJsonStringify(sanitizedExch
   try {
     const genAI = getGenAIClient();
     const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash-lite",
+      model: "gemini-2.0-flash-lite",
       systemInstruction: fullSystemInstruction,
     });
 
