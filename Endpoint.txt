@@ -253,8 +253,8 @@ Estructura Json:
     "firstName": "string",
     "lastName": "string",
     "email": "string",
-    "cvu": "string | null",
-    "alias": "string | null"
+    "cvu": "string",
+    "alias": "string"
   }
 }
 
