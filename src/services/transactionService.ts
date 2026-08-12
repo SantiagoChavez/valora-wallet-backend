@@ -270,19 +270,10 @@ export async function executeTransfer(senderUserId: string, currency: string, am
             [[senderWallet.id, recipientInfo.wallet_id]]
         );
 
-        // Determinamos el orden lexicográfico de las billeteras para proteger los bloqueos en la tabla balances
-        const isSenderFirst = senderWallet.id < recipientInfo.wallet_id;
-        
-        let senderUpdatedBalance;
-        let recipientUpdatedBalance;
-
-        if (isSenderFirst) {
-            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -cleanAmount);
-            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, cleanAmount);
-        } else {
-            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, cleanAmount);
-            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -cleanAmount);
-        }
+        // Los balances se pueden actualizar en un orden fijo sin riesgo de Deadlock
+        // porque la transacción ya ha sido serializada globalmente por el pre-lock de wallets.
+        const senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -cleanAmount);
+        const recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, cleanAmount);
 
         const senderTransaction = await insertTransaction(
             client, senderWallet.id, "TRANSFER_OUT", currency, currency, cleanAmount, null, null, senderUpdatedBalance.amount,
