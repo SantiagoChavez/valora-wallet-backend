@@ -32,19 +32,19 @@ const amountBaseSchema = z
 export const depositSchema = z.object({
   currency: currencyBaseSchema,
   amount: amountBaseSchema,
-});
+}).strict();
 
 export const quoteSchema = z.object({
   fromCurrency: currencyBaseSchema,
   toCurrency: currencyBaseSchema,
   amount: amountBaseSchema,
-});
+}).strict();
 
 export const exchangeSchema = z.object({
   fromCurrency: currencyBaseSchema,
   toCurrency: currencyBaseSchema,
   amount: amountBaseSchema,
-});
+}).strict();
 
 export const transferSchema = z.object({
   currency: currencyBaseSchema,
@@ -54,7 +54,7 @@ export const transferSchema = z.object({
     .trim()
     .max(100, "El destino es demasiado largo (máx 100 caracteres).")
     .regex(validIdentifierRegex, "El destino contiene caracteres no permitidos o está vacío."), // Blindaje Anti-XSS
-});
+}).strict();
 
 export const resolveUserSchema = z.object({
   identifier: z
@@ -62,7 +62,7 @@ export const resolveUserSchema = z.object({
     .trim()
     .max(100, "El identificador es demasiado largo (máx 100 caracteres).")
     .regex(validIdentifierRegex, "El identificador contiene caracteres no permitidos o está vacío."), // Blindaje Anti-XSS
-});
+}).strict();
 
 // -----------------------------------------------------------------------------
 // 3. ESQUEMAS DE BÚSQUEDA / PAGINACIÓN
