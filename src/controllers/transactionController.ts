@@ -55,9 +55,9 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     resultingBalance: tx.resulting_balance ? Number(tx.resulting_balance) : null,
     createdAt: tx.created_at,
     counterpartyId: tx.counterparty_id ?? null,
-    counterpartyName: tx.counterparty_name ?? null,
-    counterpartyLastName: tx.counterparty_last_name ?? null,
-    counterpartyEmail: tx.counterparty_email ?? null,
+    counterpartyName: maskName(tx.counterparty_name) ?? null,
+    counterpartyLastName: maskName(tx.counterparty_last_name) ?? null,
+    counterpartyEmail: maskEmail(tx.counterparty_email ?? null) ?? null,
     counterpartyWallet: tx.counterparty_wallet ?? null,
 });
 
@@ -201,11 +201,11 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
         res.status(200).json({
             success: true,
             data: {
-                firstName: destination.first_name,
-                lastName: destination.last_name,
+                firstName: maskName(destination.first_name),
+                lastName: maskName(destination.last_name),
                 alias: destination.alias,
                 cvu: destination.cvu ? `***${destination.cvu.slice(-4)}` : null,
-                email: destination.email
+                email: maskEmail(destination.email)
             }
         });
     } catch (error: unknown) {
