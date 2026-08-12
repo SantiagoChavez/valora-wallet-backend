@@ -171,9 +171,17 @@ export async function sellController(req: AuthenticatedRequest, res: Response, n
  * Controller to handle resolving a transfer destination by identifier (email, cvu, alias).
  */
 export async function resolveTransferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    const startTime = Date.now();
+    const MIN_RESPONSE_MS = 300; // tiempo mínimo de respuesta normalizado
+
     try {
         const { identifier } = req.body;
         const destination = await resolveTransferDestination(identifier);
+
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime < MIN_RESPONSE_MS) {
+            await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_MS - elapsedTime));
+        }
 
         res.status(200).json({
             success: true,
@@ -187,6 +195,10 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
             }
         });
     } catch (error: unknown) {
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime < MIN_RESPONSE_MS) {
+            await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_MS - elapsedTime));
+        }
         next(error);
     }
 }
