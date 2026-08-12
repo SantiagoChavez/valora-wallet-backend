@@ -205,7 +205,10 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
                 lastName: maskName(destination.last_name),
                 alias: destination.alias,
                 cvu: destination.cvu ? `***${destination.cvu.slice(-4)}` : null,
-                email: maskEmail(destination.email)
+                email: maskEmail(destination.email),
+                // Mismo criterio de enmascarado que el CVU: alcanza para confirmar
+                // "es esta persona" sin exponer el documento completo.
+                document: destination.du ? `***${destination.du.slice(-4)}` : null
             }
         });
     } catch (error: unknown) {
