@@ -5,6 +5,7 @@ import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalle
 import { getExchangeRates } from "./exchangeRateService.js";
 import { enviarEmailConfirmacion } from "./sesService.js";
 import { findUserById } from "../models/userModel.js";
+import { truncateTo8Decimals } from "../utils/numberUtils.js";
 
 // ============================================================================
 // HELPERS Y UTILIDADES (DRY)
@@ -12,16 +13,6 @@ import { findUserById } from "../models/userModel.js";
 
 function sanitizeHtmlString(input: string): string {
     return input.replace(/[<&>"']/g, "");
-}
-
-/**
- * Trunca un número a 8 decimales ajustando por precisión de coma flotante.
- * Nota: Inyectamos un epsilon (1e-10) para evitar que el ruido IEEE-754 
- * trunque hacia abajo valores válidos (ej. 0.28999999999999998 en vez de 0.29).
- * Esto puede comportarse como un redondeo hacia arriba en casos muy extremos cercanos al umbral.
- */
-    return Math.trunc(((value >= 0 ? value + 1e-10 : value - 1e-10) * 1e8)) / 1e8;
-
 }
 
 /**
@@ -282,8 +273,8 @@ export async function executeTransfer(senderUserId: string, currency: string, am
         // (A -> B y B -> A) causarán un Deadlock fatal. El lock redundante posterior en la misma 
         // transacción es un no-op en Postgres y no afecta el throughput. Priorizamos consistencia.
         await client.query(
-            `SELECT id FROM wallets WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`,
-            [[senderWallet.id, recipientInfo.wallet_id]]
+            `SELECT id FROM wallets WHERE id = ANY(ARRAY[$1::uuid, $2::uuid]) ORDER BY id FOR UPDATE`,
+            [senderWallet.id, recipientInfo.wallet_id]
         );
 
         // Los balances se pueden actualizar en un orden fijo sin riesgo de Deadlock

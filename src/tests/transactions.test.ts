@@ -99,7 +99,6 @@ describe("Pruebas de integración de transacciones", () => {
     expect(response.body).toEqual({
       success: false,
       error: "VALIDATION_ERROR",
-      issues: ["El monto debe ser un número mayor a cero."],
       message: "El monto debe ser un número mayor a cero.",
     });
   });
@@ -275,6 +274,12 @@ describe("Pruebas de integración de transacciones", () => {
     });
 
     it("debería ejecutar una transferencia exitosa", async () => {
+      const senderBalanceBefore = await findBalanceByWalletAndCurrency(walletId, "USD");
+      const recipientBalanceBefore = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
+
+      const initialSenderBalance = senderBalanceBefore ? parseFloat(senderBalanceBefore.amount) : 0;
+      const initialRecipientBalance = recipientBalanceBefore ? parseFloat(recipientBalanceBefore.amount) : 0;
+
       // Necesitamos depositar primero para asegurar que haya fondos (USD)
       await request(app)
         .post("/transactions/deposit")
@@ -300,8 +305,8 @@ describe("Pruebas de integración de transacciones", () => {
       const senderBalance = await findBalanceByWalletAndCurrency(walletId, "USD");
       const recipientBalance = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
 
-      expect(parseFloat(senderBalance!.amount)).toBe(80);
-      expect(parseFloat(recipientBalance!.amount)).toBe(20);
+      expect(parseFloat(senderBalance!.amount)).toBe(initialSenderBalance + 30);
+      expect(parseFloat(recipientBalance!.amount)).toBe(initialRecipientBalance + 20);
     });
   });
 });

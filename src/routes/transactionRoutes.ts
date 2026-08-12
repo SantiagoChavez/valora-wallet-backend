@@ -10,12 +10,12 @@ export const transactionRouter = Router();
 // requireCompleteProfile solo va en las operaciones que mueven plata (depositar, comprar,
 // vender, intercambiar, transferir) — no en /quote (cotizar es de solo lectura, no hace falta tener
 // el perfil completo para consultar precio) ni en el listado de transacciones.
-transactionRouter.post("/deposit", authMiddleware, requireCompleteProfile, validateSchema(depositSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), depositController);
-transactionRouter.post("/quote", authMiddleware, validateSchema(quoteSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), quoteController);
-transactionRouter.post("/exchange", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), exchangeController);
-transactionRouter.post("/buy", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), buyController);
-transactionRouter.post("/sell", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), sellController);
-transactionRouter.get("/", authMiddleware, validateSchema(getTransactionsQuerySchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }, "query"), getTransactionsController);
+transactionRouter.post("/deposit", authMiddleware, requireCompleteProfile, validateSchema(depositSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), depositController);
+transactionRouter.post("/quote", authMiddleware, validateSchema(quoteSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), quoteController);
+transactionRouter.post("/exchange", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), exchangeController);
+transactionRouter.post("/buy", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), buyController);
+transactionRouter.post("/sell", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), sellController);
+transactionRouter.get("/", authMiddleware, validateSchema(getTransactionsQuerySchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }, "query"), getTransactionsController);
 
 // Rutas de Transferencia
 transactionRouter.post("/transfer/resolve", authMiddleware, validateSchema(resolveUserSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), resolveTransferController);
