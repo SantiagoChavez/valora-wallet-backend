@@ -15,7 +15,9 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     transactionType: tx.transaction_type,
     sourceCurrency: tx.source_currency,
     targetCurrency: tx.target_currency,
-    // FIX: Eliminamos el parseo/redondeo redundante. Confiamos en la precisión estricta de PostgreSQL.
+    // FIX: Eliminamos el parseFloat().toFixed() redundante. 
+    // TRADEOFF: Casteamos el NUMERIC estricto de PostgreSQL a Number de JS. 
+    // Es seguro para montos normales, pero montos colosales (>90 millones con 8 decimales) podrían perder precisión por el límite IEEE 754.
     sourceAmount: tx.source_amount ? Number(tx.source_amount) : null,
     targetAmount: tx.target_amount ? Number(tx.target_amount) : null,
     exchangeRate: tx.exchange_rate ? Number(tx.exchange_rate) : null,
