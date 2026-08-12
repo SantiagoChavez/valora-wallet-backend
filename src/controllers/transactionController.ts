@@ -9,14 +9,30 @@ import type { GetTransactionsQuery } from "../schemas/transactionSchema.js";
  * @param tx - The raw transaction object from the database
  * @returns The mapped object
  */
+/**
+ * Helper to mask email addresses for privacy.
+ * Muestra los dos primeros caracteres del local part, luego *** y el dominio completo.
+ */
+function maskEmail(email: string | null): string | null {
+  if (!email) return null;
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  const maskedLocal = local.length > 2 ? `${local.slice(0, 2)}***` : `${local}***`;
+  return `${maskedLocal}@${domain}`;
+}
+
+/**
+ * Maps a database transaction record (snake_case) to an API DTO (camelCase).
+ * The counterparty email is masked to avoid leaking PII.
+ */
 const mapTransactionToCamelCase = (tx: Transaction) => ({
     id: tx.id,
     walletId: tx.wallet_id,
     transactionType: tx.transaction_type,
     sourceCurrency: tx.source_currency,
     targetCurrency: tx.target_currency,
-    // FIX: Eliminamos el parseFloat().toFixed() redundante. 
-    // TRADEOFF: Casteamos el NUMERIC estricto de PostgreSQL a Number de JS. 
+    // FIX: Eliminamos el parseFloat().toFixed() redundante.
+    // TRADEOFF: Casteamos el NUMERIC estricto de PostgreSQL a Number de JS.
     // Es seguro para montos normales, pero montos colosales (>90 millones con 8 decimales) podrían perder precisión por el límite IEEE 754.
     sourceAmount: tx.source_amount ? Number(tx.source_amount) : null,
     targetAmount: tx.target_amount ? Number(tx.target_amount) : null,
@@ -26,9 +42,10 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     counterpartyId: tx.counterparty_id ?? null,
     counterpartyName: tx.counterparty_name ?? null,
     counterpartyLastName: tx.counterparty_last_name ?? null,
-    counterpartyEmail: tx.counterparty_email ?? null,
+    counterpartyEmail: maskEmail(tx.counterparty_email ?? null),
     counterpartyWallet: tx.counterparty_wallet ?? null,
 });
+
 
 /**
  * Controller to handle deposit requests.
