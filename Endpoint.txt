@@ -239,6 +239,45 @@ Estructura Json:
   }
 }
 
+Ruta: /transactions/transfer/resolve
+Operacion: POST
+Archivo Json de entrada:
+{
+  "identifier": "string (email, cvu, o alias)"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "firstName": "string",
+    "lastName": "string",
+    "email": "string"
+  }
+}
+
+Ruta: /transactions/transfer
+Operacion: POST
+Archivo Json de entrada:
+{
+  "currency": "string",
+  "amount": "number",
+  "destination": "string (email, cvu, o alias)"
+}
+Respuesta: 200 OK
+Estructura Json:
+{
+  "success": "boolean",
+  "data": {
+    "id": "string (uuid)",
+    "walletId": "string (uuid)",
+    "transactionType": "string",
+    "sourceCurrency": "string",
+    "targetCurrency": "string",
+    "counterpartyEmail": "string"
+  }
+}
+
 === MÓDULO CHATBOT ===
 
 Ruta: /chatbot/message

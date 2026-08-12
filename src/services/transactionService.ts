@@ -263,13 +263,15 @@ export async function executeTransfer(senderUserId: string, currency: string, am
 
         const recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
 
+        const formattedAmount = Number(amount).toFixed(8);
+
         const senderTransaction = await insertTransaction(
-            client, senderWallet.id, "TRANSFER_OUT", currency, currency, amount, null, null, senderUpdatedBalance.amount,
+            client, senderWallet.id, "TRANSFER_OUT", currency, currency, formattedAmount, null, null, senderUpdatedBalance.amount,
             recipientInfo.user_id, recipientInfo.first_name, recipientInfo.last_name, recipientInfo.email, recipientInfo.wallet_id
         );
 
         await insertTransaction(
-            client, recipientInfo.wallet_id, "TRANSFER_IN", currency, currency, null, amount, null, recipientUpdatedBalance.amount,
+            client, recipientInfo.wallet_id, "TRANSFER_IN", currency, currency, null, formattedAmount, null, recipientUpdatedBalance.amount,
             senderUserId, senderUser.first_name, senderUser.last_name, senderUser.email, senderWallet.id
         );
 
