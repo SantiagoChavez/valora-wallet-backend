@@ -53,19 +53,21 @@ export async function executeDeposit(userId: string, currency: string, amount: n
     const wallet = await findWalletByUserId(userId);
     if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
+    const cleanAmount = truncateTo8Decimals(amount);
+
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
 
-        const updatedBalance = await updateUserBalance(client, wallet.id, currency, amount);
+        const updatedBalance = await updateUserBalance(client, wallet.id, currency, cleanAmount);
         const transaction = await insertTransaction(
-            client, wallet.id, "DEPOSIT", null, currency, null, amount, null, updatedBalance.amount
+            client, wallet.id, "DEPOSIT", null, currency, null, cleanAmount, null, updatedBalance.amount
         );
 
         await client.query("COMMIT");
 
         const safeCurrency = sanitizeHtmlString(currency);
-        notifyUserAsync(userId, "Depósito Confirmado - Valora Wallet", `<h1>Depósito Exitoso</h1><p>Has depositado ${amount} ${safeCurrency} en tu billetera.</p>`);
+        notifyUserAsync(userId, "Depósito Confirmado - Valora Wallet", `<h1>Depósito Exitoso</h1><p>Has depositado ${cleanAmount} ${safeCurrency} en tu billetera.</p>`);
 
         return transaction;
     } catch (error: unknown) {
@@ -232,6 +234,9 @@ export async function resolveTransferDestination(identifier: string) {
 export async function executeTransfer(senderUserId: string, currency: string, amount: number, destinationIdentifier: string) {
     if (amount <= 0) throw Object.assign(new Error("El monto a transferir debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
     
+    // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
+    const cleanAmount = truncateTo8Decimals(amount);
+
     const senderWallet = await findWalletByUserId(senderUserId);
     if (!senderWallet) throw Object.assign(new Error("Billetera de origen no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
@@ -263,29 +268,27 @@ export async function executeTransfer(senderUserId: string, currency: string, am
         let recipientUpdatedBalance;
 
         if (isSenderFirst) {
-            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
-            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
+            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -cleanAmount);
+            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, cleanAmount);
         } else {
-            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
-            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
+            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, cleanAmount);
+            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -cleanAmount);
         }
 
-        const formattedAmount = truncateTo8Decimals(amount);
-
         const senderTransaction = await insertTransaction(
-            client, senderWallet.id, "TRANSFER_OUT", currency, currency, formattedAmount, null, null, senderUpdatedBalance.amount,
+            client, senderWallet.id, "TRANSFER_OUT", currency, currency, cleanAmount, null, null, senderUpdatedBalance.amount,
             recipientInfo.user_id, recipientInfo.first_name, recipientInfo.last_name, recipientInfo.email, recipientInfo.wallet_id
         );
 
         await insertTransaction(
-            client, recipientInfo.wallet_id, "TRANSFER_IN", currency, currency, null, formattedAmount, null, recipientUpdatedBalance.amount,
+            client, recipientInfo.wallet_id, "TRANSFER_IN", currency, currency, null, cleanAmount, null, recipientUpdatedBalance.amount,
             senderUserId, senderUser.first_name, senderUser.last_name, senderUser.email, senderWallet.id
         );
 
         await client.query("COMMIT");
 
-        notifyUserAsync(senderUserId, "Transferencia Enviada - Valora Wallet", `<h1>Transferencia Exitosa</h1><p>Has enviado ${amount} ${sanitizeHtmlString(currency)} a ${sanitizeHtmlString(recipientInfo.first_name)} ${sanitizeHtmlString(recipientInfo.last_name)}.</p>`);
-        notifyUserAsync(recipientInfo.user_id, "Transferencia Recibida - Valora Wallet", `<h1>Has recibido una transferencia</h1><p>Has recibido ${amount} ${sanitizeHtmlString(currency)}.</p>`);
+        notifyUserAsync(senderUserId, "Transferencia Enviada - Valora Wallet", `<h1>Transferencia Exitosa</h1><p>Has enviado ${cleanAmount} ${sanitizeHtmlString(currency)} a ${sanitizeHtmlString(recipientInfo.first_name)} ${sanitizeHtmlString(recipientInfo.last_name)}.</p>`);
+        notifyUserAsync(recipientInfo.user_id, "Transferencia Recibida - Valora Wallet", `<h1>Has recibido una transferencia</h1><p>Has recibido ${cleanAmount} ${sanitizeHtmlString(currency)}.</p>`);
 
         return senderTransaction;
     } catch (error: unknown) {
