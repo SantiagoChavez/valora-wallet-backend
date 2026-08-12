@@ -224,6 +224,11 @@ describe("Pruebas de integración de transacciones", () => {
   });
 
   describe("Transferencias P2P", () => {
+    const expectedMaskedEmail = (() => {
+      const [local, domain] = testRecipient.email.split('@');
+      return `${local.slice(0, 2)}***@${domain}`;
+    })();
+
     it("debería resolver correctamente un destinatario por email", async () => {
       const response = await request(app)
         .post("/transactions/transfer/resolve")
@@ -235,8 +240,8 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.data).toMatchObject({
         firstName: testRecipient.firstName,
         lastName: testRecipient.lastName,
-        // El endpoint ahora enmascara el email (ej. re***@valora.com)
-        email: "re***@valora.com",
+        // El endpoint ahora enmascara el email
+        email: expectedMaskedEmail,
       });
     });
 
@@ -301,13 +306,12 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.success).toBe(true);
 
       // FIX: El email en la respuesta está enmascarado por maskEmail()
-      // "recipient_test_santiago@valora.com" → "re***@valora.com"
       expect(response.body.data).toMatchObject({
         transactionType: "TRANSFER_OUT",
         walletId,
         sourceCurrency: "USD",
         targetCurrency: "USD",
-        counterpartyEmail: "re***@valora.com",  // email enmascarado
+        counterpartyEmail: expectedMaskedEmail,  // email enmascarado
       });
 
       // 3. Validar saldos con la fuente de verdad correcta
