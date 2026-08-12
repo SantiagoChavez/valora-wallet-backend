@@ -39,6 +39,51 @@ function duYCelularRefinement(
 }
 
 /**
+ * Fecha de nacimiento en formato DD/MM/YYYY, validada (fecha real, mayoría de edad 18+) y
+ * transformada a YYYY-MM-DD para la base de datos. Compartida entre registro (obligatoria) y
+ * completar perfil (opcional) para no tener dos criterios distintos de "fecha de nacimiento válida".
+ */
+const dateOfBirthSchema = z
+    .string({ message: "La fecha de nacimiento es requerida." })
+    .trim()
+    .regex(/^\d{2}\/\d{2}\/\d{4}$/, {
+        message: "La fecha de nacimiento debe tener el formato DD/MM/YYYY",
+    })
+    .refine((val) => {
+        // Si el formato no coincide con el regex, dejamos que la validación .regex maneje el error
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return true;
+        const parts = val.split("/");
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // 0-indexed en JS Date
+        const year = parseInt(parts[2], 10);
+
+        const birthDateUTC = new Date(Date.UTC(year, month, day));
+        if (isNaN(birthDateUTC.getTime())) return false;
+
+        // Evitar desbordamientos de fecha del calendario (ej. 30 de febrero)
+        if (
+            birthDateUTC.getUTCFullYear() !== year ||
+            birthDateUTC.getUTCMonth() !== month ||
+            birthDateUTC.getUTCDate() !== day
+        ) {
+            return false;
+        }
+
+        const today = new Date();
+        const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+        const cutoffUTC = new Date(Date.UTC(todayUTC.getUTCFullYear() - 18, todayUTC.getUTCMonth(), todayUTC.getUTCDate()));
+
+        return birthDateUTC <= cutoffUTC;
+    }, {
+        message: "Debes ser mayor de 18 años para registrarte.",
+    })
+    .transform((val) => {
+        // Transformar a YYYY-MM-DD para la base de datos
+        const parts = val.split("/");
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    });
+
+/**
  * Esquema de validación para el registro de usuarios
  */
 export const registerSchema = z.object({
@@ -61,45 +106,7 @@ export const registerSchema = z.object({
         .string({ message: "El apellido es requerido." })
         .trim()
         .min(2, "El apellido debe tener al menos 2 caracteres."),
-    dateOfBirth: z
-        .string({ message: "La fecha de nacimiento es requerida." })
-        .trim()
-        .regex(/^\d{2}\/\d{2}\/\d{4}$/, {
-            message: "La fecha de nacimiento debe tener el formato DD/MM/YYYY",
-        })
-        .refine((val) => {
-            // Si el formato no coincide con el regex, dejamos que la validación .regex maneje el error
-            if (!/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return true;
-            const parts = val.split("/");
-            const day = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1; // 0-indexed en JS Date
-            const year = parseInt(parts[2], 10);
-            
-            const birthDateUTC = new Date(Date.UTC(year, month, day));
-            if (isNaN(birthDateUTC.getTime())) return false;
-
-            // Evitar desbordamientos de fecha del calendario (ej. 30 de febrero)
-            if (
-                birthDateUTC.getUTCFullYear() !== year ||
-                birthDateUTC.getUTCMonth() !== month ||
-                birthDateUTC.getUTCDate() !== day
-            ) {
-                return false;
-            }
-
-            const today = new Date();
-            const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-            const cutoffUTC = new Date(Date.UTC(todayUTC.getUTCFullYear() - 18, todayUTC.getUTCMonth(), todayUTC.getUTCDate()));
-
-            return birthDateUTC <= cutoffUTC;
-        }, {
-            message: "Debes ser mayor de 18 años para registrarte.",
-        })
-        .transform((val) => {
-            // Transformar a YYYY-MM-DD para la base de datos
-            const parts = val.split("/");
-            return `${parts[2]}-${parts[1]}-${parts[0]}`;
-        }),
+    dateOfBirth: dateOfBirthSchema,
     phone: z
         .string({ message: "El número de teléfono es requerido." })
         .trim()
@@ -130,6 +137,7 @@ export const completeProfileSchema = z.object({
         .string({ message: "El documento único es requerido." })
         .trim()
         .transform((val) => val.replace(/[\s.-]/g, "").toUpperCase()),
+    dateOfBirth: dateOfBirthSchema.optional(),
 }).superRefine(duYCelularRefinement);
 
 /**
