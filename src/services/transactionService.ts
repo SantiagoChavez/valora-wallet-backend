@@ -34,7 +34,12 @@ function notifyUserAsync(userId: string, subject: string, htmlBody: string, know
             destinatario: knownEmail,
             asunto: subject,
             cuerpoHtml: htmlBody
-        }).catch(err => console.error(`[Background Notification Error] email ${knownEmail}:`, err));
+        }).catch(err => {
+            // FIX: Enmascaramos el email para no exponer PII en logs (cumplimiento de privacidad)
+            const parts = knownEmail.split('@');
+            const maskedEmail = parts.length === 2 ? `${parts[0].slice(0, 2)}***@${parts[1]}` : '***';
+            console.error(`[Background Notification Error] email ${maskedEmail}:`, err);
+        });
         return;
     }
 
