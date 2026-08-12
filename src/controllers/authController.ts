@@ -48,7 +48,7 @@ function formatDate(dateInput: Date | string | null | undefined): string | null 
     }
     const parsedDate = new Date(dateInput);
     if (isNaN(parsedDate.getTime())) return dateInput;
-    
+
     const year = parsedDate.getUTCFullYear();
     const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
     const day = String(parsedDate.getUTCDate()).padStart(2, "0");
@@ -140,9 +140,9 @@ export async function registerController(
       const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, celular.e164, country, du, client);
       const wallet = await createWallet(user.id, firstName, client);
       await createOrUpdateBalance(wallet.id, "USD", "0.00000000", client);
-      
+
       await client.query("COMMIT");
-      
+
       sendAuthSuccess(res, 201, user, wallet);
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch (e) { /* Ignorar error de rollback */ }
@@ -319,8 +319,8 @@ export function logoutController(_req: AuthenticatedRequest, res: Response): voi
   });
 }
 
-const googleClient = process.env.GOOGLE_CLIENT_ID 
-  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) 
+const googleClient = process.env.GOOGLE_CLIENT_ID
+  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   : null;
 
 export async function googleLoginController(
@@ -354,13 +354,13 @@ export async function googleLoginController(
       });
       return;
     }
-    
+
     const payload = ticket.getPayload();
     if (!payload || !payload.email || !payload.email_verified) {
-      res.status(401).json({ 
-        success: false, 
-        error: "UnauthorizedError", 
-        message: "Token inválido o email no verificado por Google." 
+      res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token inválido o email no verificado por Google."
       });
       return;
     }
@@ -395,7 +395,7 @@ export async function googleLoginController(
         wallet = newWallet;
       } catch (error) {
         try { await client.query("ROLLBACK"); } catch (e) { /* Ignorar */ }
-        
+
         // Manejo de condición de carrera para Google Sign-in
         if (error && typeof error === "object" && "code" in error && error.code === "23505") {
           // El usuario fue creado concurrentemente. Lo recuperamos en lugar de fallar.
@@ -408,7 +408,7 @@ export async function googleLoginController(
                throw new Error("Error de consistencia en base de datos al buscar billetera existente.");
              }
           } else {
-             throw error; 
+             throw error;
           }
         } else {
           throw error;

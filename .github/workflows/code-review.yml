@@ -1,0 +1,52 @@
+name: Claude Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+  workflow_dispatch:
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Review Code con Claude API nativa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # 1. Se agrega '|| true' para evitar que el pipefail cause el error 141
+          DIFF=$(gh pr diff "$PR_NUMBER" | head -c 50000 | iconv -f utf-8 -t utf-8 -c || true)
+          
+          if [ -z "$DIFF" ]; then
+            echo "No hay cambios en el diff."
+            exit 0
+          fi
+
+          jq -n --arg diff "$DIFF" '{
+            "model": "claude-sonnet-5",
+            "max_tokens": 4096,
+            "messages": [
+              {"role": "user", "content": "Actúa como un Senior Developer. Haz un code review exhaustivo de este git diff. Identifica bugs, errores lógicos y dame el código corregido:\n\n\($diff)"}
+            ]
+          }' > payload.json
+
+          # Se ejecuta curl guardando la respuesta en response.json
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            --max-time 60 \
+            https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @payload.json)
+            
+          # 2. Se lee desde el archivo response.json (en lugar de la variable vacía $RESPONSE)
+          COMMENT=$(cat response.json | jq -r 'if .error then "⚠️ Error de Claude: \(.error.message)" else .content[0].text end')
+          
+          gh pr comment $PR_NUMBER -b "$COMMENT"

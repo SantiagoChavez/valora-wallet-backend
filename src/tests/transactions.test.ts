@@ -16,12 +16,24 @@ describe("Pruebas de integración de transacciones", () => {
     du: "33333333",
   };
 
+  const testRecipient = {
+    email: "recipient_test_santiago@valora.com",
+    password: "PasswordSegura123!",
+    firstName: "Maria",
+    lastName: "Perez",
+    dateOfBirth: "20/08/1990",
+    phone: "+5491123456799",
+    country: "AR",
+    du: "55555555",
+  };
+
   const originalFetch = global.fetch;
   let authToken: string;
   let walletId: string;
+  let recipientWalletId: string;
 
   beforeAll(async () => {
-    await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+    await query("DELETE FROM users WHERE email = $1 OR email = $2", [testUser.email, testRecipient.email]);
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -37,13 +49,25 @@ describe("Pruebas de integración de transacciones", () => {
       .post("/auth/register")
       .send(testUser);
 
+    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.body.success).toBe(true);
+
     authToken = registerResponse.body.data.token;
     walletId = registerResponse.body.data.wallet.id;
+
+    const recipientResponse = await request(app)
+      .post("/auth/register")
+      .send(testRecipient);
+    
+    expect(recipientResponse.status).toBe(201);
+    expect(recipientResponse.body.success).toBe(true);
+    
+    recipientWalletId = recipientResponse.body.data.wallet.id;
   });
 
   afterAll(async () => {
     global.fetch = originalFetch;
-    await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+    await query("DELETE FROM users WHERE email = $1 OR email = $2", [testUser.email, testRecipient.email]);
   });
 
   it("debería registrar un depósito exitoso y actualizar el saldo del usuario", async () => {
@@ -196,6 +220,120 @@ describe("Pruebas de integración de transacciones", () => {
         error: "UnauthorizedError",
         message: "Acceso no autorizado. Token no proporcionado."
       });
+    });
+  });
+
+  describe("Transferencias P2P", () => {
+    function maskName(name: string): string {
+      if (!name) return name;
+      return `${name.charAt(0)}${'*'.repeat(Math.max(2, name.length - 1))}`;
+    }
+
+    const expectedMaskedEmail = (() => {
+      const atIndex = testRecipient.email.indexOf('@');
+      const local = testRecipient.email.slice(0, atIndex);
+      const domain = testRecipient.email.slice(atIndex + 1);
+      const visibleChars = Math.min(2, Math.max(1, Math.floor(local.length / 2)));
+      const maskedLocal = `${local.slice(0, visibleChars)}${'*'.repeat(Math.max(3, local.length - visibleChars))}`;
+      return `${maskedLocal}@${domain}`;
+    })();
+
+    it("debería resolver correctamente un destinatario por email", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer/resolve")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ identifier: testRecipient.email });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        firstName: maskName(testRecipient.firstName),
+        lastName: maskName(testRecipient.lastName),
+        email: expectedMaskedEmail
+      });
+    });
+
+    it("debería rechazar resolver un destinatario inexistente", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer/resolve")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ identifier: "noexiste@valora.com" });
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("USER_NOT_FOUND");
+    });
+
+    it("debería rechazar una auto-transferencia", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 10, destination: testUser.email });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("SELF_TRANSFER");
+    });
+
+    it("debería rechazar una transferencia por saldo insuficiente", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 999999, destination: testRecipient.email });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("INSUFFICIENT_FUNDS");
+    });
+
+    it("debería ejecutar una transferencia exitosa", async () => {
+      // 1. Asegurar fondos base con un depósito explícito y controlado
+      const depositResponse = await request(app)
+        .post("/transactions/deposit")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 50 });
+
+      expect(depositResponse.status).toBe(200);
+      expect(depositResponse.body.success).toBe(true);
+
+      // 2. Capturar balances DESPUÉS del depósito, antes de la transferencia
+      const senderBalanceBefore = await findBalanceByWalletAndCurrency(walletId, "USD");
+      const recipientBalanceBefore = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
+
+      const initialSenderBalance = senderBalanceBefore ? parseFloat(senderBalanceBefore.amount) : 0;
+      const initialRecipientBalance = recipientBalanceBefore ? parseFloat(recipientBalanceBefore.amount) : 0;
+
+      const TRANSFER_AMOUNT = 20;
+
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: TRANSFER_AMOUNT, destination: testRecipient.email });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+
+      // FIX: El email en la respuesta está enmascarado por maskEmail()
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        walletId,
+        sourceCurrency: "USD",
+        targetCurrency: "USD",
+        counterpartyEmail: expectedMaskedEmail,  // email enmascarado
+      });
+
+      // 3. Validar saldos con la fuente de verdad correcta
+      const senderBalanceAfter = await findBalanceByWalletAndCurrency(walletId, "USD");
+      const recipientBalanceAfter = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
+
+      expect(parseFloat(senderBalanceAfter!.amount)).toBeCloseTo(
+        initialSenderBalance - TRANSFER_AMOUNT,
+        8
+      );
+      expect(parseFloat(recipientBalanceAfter!.amount)).toBeCloseTo(
+        initialRecipientBalance + TRANSFER_AMOUNT,
+        8
+      );
     });
   });
 });
