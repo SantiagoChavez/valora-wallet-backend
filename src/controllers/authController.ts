@@ -276,7 +276,7 @@ export async function completeProfileController(
       return;
     }
 
-    const { phone, country, du } = req.body;
+    const { phone, country, du, dateOfBirth } = req.body;
 
     // El schema de Zod ya validó que sea un celular real vía validarCelular; acá lo volvemos
     // a llamar para obtener el valor normalizado en E.164 y nunca persistir el string crudo.
@@ -290,7 +290,7 @@ export async function completeProfileController(
       return;
     }
 
-    const user = await updateUserProfile(userId, celular.e164, country, du);
+    const user = await updateUserProfile(userId, celular.e164, country, du, dateOfBirth);
     if (!user) {
       res.status(404).json({ success: false, error: "NotFoundError", message: "Usuario no encontrado." });
       return;

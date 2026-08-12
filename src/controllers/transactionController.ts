@@ -55,8 +55,8 @@ export async function depositController(req: AuthenticatedRequest, res: Response
  */
 export async function quoteController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const { fromCurrency, toCurrency, amount } = req.body;
-        const quote = await getExchangeQuote(fromCurrency, toCurrency, amount);
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
+        const quote = await getExchangeQuote(fromCurrency, toCurrency, amount, amountSide);
 
         res.status(200).json({
             success: true,
@@ -73,9 +73,9 @@ export async function quoteController(req: AuthenticatedRequest, res: Response, 
 export async function exchangeController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
         const userId = req.user!.userId;
-        const { fromCurrency, toCurrency, amount } = req.body;
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
 
-        const transaction = await executeExchange(userId, fromCurrency, toCurrency, amount);
+        const transaction = await executeExchange(userId, fromCurrency, toCurrency, amount, amountSide);
 
         res.status(200).json({
             success: true,
@@ -119,9 +119,9 @@ export async function getTransactionsController(
 export async function buyController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
         const userId = req.user!.userId;
-        const { fromCurrency, toCurrency, amount } = req.body;
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
 
-        const transaction = await executeBuy(userId, fromCurrency, toCurrency, amount);
+        const transaction = await executeBuy(userId, fromCurrency, toCurrency, amount, amountSide);
 
         res.status(200).json({
             success: true,
@@ -138,9 +138,9 @@ export async function buyController(req: AuthenticatedRequest, res: Response, ne
 export async function sellController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
         const userId = req.user!.userId;
-        const { fromCurrency, toCurrency, amount } = req.body;
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
 
-        const transaction = await executeSell(userId, fromCurrency, toCurrency, amount);
+        const transaction = await executeSell(userId, fromCurrency, toCurrency, amount, amountSide);
 
         res.status(200).json({
             success: true,

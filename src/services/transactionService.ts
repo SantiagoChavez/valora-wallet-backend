@@ -88,7 +88,12 @@ export async function executeDeposit(userId: string, currency: string, amount: n
 /**
  * Obtiene una cotización en tiempo real sin abrir conexiones a la base de datos.
  */
-export async function getExchangeQuote(fromCurrency: string, toCurrency: string, amount: number) {
+export async function getExchangeQuote(
+    fromCurrency: string,
+    toCurrency: string,
+    amount: number,
+    amountSide: "source" | "target" = "source"
+) {
     if (amount <= 0) throw Object.assign(new Error("El monto a cotizar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
     if (fromCurrency === toCurrency) throw Object.assign(new Error("Las monedas de origen y destino no pueden ser iguales."), { status: 400, code: "SAME_CURRENCY" });
 
@@ -109,9 +114,21 @@ export async function getExchangeQuote(fromCurrency: string, toCurrency: string,
 
     // Solo truncamos los RESULTADOS de la operación matemática
     const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
-    const targetAmount = truncateTo8Decimals((amount / rateFrom) * rateTo);
 
-    return { exchangeRate, targetAmount };
+    let sourceAmount: number;
+    let targetAmount: number;
+
+    if (amountSide === "target") {
+        targetAmount = truncateTo8Decimals(amount);
+        const amountInUsdFromTarget = targetAmount / rateTo;
+        sourceAmount = truncateTo8Decimals(amountInUsdFromTarget * rateFrom);
+    } else {
+        sourceAmount = truncateTo8Decimals(amount);
+        const amountInUsd = sourceAmount / rateFrom;
+        targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
+    }
+
+    return { exchangeRate, sourceAmount, targetAmount };
 }
 
 /**
@@ -122,7 +139,8 @@ async function executeConversion(
     type: "EXCHANGE" | "BUY" | "SELL",
     fromCurrency: string,
     toCurrency: string,
-    amount: number
+    amount: number,
+    amountSide: "source" | "target" = "source"
 ) {
     const action = type === "EXCHANGE" ? "intercambiar" : type === "BUY" ? "comprar" : "vender";
     if (amount <= 0) throw Object.assign(new Error(`El monto a ${action} debe ser mayor a cero.`), { status: 400, code: "INVALID_AMOUNT" });
@@ -150,13 +168,23 @@ async function executeConversion(
     try {
         await client.query("BEGIN");
 
-        // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
-        const cleanAmount = truncateTo8Decimals(amount);
-
         // FIX: Sincronización matemática idéntica a getExchangeQuote (8 decimales truncados)
         const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
-        const amountInUsd = cleanAmount / rateFrom;
-        const targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
+
+        // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
+        let cleanAmount: number;
+        let targetAmount: number;
+
+        if (amountSide === "target") {
+            const cleanTargetAmount = truncateTo8Decimals(amount);
+            const amountInUsdFromTarget = cleanTargetAmount / rateTo;
+            cleanAmount = truncateTo8Decimals(amountInUsdFromTarget * rateFrom);
+            targetAmount = cleanTargetAmount;
+        } else {
+            cleanAmount = truncateTo8Decimals(amount);
+            const amountInUsd = cleanAmount / rateFrom;
+            targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
+        }
 
         await updateUserBalance(client, wallet.id, fromCurrency, -cleanAmount);
         const newTargetBalance = await updateUserBalance(client, wallet.id, toCurrency, targetAmount);
@@ -183,16 +211,16 @@ async function executeConversion(
     }
 }
 
-export async function executeExchange(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
-    return executeConversion(userId, "EXCHANGE", fromCurrency, toCurrency, amount);
+export async function executeExchange(userId: string, fromCurrency: string, toCurrency: string, amount: number, amountSide: "source" | "target" = "source") {
+    return executeConversion(userId, "EXCHANGE", fromCurrency, toCurrency, amount, amountSide);
 }
 
-export async function executeBuy(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
-    return executeConversion(userId, "BUY", fromCurrency, toCurrency, amount);
+export async function executeBuy(userId: string, fromCurrency: string, toCurrency: string, amount: number, amountSide: "source" | "target" = "source") {
+    return executeConversion(userId, "BUY", fromCurrency, toCurrency, amount, amountSide);
 }
 
-export async function executeSell(userId: string, fromCurrency: string, toCurrency: string, amount: number) {
-    return executeConversion(userId, "SELL", fromCurrency, toCurrency, amount);
+export async function executeSell(userId: string, fromCurrency: string, toCurrency: string, amount: number, amountSide: "source" | "target" = "source") {
+    return executeConversion(userId, "SELL", fromCurrency, toCurrency, amount, amountSide);
 }
 
 /**
