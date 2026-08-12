@@ -9,37 +9,6 @@ import type { GetTransactionsQuery } from "../schemas/transactionSchema.js";
  * @param tx - The raw transaction object from the database
  * @returns The mapped object
  */
-/**
- * Helper to mask email addresses for privacy.
- * Muestra los dos primeros caracteres del local part, luego *** y el dominio completo.
- */
-function maskEmail(email: string | null): string | null {
-    if (!email) return null;
-    const atIndex = email.indexOf('@');
-    if (atIndex <= 0) return email; // formato inválido, no enmascaramos nada raro
-
-    const local = email.slice(0, atIndex);
-    const domain = email.slice(atIndex + 1);
-
-    // Siempre oculta al menos la mitad, nunca revela el 100% del local-part.
-    const visibleChars = Math.min(2, Math.max(1, Math.floor(local.length / 2)));
-    const maskedLocal = `${local.slice(0, visibleChars)}${'*'.repeat(Math.max(3, local.length - visibleChars))}`;
-
-    return `${maskedLocal}@${domain}`;
-}
-
-/**
- * Utility function to mask names for privacy.
- */
-function maskName(name: string | null | undefined): string | null | undefined {
-    if (!name) return name;
-    return `${name.charAt(0)}${'*'.repeat(Math.max(2, name.length - 1))}`;
-}
-
-/**
- * Maps a database transaction record (snake_case) to an API DTO (camelCase).
- * The counterparty email is masked to avoid leaking PII.
- */
 const mapTransactionToCamelCase = (tx: Transaction) => ({
     id: tx.id,
     walletId: tx.wallet_id,
@@ -55,9 +24,9 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     resultingBalance: tx.resulting_balance ? Number(tx.resulting_balance) : null,
     createdAt: tx.created_at,
     counterpartyId: tx.counterparty_id ?? null,
-    counterpartyName: maskName(tx.counterparty_name) ?? null,
-    counterpartyLastName: maskName(tx.counterparty_last_name) ?? null,
-    counterpartyEmail: maskEmail(tx.counterparty_email ?? null) ?? null,
+    counterpartyName: tx.counterparty_name ?? null,
+    counterpartyLastName: tx.counterparty_last_name ?? null,
+    counterpartyEmail: tx.counterparty_email ?? null,
     counterpartyWallet: tx.counterparty_wallet ?? null,
 });
 
@@ -201,14 +170,12 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
         res.status(200).json({
             success: true,
             data: {
-                firstName: maskName(destination.first_name),
-                lastName: maskName(destination.last_name),
+                firstName: destination.first_name,
+                lastName: destination.last_name,
                 alias: destination.alias,
-                cvu: destination.cvu ? `***${destination.cvu.slice(-4)}` : null,
-                email: maskEmail(destination.email),
-                // Mismo criterio de enmascarado que el CVU: alcanza para confirmar
-                // "es esta persona" sin exponer el documento completo.
-                document: destination.du ? `***${destination.du.slice(-4)}` : null
+                cvu: destination.cvu,
+                email: destination.email,
+                document: destination.du
             }
         });
     } catch (error: unknown) {

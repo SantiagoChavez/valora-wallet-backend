@@ -224,20 +224,6 @@ describe("Pruebas de integración de transacciones", () => {
   });
 
   describe("Transferencias P2P", () => {
-    function maskName(name: string): string {
-      if (!name) return name;
-      return `${name.charAt(0)}${'*'.repeat(Math.max(2, name.length - 1))}`;
-    }
-
-    const expectedMaskedEmail = (() => {
-      const atIndex = testRecipient.email.indexOf('@');
-      const local = testRecipient.email.slice(0, atIndex);
-      const domain = testRecipient.email.slice(atIndex + 1);
-      const visibleChars = Math.min(2, Math.max(1, Math.floor(local.length / 2)));
-      const maskedLocal = `${local.slice(0, visibleChars)}${'*'.repeat(Math.max(3, local.length - visibleChars))}`;
-      return `${maskedLocal}@${domain}`;
-    })();
-
     it("debería resolver correctamente un destinatario por email", async () => {
       const response = await request(app)
         .post("/transactions/transfer/resolve")
@@ -247,9 +233,9 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data).toMatchObject({
-        firstName: maskName(testRecipient.firstName),
-        lastName: maskName(testRecipient.lastName),
-        email: expectedMaskedEmail
+        firstName: testRecipient.firstName,
+        lastName: testRecipient.lastName,
+        email: testRecipient.email
       });
     });
 
@@ -313,13 +299,12 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
 
-      // FIX: El email en la respuesta está enmascarado por maskEmail()
       expect(response.body.data).toMatchObject({
         transactionType: "TRANSFER_OUT",
         walletId,
         sourceCurrency: "USD",
         targetCurrency: "USD",
-        counterpartyEmail: expectedMaskedEmail,  // email enmascarado
+        counterpartyEmail: testRecipient.email,
       });
 
       // 3. Validar saldos con la fuente de verdad correcta
