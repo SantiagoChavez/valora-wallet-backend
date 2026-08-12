@@ -26,7 +26,16 @@ function truncateTo8Decimals(value: number): number {
  * Notificador asíncrono centralizado (Fire-and-Forget).
  * No bloquea la respuesta HTTP ni la base de datos.
  */
-function notifyUserAsync(userId: string, subject: string, htmlBody: string): void {
+function notifyUserAsync(userId: string, subject: string, htmlBody: string, knownEmail?: string): void {
+    if (knownEmail) {
+        void enviarEmailConfirmacion({
+            destinatario: knownEmail,
+            asunto: subject,
+            cuerpoHtml: htmlBody
+        }).catch(err => console.error(`[Background Notification Error] email ${knownEmail}:`, err));
+        return;
+    }
+
     void findUserById(userId)
         .then(user => {
             if (user) {
@@ -287,8 +296,8 @@ export async function executeTransfer(senderUserId: string, currency: string, am
 
         await client.query("COMMIT");
 
-        notifyUserAsync(senderUserId, "Transferencia Enviada - Valora Wallet", `<h1>Transferencia Exitosa</h1><p>Has enviado ${cleanAmount} ${sanitizeHtmlString(currency)} a ${sanitizeHtmlString(recipientInfo.first_name)} ${sanitizeHtmlString(recipientInfo.last_name)}.</p>`);
-        notifyUserAsync(recipientInfo.user_id, "Transferencia Recibida - Valora Wallet", `<h1>Has recibido una transferencia</h1><p>Has recibido ${cleanAmount} ${sanitizeHtmlString(currency)}.</p>`);
+        notifyUserAsync(senderUserId, "Transferencia Enviada - Valora Wallet", `<h1>Transferencia Exitosa</h1><p>Has enviado ${cleanAmount} ${sanitizeHtmlString(currency)} a ${sanitizeHtmlString(recipientInfo.first_name)} ${sanitizeHtmlString(recipientInfo.last_name)}.</p>`, senderUser.email);
+        notifyUserAsync(recipientInfo.user_id, "Transferencia Recibida - Valora Wallet", `<h1>Has recibido una transferencia</h1><p>Has recibido ${cleanAmount} ${sanitizeHtmlString(currency)}.</p>`, recipientInfo.email);
 
         return senderTransaction;
     } catch (error: unknown) {
