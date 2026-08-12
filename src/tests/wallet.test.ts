@@ -44,7 +44,7 @@ describe("Pruebas de Billetera (Wallets)", () => {
   });
 
   it("Debería retornar 409 si el alias ya existe", async () => {
-    const anotherUser = { ...testUser, email: "stealer@valora.com", du: "87654322" };
+    const anotherUser = { ...testUser, email: "stealer@valora.com", du: "87654322", phone: "+54 9 11 2345-6780" };
     await query("DELETE FROM users WHERE email = $1", [anotherUser.email]);
     const res2 = await request(app).post("/auth/register").send(anotherUser);
     const token2 = res2.body.data.token;
