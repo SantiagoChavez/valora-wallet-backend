@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { pool } from "./db.js";
+import bcrypt from "bcrypt";
 
 interface SeedUser {
   id: string;
@@ -18,15 +19,18 @@ async function seed(): Promise<void> {
 
     await client.query(`DELETE FROM users WHERE email LIKE 'demo.%@valora.com'`);
 
+    // Hashear una contraseña por defecto ("Test1234!") para que puedan iniciar sesión tradicionalmente en la demo
+    const defaultPasswordHash = await bcrypt.hash("Test1234!", 10);
+
     const { rows: users, rowCount } = await client.query<SeedUser>(`
-      INSERT INTO users (email, first_name, last_name, country)
+      INSERT INTO users (email, password_hash, first_name, last_name, country)
       VALUES 
-        ('demo.juan@valora.com',   'Juan',   'Pérez', 'AR'),
-        ('demo.maria@valora.com',  'Maria',  'Gómez', 'CO'),
-        ('demo.carlos@valora.com', 'Carlos', 'López', 'MX')
+        ('demo.juan@valora.com',   $1, 'Juan',   'Pérez', 'AR'),
+        ('demo.maria@valora.com',  $1, 'Maria',  'Gómez', 'CO'),
+        ('demo.carlos@valora.com', $1, 'Carlos', 'López', 'MX')
       ON CONFLICT (email) DO NOTHING
       RETURNING id, email, first_name;
-    `);
+    `, [defaultPasswordHash]);
 
     if (rowCount === 0) {
       console.log("⚠️  Los usuarios demo ya existen. Ejecutá con una base limpia.");
