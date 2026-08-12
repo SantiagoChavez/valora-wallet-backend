@@ -481,6 +481,45 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.body.message).toContain("nexot.solutions@gmail.com");
     });
 
+    it("debería conservar la fecha de nacimiento existente si no se envía dateOfBirth", async () => {
+      const response = await request(app)
+        .patch("/auth/me")
+        .set("Authorization", `Bearer ${googleToken}`)
+        .send({ phone: "+54 9 11 7000-0001", country: "AR", du: "70707070" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      // Placeholder que googleLoginController usa al crear la cuenta: no se toca si no viene.
+      expect(response.body.data.user.dateOfBirth).toBe("01/01/1990");
+    });
+
+    it("debería actualizar la fecha de nacimiento cuando se envía una válida", async () => {
+      const response = await request(app)
+        .patch("/auth/me")
+        .set("Authorization", `Bearer ${googleToken}`)
+        .send({ phone: "+54 9 11 7000-0002", country: "AR", du: "71717171", dateOfBirth: "20/03/1990" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.user.dateOfBirth).toBe("20/03/1990");
+    });
+
+    it("debería rechazar una fecha de nacimiento de un menor de edad", async () => {
+      const today = new Date();
+      const tenYearsAgo = new Date(Date.UTC(today.getUTCFullYear() - 10, today.getUTCMonth(), today.getUTCDate()));
+      const underageDate = `${String(tenYearsAgo.getUTCDate()).padStart(2, "0")}/${String(tenYearsAgo.getUTCMonth() + 1).padStart(2, "0")}/${tenYearsAgo.getUTCFullYear()}`;
+
+      const response = await request(app)
+        .patch("/auth/me")
+        .set("Authorization", `Bearer ${googleToken}`)
+        .send({ phone: "+54 9 11 7000-0003", country: "AR", du: "72727272", dateOfBirth: underageDate });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+      expect(response.body.message).toContain("mayor de 18 años");
+    });
+
     it("debería devolver 404 si el token es válido pero la cuenta ya no existe", async () => {
       // Último test del bloque: borra la cuenta de Google que vienen reutilizando los
       // tests anteriores, así no rompe nada más de este describe.
