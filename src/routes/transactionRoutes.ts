@@ -40,8 +40,8 @@ transactionRouter.post("/quote", authMiddleware, validateSchema(quoteSchema, { e
 transactionRouter.post("/exchange", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), exchangeController);
 transactionRouter.post("/buy", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), buyController);
 transactionRouter.post("/sell", authMiddleware, requireCompleteProfile, validateSchema(exchangeSchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }), sellController);
-transactionRouter.get("/", authMiddleware, transactionReadLimiter, validateSchema(getTransactionsQuerySchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }, "query"), getTransactionsController);
+transactionRouter.get("/", transactionReadLimiter, authMiddleware, validateSchema(getTransactionsQuerySchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }, "query"), getTransactionsController);
 
 // Rutas de Transferencia
-transactionRouter.post("/transfer/resolve", authMiddleware, transferLimiter, validateSchema(resolveUserSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), resolveTransferController);
-transactionRouter.post("/transfer", authMiddleware, transferLimiter, requireCompleteProfile, validateSchema(transferSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), transferController);
+transactionRouter.post("/transfer/resolve", transferLimiter, authMiddleware, validateSchema(resolveUserSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), resolveTransferController);
+transactionRouter.post("/transfer", transferLimiter, authMiddleware, requireCompleteProfile, validateSchema(transferSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), transferController);
