@@ -9,10 +9,11 @@ interface SeedUser {
 
 /** Poblar la base de datos con cuentas demo para la presentación. */
 async function seed(): Promise<void> {
-  const client = await pool.connect();
   console.log("🌱 Iniciando seed de datos...");
+  let client;
 
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     await client.query(`DELETE FROM users WHERE email LIKE 'demo.%@valora.com'`);
@@ -48,10 +49,11 @@ async function seed(): Promise<void> {
 
       const walletId = walletRows[0].id;
 
+      // Consistencia matemática: balance inicial USD (3900.00) = 5000.00 (BUY) - 1100.00 (EXCHANGE)
       await client.query(`
         INSERT INTO balances (wallet_id, currency_code, amount)
         VALUES 
-          ($1, 'USD', 5000.00),
+          ($1, 'USD', 3900.00),
           ($1, 'ARS', 150000.00),
           ($1, 'EUR', 1000.00)
       `, [walletId]);
@@ -72,10 +74,15 @@ async function seed(): Promise<void> {
     await client.query("COMMIT");
     console.log("🚀 Seed finalizado con éxito.");
   } catch (error) {
-    await client.query("ROLLBACK");
-    console.error("❌ Error ejecutando seed (ROLLBACK aplicado):", error);
+    if (client) {
+      await client.query("ROLLBACK");
+    }
+    console.error("❌ Error ejecutando seed (ROLLBACK aplicado si corresponde):", error);
+    process.exitCode = 1;
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
     await pool.end();
   }
 }

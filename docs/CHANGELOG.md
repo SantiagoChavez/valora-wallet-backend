@@ -15,7 +15,7 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - **Edición de Alias:** Nuevo endpoint `PUT /wallet/alias` para personalizar el alias de la billetera.
 - **Validación de Celular por País:** Integración de `libphonenumber-js/max` para validar y normalizar números de celular, rechazando líneas fijas.
 - **Validación de Documento por País:** Validación dinámica de DU según el país del usuario (AR: 7-8 dígitos, PE: 8, CO: 8-10, MX: 10-18 alfanumérico).
-- **Seed Data:** Script `src/database/seed.ts` para poblar la base de datos con 3 usuarios demo, saldos pre-cargados (USD, ARS, EUR) y transacciones variadas. Ejecuta dentro de transacción ACID.
+- **Seed Data:** Script `src/database/seed.ts` para poblar la base de datos con 3 usuarios demo con consistencia contable exacta (saldos e historial reconciliados), robustez ante fallos de conexión y soporte para automatización (exitCode=1 en error). Ejecuta dentro de transacción ACID.
 - **Tests nuevos:** `phoneValidation.test.ts`, `documentValidation.test.ts`, `requireCompleteProfile.test.ts`, `catalogs.test.ts`, `jwt.test.ts`. Total: 18 suites, 100+ tests pasando.
 
 ### Changed (Modificado)
