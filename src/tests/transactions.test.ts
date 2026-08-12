@@ -299,8 +299,8 @@ describe("Pruebas de integración de transacciones", () => {
       const senderBalance = await findBalanceByWalletAndCurrency(walletId, "USD");
       const recipientBalance = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
 
-      expect(parseFloat(senderBalance!.amount)).toBeGreaterThanOrEqual(0);
-      expect(parseFloat(recipientBalance!.amount)).toBeGreaterThanOrEqual(20);
+      expect(parseFloat(senderBalance!.amount)).toBe(80);
+      expect(parseFloat(recipientBalance!.amount)).toBe(20);
     });
   });
 });
