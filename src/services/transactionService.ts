@@ -285,7 +285,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
         const recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, cleanAmount);
 
         const senderTransaction = await insertTransaction(
-            client, senderWallet.id, "TRANSFER_OUT", currency, currency, cleanAmount, null, null, senderUpdatedBalance.amount,
+            client, senderWallet.id, "TRANSFER_OUT", currency, currency, cleanAmount, cleanAmount, null, senderUpdatedBalance.amount,
             recipientInfo.user_id, recipientInfo.first_name, recipientInfo.last_name, recipientInfo.email, recipientInfo.wallet_id
         );
 
