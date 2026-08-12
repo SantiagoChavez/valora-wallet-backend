@@ -252,8 +252,8 @@ Estructura Json:
   "data": {
     "firstName": "string",
     "lastName": "string",
-    "email": "string",
-    "cvu": "string",
+    "email": "string (enmascarado por privacidad)",
+    "cvu": "string (enmascarado por privacidad)",
     "alias": "string"
   }
 }

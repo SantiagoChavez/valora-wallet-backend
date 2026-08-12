@@ -236,7 +236,8 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.data).toMatchObject({
         firstName: testRecipient.firstName,
         lastName: testRecipient.lastName,
-        email: testRecipient.email,
+        // El endpoint ahora enmascara el email (ej. re***@valora.com)
+        email: "re***@valora.com",
       });
     });
 
