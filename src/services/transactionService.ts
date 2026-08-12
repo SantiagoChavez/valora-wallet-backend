@@ -15,13 +15,12 @@ function sanitizeHtmlString(input: string): string {
 }
 
 /**
- * Trunca estrictamente un número a 8 decimales sin redondear,
- * previniendo artefactos contables por coma flotante (IEEE-754).
+ * Trunca un número a 8 decimales ajustando por precisión de coma flotante.
+ * Nota: Inyectamos un epsilon (1e-10) para evitar que el ruido IEEE-754 
+ * trunque hacia abajo valores válidos (ej. 0.28999999999999998 en vez de 0.29).
+ * Esto puede comportarse como un redondeo hacia arriba en casos muy extremos cercanos al umbral.
  */
 function truncateTo8Decimals(value: number): number {
-    // Para evitar que el truncamiento Math.trunc baje el número por errores de coma flotante 
-    // (ej. 0.29 como 0.28999999999999998), inyectamos un pequeño epsilon positivo (1e-10) 
-    // antes de multiplicar y truncar.
     return Math.trunc((value + 1e-10) * 1e8) / 1e8;
 }
 

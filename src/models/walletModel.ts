@@ -1,7 +1,8 @@
 import type { PoolClient } from "pg";
 import { query } from "../database/db.js";
 
-// FIX: Prefijo 'node:' obligatorio en ESM para prevenir ataques de supply chain o resolución errónea
+// FIX: Uso del prefijo 'node:' sugerido como buena práctica en Node.js 
+// para explicitar módulos built-in y evitar colisiones con paquetes de terceros.
 import crypto from "node:crypto";
 
 export interface Wallet {
