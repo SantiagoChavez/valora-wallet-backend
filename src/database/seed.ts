@@ -1,46 +1,54 @@
 import "dotenv/config";
 import { pool } from "./db.js";
 
-async function seed() {
-  console.log("🌱 Iniciando seed de datos...");
-  try {
-    await pool.query(`DELETE FROM users WHERE email LIKE 'demo.%'`);
+interface SeedUser {
+  id: string;
+  email: string;
+  first_name: string;
+}
 
-    // 1. Crear usuarios (contraseñas omitidas porque son cuentas demo para login OAuth/tests o pueden usar un hash genérico)
-    // Usamos el hash de "Test1234!" generado genéricamente si se requiere, pero password_hash es opcional gracias a tu parche!
-    const users = await pool.query(`
+/** Poblar la base de datos con cuentas demo para la presentación. */
+async function seed(): Promise<void> {
+  const client = await pool.connect();
+  console.log("🌱 Iniciando seed de datos...");
+
+  try {
+    await client.query("BEGIN");
+
+    await client.query(`DELETE FROM users WHERE email LIKE 'demo.%@valora.com'`);
+
+    const { rows: users, rowCount } = await client.query<SeedUser>(`
       INSERT INTO users (email, first_name, last_name, country)
       VALUES 
-        ('demo.juan@valora.com', 'Juan', 'Pérez', 'AR'),
-        ('demo.maria@valora.com', 'María', 'Gómez', 'CO'),
+        ('demo.juan@valora.com',   'Juan',   'Pérez', 'AR'),
+        ('demo.maria@valora.com',  'Maria',  'Gómez', 'CO'),
         ('demo.carlos@valora.com', 'Carlos', 'López', 'MX')
       ON CONFLICT (email) DO NOTHING
       RETURNING id, email, first_name;
     `);
 
-    if (users.rowCount === 0) {
-      console.log("⚠️ Los usuarios ya existen. Borra la base de datos si quieres re-crearlos.");
+    if (rowCount === 0) {
+      console.log("⚠️  Los usuarios demo ya existen. Ejecutá con una base limpia.");
+      await client.query("ROLLBACK");
       return;
     }
 
-    console.log(`✅ Creados ${users.rowCount} usuarios.`);
+    console.log(`✅ Creados ${rowCount} usuarios.`);
 
-    // 2. Crear Wallets y Balances para cada usuario
-    for (const user of users.rows) {
-      // Crear Wallet
-      const wallet = await pool.query(`
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+      const cvu = `0000${String(i + 1).padStart(18, "0")}`;
+      const alias = `demo.${user.first_name.toLowerCase()}.valora`;
+
+      const { rows: walletRows } = await client.query(`
         INSERT INTO wallets (user_id, cvu, alias)
         VALUES ($1, $2, $3)
         RETURNING id;
-      `, [
-        user.id,
-        `0000000000000000000${user.id.substring(0, 3)}`, // CVU falso
-        `demo.${user.first_name.toLowerCase()}.valora` // Alias falso
-      ]);
-      const walletId = wallet.rows[0].id;
+      `, [user.id, cvu, alias]);
 
-      // Crear Balances
-      await pool.query(`
+      const walletId = walletRows[0].id;
+
+      await client.query(`
         INSERT INTO balances (wallet_id, currency_code, amount)
         VALUES 
           ($1, 'USD', 5000.00),
@@ -48,28 +56,26 @@ async function seed() {
           ($1, 'EUR', 1000.00)
       `, [walletId]);
 
-      // 3. Crear Historial de Transacciones Financieras (Cumpliendo reglas Fintech)
-      // Generamos un historial coherente con los tipos permitidos (DEPOSIT, BUY, SELL, EXCHANGE)
-      await pool.query(`
-        INSERT INTO transactions (wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance, created_at)
+      await client.query(`
+        INSERT INTO transactions
+          (wallet_id, transaction_type, source_currency, target_currency,
+           source_amount, target_amount, exchange_rate, resulting_balance, created_at)
         VALUES 
-          -- Depósito inicial en ARS
-          ($1, 'DEPOSIT', NULL, 'ARS', NULL, 200000.00, 1.0, 200000.00, NOW() - INTERVAL '3 days'),
-          
-          -- Compra de USD con ARS (BUY)
-          ($1, 'BUY', 'ARS', 'USD', 50000.00, 50.00, 1000.00, 50.00, NOW() - INTERVAL '2 days'),
-          
-          -- Intercambio de USD a EUR (EXCHANGE)
-          ($1, 'EXCHANGE', 'USD', 'EUR', 10.00, 9.20, 0.92, 9.20, NOW() - INTERVAL '1 day')
+          ($1, 'DEPOSIT',  NULL,  'ARS', NULL,      250000.00, 1.0,    250000.00, NOW() - INTERVAL '5 days'),
+          ($1, 'BUY',      'ARS', 'USD', 100000.00, 5000.00,   20.00,  5000.00,   NOW() - INTERVAL '3 days'),
+          ($1, 'EXCHANGE', 'USD', 'EUR', 1100.00,   1000.00,   0.9091, 1000.00,   NOW() - INTERVAL '2 days')
       `, [walletId]);
 
-      console.log(`💰 Billetera, saldos e historial financiero creados para ${user.email}`);
+      console.log(`💰 Billetera, saldos e historial creados para ${user.email}`);
     }
 
+    await client.query("COMMIT");
     console.log("🚀 Seed finalizado con éxito.");
   } catch (error) {
-    console.error("❌ Error ejecutando seed:", error);
+    await client.query("ROLLBACK");
+    console.error("❌ Error ejecutando seed (ROLLBACK aplicado):", error);
   } finally {
+    client.release();
     await pool.end();
   }
 }
