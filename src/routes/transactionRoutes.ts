@@ -43,5 +43,5 @@ transactionRouter.post("/sell", authMiddleware, requireCompleteProfile, validate
 transactionRouter.get("/", transactionReadLimiter, authMiddleware, validateSchema(getTransactionsQuerySchema, { errorCode: "VALIDATION_ERROR", includeIssues: false }, "query"), getTransactionsController);
 
 // Rutas de Transferencia
-transactionRouter.post("/transfer/resolve", transferLimiter, authMiddleware, validateSchema(resolveUserSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), resolveTransferController);
-transactionRouter.post("/transfer", transferLimiter, authMiddleware, requireCompleteProfile, validateSchema(transferSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), transferController);
+transactionRouter.post("/transfer/resolve", authMiddleware, transferLimiter, validateSchema(resolveUserSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), resolveTransferController);
+transactionRouter.post("/transfer", authMiddleware, requireCompleteProfile, transferLimiter, validateSchema(transferSchema, { errorCode: "VALIDATION_ERROR", includeIssues: true }), transferController);
