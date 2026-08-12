@@ -111,6 +111,6 @@ export const getTransactionsQuerySchema = z.object({
       message: "El tipo de transacción no es válido.",
     })
     .optional(),
-}).strict();
+});
 
 export type GetTransactionsQuery = z.infer<typeof getTransactionsQuerySchema>;
