@@ -18,7 +18,11 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          DIFF=$(gh pr diff $PR_NUMBER)
+          DIFF=$(gh pr diff $PR_NUMBER | head -c 50000)
+          if [ -z "$DIFF" ]; then
+            echo "No hay cambios en el diff."
+            exit 0
+          fi
           
           jq -n --arg diff "$DIFF" '{
             "model": "claude-sonnet-5",
