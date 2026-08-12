@@ -18,10 +18,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # 1. Obtiene las líneas de código modificadas en el PR
           DIFF=$(gh pr diff $PR_NUMBER)
           
-          # 2. Empaqueta el código de forma segura en un JSON
           jq -n --arg diff "$DIFF" '{
             "model": "claude-3-5-sonnet-20240620",
             "max_tokens": 4096,
@@ -30,13 +28,13 @@ jobs:
             ]
           }' > payload.json
           
-          # 3. Envía el código directamente a Sonnet
           RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
             -d @payload.json)
             
-          # 4. Extrae la respuesta de la IA y publica el comentario en GitHub
-          COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text')
+          # Atrapa el error y lo muestra, o muestra el análisis si fue exitoso
+          COMMENT=$(echo "$RESPONSE" | jq -r 'if .error then "⚠️ Error de Claude: \(.error.message)" else .content[0].text end')
+          
           gh pr comment $PR_NUMBER -b "$COMMENT"
