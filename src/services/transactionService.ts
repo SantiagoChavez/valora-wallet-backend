@@ -19,14 +19,10 @@ function sanitizeHtmlString(input: string): string {
  * previniendo artefactos contables por coma flotante (IEEE-754).
  */
 function truncateTo8Decimals(value: number): number {
-    // 1. Limpiamos el "ruido" de la coma flotante redondeando a 12 decimales.
-    //    (Ej: 0.29 puro, que internamente es 0.28999999999999998, se vuelve "0.290000000000")
-    const cleanedString = value.toFixed(12);
-    
-    // 2. Extraemos exactamente hasta el 8vo decimal sin redondear el último dígito.
-    //    (Ej: "1.999999999000" es cortado en "1.99999999")
-    const match = cleanedString.match(/^-?\d+(?:\.\d{0,8})?/);
-    return match ? Number(match[0]) : 0;
+    // Para evitar que el truncamiento Math.trunc baje el número por errores de coma flotante 
+    // (ej. 0.29 como 0.28999999999999998), inyectamos un pequeño epsilon positivo (1e-10) 
+    // antes de multiplicar y truncar.
+    return Math.trunc((value + 1e-10) * 1e8) / 1e8;
 }
 
 /**
@@ -116,8 +112,11 @@ export async function getExchangeQuote(fromCurrency: string, toCurrency: string,
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
+    // FIX: Normalizamos el amount idéntico a executeConversion
+    const cleanAmount = truncateTo8Decimals(amount);
+    
     const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
-    const amountInUsd = amount / rateFrom;
+    const amountInUsd = cleanAmount / rateFrom;
     const targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
 
     return { exchangeRate, targetAmount };
