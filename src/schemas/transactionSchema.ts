@@ -20,9 +20,10 @@ const amountBaseSchema = z
   .positive("El monto debe ser un número mayor a cero.")
   .max(1000000000, "El monto excede el límite operativo permitido por transacción.")
   .refine((val) => {
-    // Garantiza que máximo haya 4 decimales exactos (Regla de negocio Fiat: ARS/USD/EUR)
-    return Math.round(val * 10000) / 10000 === val;
-  }, "El monto no puede tener más de 4 decimales.");
+    // FIX: Aumentamos el límite de validación a 8 decimales para hacer match con PostgreSQL (NUMERIC 18,8)
+    // y con el truncamiento estricto del servicio interno.
+    return Math.trunc(val * 1e8) / 1e8 === val;
+  }, "El monto no puede tener más de 8 decimales.");
 
 // -----------------------------------------------------------------------------
 // 2. ESQUEMAS DE ENDPOINTS (Limpios, Cortos y Seguros)
