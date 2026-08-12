@@ -15,9 +15,16 @@ import type { GetTransactionsQuery } from "../schemas/transactionSchema.js";
  */
 function maskEmail(email: string | null): string | null {
   if (!email) return null;
-  const [local, domain] = email.split('@');
-  if (!domain) return email;
-  const maskedLocal = local.length > 2 ? `${local.slice(0, 2)}***` : `${local}***`;
+  const atIndex = email.indexOf('@');
+  if (atIndex <= 0) return email; // formato inválido, no enmascaramos nada raro
+
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex + 1);
+
+  // Siempre oculta al menos la mitad, nunca revela el 100% del local-part.
+  const visibleChars = Math.min(2, Math.max(1, Math.floor(local.length / 2)));
+  const maskedLocal = `${local.slice(0, visibleChars)}${'*'.repeat(Math.max(3, local.length - visibleChars))}`;
+
   return `${maskedLocal}@${domain}`;
 }
 

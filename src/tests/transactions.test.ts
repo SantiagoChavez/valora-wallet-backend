@@ -225,8 +225,12 @@ describe("Pruebas de integración de transacciones", () => {
 
   describe("Transferencias P2P", () => {
     const expectedMaskedEmail = (() => {
-      const [local, domain] = testRecipient.email.split('@');
-      return `${local.slice(0, 2)}***@${domain}`;
+      const atIndex = testRecipient.email.indexOf('@');
+      const local = testRecipient.email.slice(0, atIndex);
+      const domain = testRecipient.email.slice(atIndex + 1);
+      const visibleChars = Math.min(2, Math.max(1, Math.floor(local.length / 2)));
+      const maskedLocal = `${local.slice(0, visibleChars)}${'*'.repeat(Math.max(3, local.length - visibleChars))}`;
+      return `${maskedLocal}@${domain}`;
     })();
 
     it("debería resolver correctamente un destinatario por email", async () => {
