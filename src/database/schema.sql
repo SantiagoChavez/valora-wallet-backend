@@ -105,6 +105,9 @@ CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users(password
 ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_transaction_type_check;
 ALTER TABLE transactions ADD CONSTRAINT transactions_transaction_type_check CHECK (transaction_type IN ('BUY', 'SELL', 'EXCHANGE', 'DEPOSIT', 'TRANSFER_OUT', 'TRANSFER_IN')) NOT VALID;
 
+-- Ejecutar en una migración posterior o en mantenimiento programado:
+-- ALTER TABLE transactions VALIDATE CONSTRAINT transactions_transaction_type_check;
+
 -- Añadir metadatos de contraparte para transferencias (Efecto Fantasma mitigado)
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_id UUID REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_name VARCHAR(100);
