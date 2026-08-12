@@ -159,14 +159,26 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
         
         const destination = await resolveTransferDestination(identifier);
 
+        // FIX: Enmascaramos PII sensible para evitar ataques de enumeración de usuarios
+        const maskEmail = (email: string) => {
+            if (!email) return email;
+            const parts = email.split('@');
+            return parts.length === 2 ? `${parts[0].slice(0, 2)}***@${parts[1]}` : '***';
+        };
+
+        const maskCvu = (cvu: string) => {
+            if (!cvu) return cvu;
+            return `***${cvu.slice(-4)}`;
+        };
+
         res.status(200).json({
             success: true,
             data: {
                 firstName: destination.first_name,
                 lastName: destination.last_name,
                 alias: destination.alias,
-                cvu: destination.cvu,
-                email: destination.email
+                cvu: maskCvu(destination.cvu),
+                email: maskEmail(destination.email)
             }
         });
     } catch (error: unknown) {
