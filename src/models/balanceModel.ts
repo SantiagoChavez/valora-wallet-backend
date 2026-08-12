@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { query } from "../database/db";
 import { findWalletByUserId } from "./walletModel";
-import { truncateTo8Decimals } from "../utils/numberUtils.js";
+import { truncateTo8Decimals } from "../utils/mathUtils.js";
 
 
 export interface Balance {

@@ -5,7 +5,7 @@ import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalle
 import { getExchangeRates } from "./exchangeRateService.js";
 import { enviarEmailConfirmacion } from "./sesService.js";
 import { findUserById } from "../models/userModel.js";
-import { truncateTo8Decimals } from "../utils/numberUtils.js";
+import { truncateTo8Decimals } from "../utils/mathUtils.js";
 
 // ============================================================================
 // HELPERS Y UTILIDADES (DRY)
