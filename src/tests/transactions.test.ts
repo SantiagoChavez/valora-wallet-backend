@@ -281,10 +281,13 @@ describe("Pruebas de integración de transacciones", () => {
       const initialRecipientBalance = recipientBalanceBefore ? parseFloat(recipientBalanceBefore.amount) : 0;
 
       // Necesitamos depositar primero para asegurar que haya fondos (USD)
-      await request(app)
+      const depositResponse = await request(app)
         .post("/transactions/deposit")
         .set("Authorization", `Bearer ${authToken}`)
         .send({ currency: "USD", amount: 50 });
+
+      expect(depositResponse.status).toBe(200);
+      expect(depositResponse.body.success).toBe(true);
 
       const response = await request(app)
         .post("/transactions/transfer")
