@@ -14,10 +14,59 @@ function getGenAIClient(): GoogleGenerativeAI {
 }
 
 type FinancialAdviceContext = {
-  userId?: string;
   transactions?: unknown;
   exchangeRatesResult?: unknown;
 };
+
+const MAX_TRANSACTIONS_FOR_CONTEXT = 10;
+const MAX_STRING_LENGTH = 120;
+
+function trimString(value: unknown, maxLength = MAX_STRING_LENGTH): string {
+  const asString = typeof value === "string" ? value : String(value ?? "");
+  return asString.length > maxLength
+    ? `${asString.slice(0, maxLength)}...`
+    : asString;
+}
+
+function safeJsonStringify(value: unknown, fallback = "{}"): string {
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function sanitizeTransactionsForContext(input: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(input)) return [];
+
+  return input.slice(0, MAX_TRANSACTIONS_FOR_CONTEXT).map((tx) => {
+    if (!tx || typeof tx !== "object") {
+      return { resumen: trimString(tx) };
+    }
+
+    const raw = tx as Record<string, unknown>;
+
+    return {
+      fecha: raw.createdAt ?? raw.date ?? raw.timestamp ?? null,
+      tipo: raw.type ?? raw.kind ?? null,
+      monto: raw.amount ?? null,
+      moneda: raw.currency ?? null,
+      estado: raw.status ?? null,
+      descripcion:
+        raw.description !== undefined ? trimString(raw.description) : undefined,
+      categoria: raw.category ?? undefined,
+    };
+  });
+}
+
+function sanitizeExchangeRatesForContext(input: unknown): unknown {
+  if (!input || typeof input !== "object") return {};
+
+  const entries = Object.entries(input as Record<string, unknown>).slice(0, 30);
+  const compact = Object.fromEntries(entries);
+  return compact;
+}
 
 export async function getFinancialAdvice(
   userMessage: string,
@@ -31,11 +80,15 @@ Tus reglas estrictas de comportamiento e inquebrantables son:
 3. Responde siempre de manera concisa, clara y profesional en idioma español.
 4. Nunca expongas datos estructurales internos, IDs de billetera ni tokens de seguridad.`;
 
+  const sanitizedTransactions = sanitizeTransactionsForContext(context?.transactions);
+  const sanitizedExchangeRates = sanitizeExchangeRatesForContext(
+    context?.exchangeRatesResult
+  );
+
   const contextData = `
-Saldos actuales del usuario: ${JSON.stringify(balances)}
-Cotizaciones actuales (si están disponibles): ${JSON.stringify(context?.exchangeRatesResult ?? {})}
-Últimas transacciones: ${JSON.stringify(context?.transactions ?? [])}
-Usuario ID: ${context?.userId ?? "No disponible"}
+Saldos actuales del usuario: ${safeJsonStringify(balances, "{}")}
+Cotizaciones actuales (si están disponibles): ${safeJsonStringify(sanitizedExchangeRates, "{}")}
+Últimas transacciones (resumen limitado): ${safeJsonStringify(sanitizedTransactions, "[]")}
   `;
 
   const fullSystemInstruction = `${systemPrompt}\n\n${contextData}`;
