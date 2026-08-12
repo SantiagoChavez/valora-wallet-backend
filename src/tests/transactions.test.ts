@@ -172,6 +172,20 @@ describe("Pruebas de integración de transacciones", () => {
         message: "Moneda no soportada para cotización."
       });
     });
+
+    it("debería retornar el sourceAmount correcto al cotizar especificando el monto de destino (amountSide: target)", async () => {
+      const response = await request(app)
+        .post("/transactions/quote")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "ARS", amount: 100000, amountSide: "target" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      // Round-trip exacto contra el caso feliz de arriba: 100 USD <-> 100000 ARS a la misma tasa.
+      expect(response.body.data.exchangeRate).toBe(1000);
+      expect(response.body.data.targetAmount).toBe(100000);
+      expect(response.body.data.sourceAmount).toBe(100);
+    });
   });
 
   describe("GET /transactions", () => {
@@ -319,6 +333,41 @@ describe("Pruebas de integración de transacciones", () => {
         initialRecipientBalance + TRANSFER_AMOUNT,
         8
       );
+    });
+  });
+
+  describe("Conversión con amountSide: target", () => {
+    it("debería calcular el sourceAmount correcto al especificar el monto de destino en una conversión", async () => {
+      const response = await request(app)
+        .post("/transactions/exchange")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "EUR", toCurrency: "USD", amount: 10, amountSide: "target" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "EXCHANGE",
+        walletId,
+        sourceCurrency: "EUR",
+        targetCurrency: "USD",
+        targetAmount: 10,
+      });
+
+      // Ida y vuelta: sourceAmount * exchangeRate debe reconstruir targetAmount, con la
+      // misma tolerancia de truncamiento a 8 decimales que usa el resto del suite.
+      const { sourceAmount, exchangeRate, targetAmount } = response.body.data;
+      expect(sourceAmount * exchangeRate).toBeCloseTo(targetAmount, 5);
+    });
+
+    it("debería mantener el comportamiento default (source) cuando no se envía amountSide", async () => {
+      const response = await request(app)
+        .post("/transactions/exchange")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "EUR", amount: 5 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.sourceAmount).toBe(5);
     });
   });
 });

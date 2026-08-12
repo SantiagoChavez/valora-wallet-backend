@@ -34,16 +34,22 @@ export const depositSchema = z.object({
   amount: amountBaseSchema,
 }).strict();
 
+// Indica a qué lado de la operación pertenece "amount": "source" (lo que se debita,
+// comportamiento histórico) o "target" (lo que se acredita, calculando el débito).
+const amountSideSchema = z.enum(["source", "target"]).optional().default("source");
+
 export const quoteSchema = z.object({
   fromCurrency: currencyBaseSchema,
   toCurrency: currencyBaseSchema,
   amount: amountBaseSchema,
+  amountSide: amountSideSchema,
 }).strict();
 
 export const exchangeSchema = z.object({
   fromCurrency: currencyBaseSchema,
   toCurrency: currencyBaseSchema,
   amount: amountBaseSchema,
+  amountSide: amountSideSchema,
 }).strict();
 
 export const transferSchema = z.object({
