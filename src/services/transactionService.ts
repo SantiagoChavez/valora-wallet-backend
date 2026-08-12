@@ -262,23 +262,12 @@ export async function executeTransfer(senderUserId: string, currency: string, am
         let senderUpdatedBalance;
         let recipientUpdatedBalance;
 
-        try {
-            if (isSenderFirst) {
-                senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
-                recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
-            } else {
-                recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
-                senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
-            }
-        } catch (error: unknown) { // FIX: Eliminado el "any" inseguro
-            // Validación segura del error sin usar "any"
-            if (error instanceof Error && "constraint" in error && error.constraint === "balances_amount_check") {
-                throw Object.assign(new Error("No se puede realizar la transacción, saldo insuficiente."), { status: 400, code: "INSUFFICIENT_FUNDS" });
-            }
-            if (error instanceof Error && error.message.includes("violates check constraint")) {
-                throw Object.assign(new Error("No se puede realizar la transacción, saldo insuficiente."), { status: 400, code: "INSUFFICIENT_FUNDS" });
-            }
-            throw error;
+        if (isSenderFirst) {
+            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
+            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
+        } else {
+            recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
+            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
         }
 
         const formattedAmount = truncateTo8Decimals(amount);
