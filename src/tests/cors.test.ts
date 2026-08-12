@@ -39,11 +39,13 @@ describe("Pruebas de CORS, JSON malformado y stack traces", () => {
     });
 
     it("debería permitir previews de Vercel de este proyecto (ramas/PRs)", async () => {
+      const previewOrigin = "https://valora-wallet-frontend-git-analia-nexo-tech-solutions.vercel.app";
       const response = await request(app)
         .get("/health")
-        .set("Origin", "https://valora-wallet-frontend-git-analia-nexo-tech-solutions.vercel.app");
+        .set("Origin", previewOrigin);
 
       expect(response.status).toBe(200);
+      expect(response.headers["access-control-allow-origin"]).toBe(previewOrigin);
     });
 
     it("no debería permitir un dominio de Vercel de otro proyecto", async () => {
