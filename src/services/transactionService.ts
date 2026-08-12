@@ -247,9 +247,20 @@ export async function executeTransfer(senderUserId: string, currency: string, am
             [[senderWallet.id, recipientInfo.wallet_id]]
         );
 
+        // Determinamos el orden lexicográfico de las billeteras para proteger los bloqueos en la tabla balances
+        const isSenderFirst = senderWallet.id < recipientInfo.wallet_id;
+        
         let senderUpdatedBalance;
+        let recipientUpdatedBalance;
+
         try {
-            senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
+            if (isSenderFirst) {
+                senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
+                recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
+            } else {
+                recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
+                senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -amount);
+            }
         } catch (error: unknown) { // FIX: Eliminado el "any" inseguro
             // Validación segura del error sin usar "any"
             if (error instanceof Error && "constraint" in error && error.constraint === "balances_amount_check") {
@@ -260,8 +271,6 @@ export async function executeTransfer(senderUserId: string, currency: string, am
             }
             throw error;
         }
-
-        const recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, amount);
 
         const formattedAmount = Number(amount).toFixed(8);
 
