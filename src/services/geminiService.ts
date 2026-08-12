@@ -68,6 +68,13 @@ function sanitizeExchangeRatesForContext(input: unknown): unknown {
   return compact;
 }
 
+/**
+ * Genera asesoramiento financiero utilizando IA.
+ * 
+ * @architecture Se integra intencionalmente con el módulo de transacciones mediante
+ * el parámetro `context`. Este acoplamiento transversal permite a la IA proveer
+ * insights basados en el historial reciente de transacciones y tasas de cambio.
+ */
 export async function getFinancialAdvice(
   userMessage: string,
   balances: Record<string, number>,
