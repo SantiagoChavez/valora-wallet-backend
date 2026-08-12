@@ -20,8 +20,8 @@ function sanitizeHtmlString(input: string): string {
  * trunque hacia abajo valores válidos (ej. 0.28999999999999998 en vez de 0.29).
  * Esto puede comportarse como un redondeo hacia arriba en casos muy extremos cercanos al umbral.
  */
-function truncateTo8Decimals(value: number): number {
-    return Math.trunc((value + 1e-10) * 1e8) / 1e8;
+    return Math.trunc(((value >= 0 ? value + 1e-10 : value - 1e-10) * 1e8)) / 1e8;
+
 }
 
 /**
