@@ -15,6 +15,14 @@ function sanitizeHtmlString(input: string): string {
 }
 
 /**
+ * Trunca estrictamente un número a 8 decimales sin redondear, 
+ * previniendo artefactos contables por coma flotante.
+ */
+function truncateTo8Decimals(value: number): number {
+    return Math.trunc(value * 1e8) / 1e8;
+}
+
+/**
  * Notificador asíncrono centralizado (Fire-and-Forget).
  * No bloquea la respuesta HTTP ni la base de datos.
  */
@@ -90,9 +98,9 @@ export async function getExchangeQuote(fromCurrency: string, toCurrency: string,
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
-    const exchangeRate = Number((rateTo / rateFrom).toFixed(8));
+    const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
     const amountInUsd = amount / rateFrom;
-    const targetAmount = Number((amountInUsd * rateTo).toFixed(8));
+    const targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
 
     return { exchangeRate, targetAmount };
 }
@@ -134,9 +142,10 @@ async function executeConversion(
         await client.query("BEGIN");
 
         // FIX: Sincronización matemática idéntica a getExchangeQuote (8 decimales)
-        const exchangeRate = Number((rateTo / rateFrom).toFixed(8));
+        // FIX: Sincronización matemática idéntica a getExchangeQuote (8 decimales truncados)
+        const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
         const amountInUsd = amount / rateFrom;
-        const targetAmount = Number((amountInUsd * rateTo).toFixed(8));
+        const targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
 
         await updateUserBalance(client, wallet.id, fromCurrency, -amount);
         const newTargetBalance = await updateUserBalance(client, wallet.id, toCurrency, targetAmount);
@@ -272,7 +281,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
             throw error;
         }
 
-        const formattedAmount = Number(amount).toFixed(8);
+        const formattedAmount = truncateTo8Decimals(amount);
 
         const senderTransaction = await insertTransaction(
             client, senderWallet.id, "TRANSFER_OUT", currency, currency, formattedAmount, null, null, senderUpdatedBalance.amount,
