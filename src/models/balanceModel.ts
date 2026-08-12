@@ -145,7 +145,7 @@ export async function updateUserBalance(
       VALUES ($1, $2, $3)
       RETURNING id, wallet_id, currency_code, amount, created_at, updated_at;
     `;
-    const result = await client.query(insertSql, [walletId, currencyCode, Math.trunc((amountDelta + 1e-10) * 1e8) / 1e8]);
+    const result = await client.query(insertSql, [walletId, currencyCode, Math.trunc(((amountDelta >= 0 ? amountDelta + 1e-10 : amountDelta - 1e-10) * 1e8)) / 1e8]);
     if (result.rows.length === 0) {
       throw Object.assign(new Error("No se pudo actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
     }
@@ -165,7 +165,7 @@ export async function updateUserBalance(
     WHERE wallet_id = $1 AND currency_code = $2
     RETURNING id, wallet_id, currency_code, amount, created_at, updated_at;
   `;
-  const result = await client.query(updateSql, [walletId, currencyCode, Math.trunc((newAmount + 1e-10) * 1e8) / 1e8]);
+  const result = await client.query(updateSql, [walletId, currencyCode, Math.trunc(((newAmount >= 0 ? newAmount + 1e-10 : newAmount - 1e-10) * 1e8)) / 1e8]);
   if (result.rows.length === 0) {
     throw Object.assign(new Error("No se pudo actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
   }
