@@ -274,13 +274,7 @@ describe("Pruebas de integración de transacciones", () => {
     });
 
     it("debería ejecutar una transferencia exitosa", async () => {
-      const senderBalanceBefore = await findBalanceByWalletAndCurrency(walletId, "USD");
-      const recipientBalanceBefore = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
-
-      const initialSenderBalance = senderBalanceBefore ? parseFloat(senderBalanceBefore.amount) : 0;
-      const initialRecipientBalance = recipientBalanceBefore ? parseFloat(recipientBalanceBefore.amount) : 0;
-
-      // Necesitamos depositar primero para asegurar que haya fondos (USD)
+      // 1. Asegurar fondos base con un depósito explícito y controlado
       const depositResponse = await request(app)
         .post("/transactions/deposit")
         .set("Authorization", `Bearer ${authToken}`)
@@ -289,27 +283,45 @@ describe("Pruebas de integración de transacciones", () => {
       expect(depositResponse.status).toBe(200);
       expect(depositResponse.body.success).toBe(true);
 
+      // 2. Capturar balances DESPUÉS del depósito, antes de la transferencia
+      const senderBalanceBefore = await findBalanceByWalletAndCurrency(walletId, "USD");
+      const recipientBalanceBefore = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
+
+      const initialSenderBalance = senderBalanceBefore ? parseFloat(senderBalanceBefore.amount) : 0;
+      const initialRecipientBalance = recipientBalanceBefore ? parseFloat(recipientBalanceBefore.amount) : 0;
+
+      const TRANSFER_AMOUNT = 20;
+
       const response = await request(app)
         .post("/transactions/transfer")
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ currency: "USD", amount: 20, destination: testRecipient.email });
+        .send({ currency: "USD", amount: TRANSFER_AMOUNT, destination: testRecipient.email });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
+
+      // FIX: El email en la respuesta está enmascarado por maskEmail()
+      // "recipient_test_santiago@valora.com" → "re***@valora.com"
       expect(response.body.data).toMatchObject({
         transactionType: "TRANSFER_OUT",
         walletId,
         sourceCurrency: "USD",
         targetCurrency: "USD",
-        counterpartyEmail: testRecipient.email
+        counterpartyEmail: "re***@valora.com",  // email enmascarado
       });
 
-      // Validar que los saldos se actualizaron
-      const senderBalance = await findBalanceByWalletAndCurrency(walletId, "USD");
-      const recipientBalance = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
+      // 3. Validar saldos con la fuente de verdad correcta
+      const senderBalanceAfter = await findBalanceByWalletAndCurrency(walletId, "USD");
+      const recipientBalanceAfter = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
 
-      expect(parseFloat(senderBalance!.amount)).toBe(initialSenderBalance + 30);
-      expect(parseFloat(recipientBalance!.amount)).toBe(initialRecipientBalance + 20);
+      expect(parseFloat(senderBalanceAfter!.amount)).toBeCloseTo(
+        initialSenderBalance - TRANSFER_AMOUNT,
+        8
+      );
+      expect(parseFloat(recipientBalanceAfter!.amount)).toBeCloseTo(
+        initialRecipientBalance + TRANSFER_AMOUNT,
+        8
+      );
     });
   });
 });
