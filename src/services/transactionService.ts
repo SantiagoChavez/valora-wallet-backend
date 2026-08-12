@@ -128,6 +128,16 @@ export async function getExchangeQuote(
         targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
     }
 
+    // El lado derivado (el que no vino directamente del caller) puede truncarse a 0 con
+    // montos extremos cerca del piso de 8 decimales y una tasa desfavorable — sin este
+    // guard, una cotización así devolvería un monto gratis o inválido en vez de rechazarla.
+    if (sourceAmount <= 0 || targetAmount <= 0) {
+        throw Object.assign(
+            new Error("El monto resultante es demasiado pequeño para la tasa de cambio actual."),
+            { status: 400, code: "AMOUNT_TOO_SMALL" }
+        );
+    }
+
     return { exchangeRate, sourceAmount, targetAmount };
 }
 
@@ -184,6 +194,15 @@ async function executeConversion(
             cleanAmount = truncateTo8Decimals(amount);
             const amountInUsd = cleanAmount / rateFrom;
             targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
+        }
+
+        // Mismo guard que getExchangeQuote: el lado derivado puede truncarse a 0 con montos
+        // extremos, y eso permitiría acreditar/debitar moneda "gratis" por redondeo.
+        if (cleanAmount <= 0 || targetAmount <= 0) {
+            throw Object.assign(
+                new Error(`El monto a ${action} es demasiado pequeño para la tasa de cambio actual.`),
+                { status: 400, code: "AMOUNT_TOO_SMALL" }
+            );
         }
 
         await updateUserBalance(client, wallet.id, fromCurrency, -cleanAmount);

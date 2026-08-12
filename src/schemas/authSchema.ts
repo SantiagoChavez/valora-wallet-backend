@@ -38,6 +38,8 @@ function duYCelularRefinement(
     }
 }
 
+const DATE_OF_BIRTH_FORMAT_REGEX = /^\d{2}\/\d{2}\/\d{4}$/;
+
 /**
  * Fecha de nacimiento en formato DD/MM/YYYY, validada (fecha real, mayoría de edad 18+) y
  * transformada a YYYY-MM-DD para la base de datos. Compartida entre registro (obligatoria) y
@@ -46,12 +48,12 @@ function duYCelularRefinement(
 const dateOfBirthSchema = z
     .string({ message: "La fecha de nacimiento es requerida." })
     .trim()
-    .regex(/^\d{2}\/\d{2}\/\d{4}$/, {
+    .regex(DATE_OF_BIRTH_FORMAT_REGEX, {
         message: "La fecha de nacimiento debe tener el formato DD/MM/YYYY",
     })
     .refine((val) => {
         // Si el formato no coincide con el regex, dejamos que la validación .regex maneje el error
-        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return true;
+        if (!DATE_OF_BIRTH_FORMAT_REGEX.test(val)) return true;
         const parts = val.split("/");
         const day = parseInt(parts[0], 10);
         const month = parseInt(parts[1], 10) - 1; // 0-indexed en JS Date

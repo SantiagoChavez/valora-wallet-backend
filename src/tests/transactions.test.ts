@@ -181,10 +181,27 @@ describe("Pruebas de integración de transacciones", () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      // Round-trip exacto contra el caso feliz de arriba: 100 USD <-> 100000 ARS a la misma tasa.
       expect(response.body.data.exchangeRate).toBe(1000);
       expect(response.body.data.targetAmount).toBe(100000);
-      expect(response.body.data.sourceAmount).toBe(100);
+      // NOTA: con estas tasas "redondas" del mock (USD=1, ARS=1000) el round-trip da un
+      // sourceAmount exacto, pero el truncamiento a 8 decimales no es simétrico en general
+      // (side "source" trunca después de dividir, side "target" trunca antes) — con tasas
+      // reales no enteras, sourceAmount puede diferir en el último decimal. toBeCloseTo en
+      // vez de toBe para no acoplar el test a esa coincidencia numérica.
+      expect(response.body.data.sourceAmount).toBeCloseTo(100, 8);
+    });
+
+    it("debería rechazar una cotización cuyo monto derivado trunca a cero por el piso de 8 decimales", async () => {
+      // targetAmount = 0.00000001 ARS / rateTo(1000) => 1e-11 USD => * rateFrom(1) => 1e-11,
+      // que trunca a 0.00000000 al recortar a 8 decimales: no hay sourceAmount válido posible.
+      const response = await request(app)
+        .post("/transactions/quote")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "ARS", amount: 0.00000001, amountSide: "target" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("AMOUNT_TOO_SMALL");
     });
   });
 
