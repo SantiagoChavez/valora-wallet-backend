@@ -43,12 +43,11 @@ export async function chatController(
         }, {} as Record<string, number>);
 
         const aiResponse = await getFinancialAdvice(
-            userId,
             message.trim(),
             formattedBalances,
-            { 
-                transactions: transactions, 
-                exchangeRatesResult: exchangeRatesResult as ExchangeRatesResult 
+            {
+                transactions: transactions,
+                exchangeRatesResult: exchangeRatesResult as ExchangeRatesResult
             }
         );
 
