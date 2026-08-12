@@ -57,7 +57,7 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     counterpartyId: tx.counterparty_id ?? null,
     counterpartyName: tx.counterparty_name ?? null,
     counterpartyLastName: tx.counterparty_last_name ?? null,
-    counterpartyEmail: maskEmail(tx.counterparty_email ?? null),
+    counterpartyEmail: tx.counterparty_email ?? null,
     counterpartyWallet: tx.counterparty_wallet ?? null,
 });
 
@@ -204,7 +204,6 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
                 firstName: destination.first_name,
                 lastName: destination.last_name,
                 alias: destination.alias,
-                // FIX: Usar la función top-level maskEmail (acepta string | null)
                 cvu: destination.cvu ? `***${destination.cvu.slice(-4)}` : null,
                 email: destination.email
             }
