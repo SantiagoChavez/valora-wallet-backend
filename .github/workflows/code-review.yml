@@ -21,7 +21,7 @@ jobs:
           DIFF=$(gh pr diff $PR_NUMBER)
           
           jq -n --arg diff "$DIFF" '{
-            "model": "claude-5-sonnet",
+            "model": "claude-sonnet-4-6",
             "max_tokens": 4096,
             "messages": [
               {"role": "user", "content": "Actúa como un Senior Developer. Haz un code review exhaustivo de este git diff. Identifica bugs, errores lógicos y dame el código corregido:\n\n\($diff)"}
