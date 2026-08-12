@@ -152,17 +152,19 @@ async function executeConversion(
     try {
         await client.query("BEGIN");
 
-        // FIX: Sincronización matemática idéntica a getExchangeQuote (8 decimales)
+        // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
+        const cleanAmount = truncateTo8Decimals(amount);
+
         // FIX: Sincronización matemática idéntica a getExchangeQuote (8 decimales truncados)
         const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
-        const amountInUsd = amount / rateFrom;
+        const amountInUsd = cleanAmount / rateFrom;
         const targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
 
-        await updateUserBalance(client, wallet.id, fromCurrency, -amount);
+        await updateUserBalance(client, wallet.id, fromCurrency, -cleanAmount);
         const newTargetBalance = await updateUserBalance(client, wallet.id, toCurrency, targetAmount);
 
         const transaction = await insertTransaction(
-            client, wallet.id, type, fromCurrency, toCurrency, amount, targetAmount, exchangeRate, newTargetBalance.amount
+            client, wallet.id, type, fromCurrency, toCurrency, cleanAmount, targetAmount, exchangeRate, newTargetBalance.amount
         );
 
         await client.query("COMMIT");
@@ -172,7 +174,7 @@ async function executeConversion(
         const safeTo = sanitizeHtmlString(toCurrency);
         const timestamp = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
         
-        notifyUserAsync(userId, `${actionName} Confirmada - Valora Wallet`, `<h1>${actionName} Exitosa</h1><p>Operación: ${amount} ${safeFrom} por ${targetAmount} ${safeTo}</p><p>Fecha y hora: ${timestamp}</p>`);
+        notifyUserAsync(userId, `${actionName} Confirmada - Valora Wallet`, `<h1>${actionName} Exitosa</h1><p>Operación: ${cleanAmount} ${safeFrom} por ${targetAmount} ${safeTo}</p><p>Fecha y hora: ${timestamp}</p>`);
 
         return transaction;
     } catch (error: unknown) {
