@@ -143,6 +143,7 @@ export async function updateWalletAlias(walletId: string, newAlias: string): Pro
  */
 // FIX: Asignado el tipo de retorno explícito 'Promise<WalletAndUser | null>' para blindar el Frontend
 export async function findWalletAndUserByIdentifier(identifier: string): Promise<WalletAndUser | null> {
+  const cleanIdentifier = identifier.trim().toLowerCase();
   const sql = `
     SELECT 
       w.id AS wallet_id,
@@ -154,8 +155,8 @@ export async function findWalletAndUserByIdentifier(identifier: string): Promise
       u.email
     FROM wallets w
     JOIN users u ON w.user_id = u.id
-    WHERE u.email = $1 OR w.cvu = $1 OR w.alias = $1
+    WHERE LOWER(u.email) = $1 OR w.cvu = $1 OR LOWER(w.alias) = $1
   `;
-  const result = await query(sql, [identifier]);
+  const result = await query(sql, [cleanIdentifier]);
   return (result.rows[0] as WalletAndUser) || null;
 }
