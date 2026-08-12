@@ -48,7 +48,22 @@ async function seed() {
           ($1, 'EUR', 1000.00)
       `, [walletId]);
 
-      console.log(`💰 Billetera y saldos creados para ${user.email}`);
+      // 3. Crear Historial de Transacciones Financieras (Cumpliendo reglas Fintech)
+      // Generamos un historial coherente con los tipos permitidos (DEPOSIT, BUY, SELL, EXCHANGE)
+      await pool.query(`
+        INSERT INTO transactions (wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance, created_at)
+        VALUES 
+          -- Depósito inicial en ARS
+          ($1, 'DEPOSIT', NULL, 'ARS', NULL, 200000.00, 1.0, 200000.00, NOW() - INTERVAL '3 days'),
+          
+          -- Compra de USD con ARS (BUY)
+          ($1, 'BUY', 'ARS', 'USD', 50000.00, 50.00, 1000.00, 50.00, NOW() - INTERVAL '2 days'),
+          
+          -- Intercambio de USD a EUR (EXCHANGE)
+          ($1, 'EXCHANGE', 'USD', 'EUR', 10.00, 9.20, 0.92, 9.20, NOW() - INTERVAL '1 day')
+      `, [walletId]);
+
+      console.log(`💰 Billetera, saldos e historial financiero creados para ${user.email}`);
     }
 
     console.log("🚀 Seed finalizado con éxito.");
