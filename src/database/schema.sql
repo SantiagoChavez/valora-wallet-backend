@@ -114,3 +114,17 @@ ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_name VARCHAR(100)
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_last_name VARCHAR(100);
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_email VARCHAR(255);
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_wallet UUID REFERENCES wallets(id) ON DELETE SET NULL;
+
+-- Tabla de Historial del Chatbot
+-- chatbotModel.ts ya la usa (getChatHistoryByUserId/saveChatMessage/deleteChatHistoryByUserId)
+-- pero nunca se había agregado acá — sin esto, el historial real (no mockeado en tests)
+-- rompe en cualquier ambiente con "no existe la relación «chatbot_histories»".
+CREATE TABLE IF NOT EXISTS chatbot_histories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'model')),
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chatbot_histories_user_id ON chatbot_histories(user_id);
