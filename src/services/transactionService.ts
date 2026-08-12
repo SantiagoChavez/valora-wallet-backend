@@ -249,13 +249,15 @@ export async function executeTransfer(senderUserId: string, currency: string, am
     // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
     const cleanAmount = truncateTo8Decimals(amount);
 
-    const senderWallet = await findWalletByUserId(senderUserId);
+    // Ejecutar queries de lectura en paralelo (sin DB lock aún)
+    const [senderWallet, senderUser, recipientInfo] = await Promise.all([
+        findWalletByUserId(senderUserId),
+        findUserById(senderUserId),
+        findWalletAndUserByIdentifier(destinationIdentifier),
+    ]);
+
     if (!senderWallet) throw Object.assign(new Error("Billetera de origen no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
-
-    const senderUser = await findUserById(senderUserId);
     if (!senderUser) throw Object.assign(new Error("Usuario de origen no encontrado."), { status: 404, code: "USER_NOT_FOUND" });
-
-    const recipientInfo = await findWalletAndUserByIdentifier(destinationIdentifier);
     if (!recipientInfo) throw Object.assign(new Error("No existe un usuario con estos datos."), { status: 404, code: "USER_NOT_FOUND" });
 
     if (senderWallet.id === recipientInfo.wallet_id) {
