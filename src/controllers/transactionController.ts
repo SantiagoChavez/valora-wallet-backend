@@ -155,6 +155,13 @@ export async function sellController(req: AuthenticatedRequest, res: Response, n
 
 /**
  * Controller to handle resolving a transfer destination by identifier (email, cvu, alias).
+ *
+ * NOTA (decisión de equipo, no descuido): esto devuelve nombre, alias, CVU, email y documento
+ * SIN enmascarar a cualquier usuario autenticado, sin verificar relación previa con la cuenta
+ * consultada. Se evaluó enmascarar (y de hecho se hizo y se deshizo un par de veces el mismo
+ * día) y se optó por dejarlo así por ahora para no complicar la UX de confirmación antes de la
+ * demo — ver CLAUDE.md § Decisiones técnicas registradas. Posible mejora futura, no aplicar
+ * enmascarado acá sin discutirlo de nuevo con el equipo.
  */
 export async function resolveTransferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     const startTime = Date.now();
