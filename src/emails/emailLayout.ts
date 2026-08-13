@@ -43,36 +43,70 @@ export function formatMoney(amount: number, currency: string): string {
   return `${prefix}${formatted} ${currency}`;
 }
 
-/** Fecha corta "DD/MM/YYYY · HH:MM", usada en los mails de transferencia y depósito. */
-export function formatDateShort(date: Date): string {
+/**
+ * Timezone IANA por país LATAM (mismos códigos que PAISES_LATAM en authSchema.ts) — para
+ * países con varios husos, se usa el de la capital/mayor población. Países no listados (o
+ * country ausente, ej. cuentas de Google sin perfil completo todavía) caen en Argentina.
+ */
+const COUNTRY_TIMEZONES: Record<string, string> = {
+  AR: "America/Argentina/Buenos_Aires",
+  BO: "America/La_Paz",
+  BR: "America/Sao_Paulo",
+  CL: "America/Santiago",
+  CO: "America/Bogota",
+  CR: "America/Costa_Rica",
+  CU: "America/Havana",
+  EC: "America/Guayaquil",
+  SV: "America/El_Salvador",
+  GT: "America/Guatemala",
+  HN: "America/Tegucigalpa",
+  MX: "America/Mexico_City",
+  NI: "America/Managua",
+  PA: "America/Panama",
+  PY: "America/Asuncion",
+  PE: "America/Lima",
+  DO: "America/Santo_Domingo",
+  UY: "America/Montevideo",
+  VE: "America/Caracas",
+};
+const DEFAULT_TIMEZONE = COUNTRY_TIMEZONES.AR;
+
+function timezoneForCountry(country?: string | null): string {
+  return (country && COUNTRY_TIMEZONES[country]) || DEFAULT_TIMEZONE;
+}
+
+/** Fecha corta "DD/MM/YYYY · HH:MM" en el horario del país de la cuenta, usada en los mails de transferencia y depósito. */
+export function formatDateShort(date: Date, country?: string | null): string {
+  const timeZone = timezoneForCountry(country);
   const datePart = date.toLocaleDateString("es-AR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: "America/Argentina/Buenos_Aires",
+    timeZone,
   });
   const timePart = date.toLocaleTimeString("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "America/Argentina/Buenos_Aires",
+    timeZone,
   });
   return `${datePart} · ${timePart}`;
 }
 
-/** Fecha larga "12 de agosto de 2026 · 20:42", usada en los mails de compra/venta/intercambio. */
-export function formatDateLong(date: Date): string {
+/** Fecha larga "12 de agosto de 2026 · 20:42" en el horario del país de la cuenta, usada en los mails de compra/venta/intercambio. */
+export function formatDateLong(date: Date, country?: string | null): string {
+  const timeZone = timezoneForCountry(country);
   const datePart = date.toLocaleDateString("es-AR", {
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "America/Argentina/Buenos_Aires",
+    timeZone,
   });
   const timePart = date.toLocaleTimeString("es-AR", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "America/Argentina/Buenos_Aires",
+    timeZone,
   });
   return `${datePart} · ${timePart}`;
 }

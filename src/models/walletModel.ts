@@ -25,11 +25,13 @@ export interface WalletAndUser {
   email: string;
   du: string | null;
   email_notifications_enabled: boolean;
+  country: string | null;
 }
 
 export interface WalletWithNotificationRecipient extends Wallet {
   email: string;
   email_notifications_enabled: boolean;
+  country: string | null;
 }
 
 /**
@@ -140,7 +142,7 @@ export async function findWalletWithNotificationRecipientByUserId(
 ): Promise<WalletWithNotificationRecipient | null> {
   const sql = `
     SELECT w.id, w.user_id, w.cvu, w.alias, w.created_at, w.updated_at,
-           u.email, u.email_notifications_enabled
+           u.email, u.email_notifications_enabled, u.country
     FROM wallets w
     JOIN users u ON u.id = w.user_id
     WHERE w.user_id = $1
@@ -179,7 +181,8 @@ export async function findWalletAndUserByIdentifier(identifier: string): Promise
       u.last_name,
       u.email,
       u.du,
-      u.email_notifications_enabled
+      u.email_notifications_enabled,
+      u.country
     FROM wallets w
     JOIN users u ON w.user_id = u.id
     WHERE LOWER(u.email) = $1 OR w.cvu = $1 OR LOWER(w.alias) = $1

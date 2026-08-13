@@ -17,6 +17,7 @@ export interface DepositEmailParams {
   currency: string;
   transactionId: string;
   date: Date;
+  country?: string | null;
 }
 
 /**
@@ -28,7 +29,7 @@ export function buildDepositEmailHtml(params: DepositEmailParams): string {
   const amountText = `+${formatMoney(params.amount, params.currency)}`;
 
   const rows: DetailRow[] = [
-    { icon: ROW_ICON_CLOCK, label: "Fecha", value: formatDateShort(params.date) },
+    { icon: ROW_ICON_CLOCK, label: "Fecha", value: formatDateShort(params.date, params.country) },
     { icon: ROW_ICON_OPERATION, label: "ID de operación", value: buildOperationId(params.transactionId) },
   ];
 

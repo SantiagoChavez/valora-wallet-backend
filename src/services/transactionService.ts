@@ -129,7 +129,7 @@ export async function executeDeposit(userId: string, currency: string, amount: n
 
         notifyUserAsync(
             "Depósito confirmado - Valora Wallet",
-            buildDepositEmailHtml({ amount: cleanAmount, currency, transactionId: transaction.id, date: new Date() }),
+            buildDepositEmailHtml({ amount: cleanAmount, currency, transactionId: transaction.id, date: new Date(), country: wallet.country }),
             { email: wallet.email, notificationsEnabled: wallet.email_notifications_enabled }
         );
 
@@ -245,6 +245,7 @@ async function executeConversion(
                 targetCurrency: toCurrency,
                 transactionId: transaction.id,
                 date: new Date(),
+                country: wallet.country,
             }),
             { email: wallet.email, notificationsEnabled: wallet.email_notifications_enabled }
         );
@@ -366,6 +367,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
                 concepto: cleanConcepto,
                 transactionId: senderTransaction.id,
                 date: transferDate,
+                country: senderUser.country,
             }),
             { email: senderUser.email, notificationsEnabled: senderUser.email_notifications_enabled }
         );
@@ -379,6 +381,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
                 concepto: cleanConcepto,
                 transactionId: recipientTransaction.id,
                 date: transferDate,
+                country: recipientInfo.country,
             }),
             { email: recipientInfo.email, notificationsEnabled: recipientInfo.email_notifications_enabled }
         );
