@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { query } from "../database/db";
-import { createOrUpdateBalance, findBalanceByWalletAndCurrency, findBalancesByWalletId } from "../models/balanceModel";
+import { pool, query } from "../database/db";
+import { createOrUpdateBalance, findBalanceByWalletAndCurrency, findBalancesByWalletId, getUserBalance, updateUserBalance } from "../models/balanceModel";
 import { createUser, findUserByEmail, findUserById } from "../models/userModel";
 import { createWallet, findWalletByUserId } from "../models/walletModel";
 
@@ -21,13 +21,13 @@ describe("Pruebas de integración de modelos de base de datos", () => {
 
   describe("Pruebas del modelo de Usuario", () => {
     it("debería registrar un nuevo usuario exitosamente en la base de datos", async () => {
-      const user = await createUser(testEmail, "clave_encriptada_valora", "Santiago", "Chavez", "1995-05-15", "+5493511234567");
+      const user = await createUser(testEmail, "clave_encriptada_valora", "Santiago", "Chavez", "1995-05-15", "+5491123456789", "AR", "66666666");
       expect(user.id).toBeDefined();
       expect(user.email).toBe(testEmail);
       expect(user.first_name).toBe("Santiago");
       expect(user.last_name).toBe("Chavez");
       expect(user.date_of_birth).toBeDefined();
-      expect(user.phone).toBe("+5493511234567");
+      expect(user.phone).toBe("+5491123456789");
       createdUserId = user.id;
     });
 
@@ -46,7 +46,7 @@ describe("Pruebas de integración de modelos de base de datos", () => {
 
   describe("Pruebas del modelo de Billetera", () => {
     it("debería crear una billetera asociada al usuario de forma exitosa", async () => {
-      const wallet = await createWallet(createdUserId);
+      const wallet = await createWallet(createdUserId, "Santiago");
       expect(wallet.id).toBeDefined();
       expect(wallet.user_id).toBe(createdUserId);
       createdWalletId = wallet.id;
@@ -95,6 +95,23 @@ describe("Pruebas de integración de modelos de base de datos", () => {
 
       const retrieved = await findBalanceByWalletAndCurrency(createdWalletId, "USD");
       expect(parseFloat(retrieved!.amount)).toBe(1850.75);
+    });
+
+    it("debería leer el saldo desde la transacción activa cuando existe un cambio no comprometido", async () => {
+      const client = await pool.connect();
+
+      try {
+        await client.query("BEGIN");
+        const updatedBalance = await updateUserBalance(client, createdWalletId, "USD", 100);
+        const balanceInTransaction = await getUserBalance(createdUserId, "USD", client);
+
+        expect(parseFloat(updatedBalance.amount)).toBe(1950.75);
+        expect(balanceInTransaction).toBe(1950.75);
+
+        await client.query("ROLLBACK");
+      } finally {
+        client.release();
+      }
     });
   });
 });

@@ -1,5 +1,8 @@
 import type { PoolClient } from "pg";
 import { query } from "../database/db";
+import { findWalletByUserId } from "./walletModel";
+import { truncateTo8Decimals } from "../utils/mathUtils.js";
+
 
 export interface Balance {
   id: string;
@@ -35,7 +38,7 @@ export async function createOrUpdateBalance(
     ? await client.query(sql, [walletId, currencyCode, amount.toString()])
     : await query(sql, [walletId, currencyCode, amount.toString()]);
   if (result.rows.length === 0) {
-    throw new Error("No se pudo crear o actualizar el saldo en la base de datos.");
+    throw Object.assign(new Error("No se pudo crear o actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
   }
   return result.rows[0];
 }
@@ -63,13 +66,109 @@ export async function findBalancesByWalletId(walletId: string): Promise<Balance[
  */
 export async function findBalanceByWalletAndCurrency(
   walletId: string,
-  currencyCode: string
+  currencyCode: string,
+  client?: PoolClient
 ): Promise<Balance | null> {
   const sql = `
     SELECT id, wallet_id, currency_code, amount, created_at, updated_at
     FROM balances
     WHERE wallet_id = $1 AND currency_code = $2
   `;
-  const result = await query(sql, [walletId, currencyCode]);
+  const result = client ? await client.query(sql, [walletId, currencyCode]) : await query(sql, [walletId, currencyCode]);
   return result.rows[0] || null;
+}
+
+
+/**
+ * Retrieves the available balance of a specific currency for a user.
+ * @param userId - The user's UUID
+ * @param currencyCode - The currency code (e.g., 'USD', 'ARS')
+ * @returns The balance as a number
+ */
+export async function getUserBalance(userId: string, currencyCode: string, client?: PoolClient): Promise<number> {
+  const wallet = await findWalletByUserId(userId, client);
+  if (!wallet) {
+    throw Object.assign(new Error("Billetera no encontrada para el usuario."), { status: 404, code: "WALLET_NOT_FOUND" });
+  }
+
+  const balance = await findBalanceByWalletAndCurrency(wallet.id, currencyCode, client);
+  return balance ? parseFloat(balance.amount) : 0;
+}
+
+/**
+ * Safely updates a user's balance by applying a delta (increment/decrement) using an UPSERT strategy.
+ * @param client - The database pool client for the transaction
+ * @param walletId - The wallet UUID
+ * @param currencyCode - The currency code
+ * @param amountDelta - The amount to add (positive) or subtract (negative)
+ * @returns The updated balance record
+ */
+export async function updateUserBalance(
+  client: PoolClient,
+  walletId: string,
+  currencyCode: string,
+  amountDelta: number
+): Promise<Balance> {
+  // Bloqueamos la billetera para serializar todas las operaciones de saldo del mismo wallet.
+  const walletLock = await client.query(
+    `
+      SELECT id
+      FROM wallets
+      WHERE id = $1
+      FOR UPDATE
+    `,
+    [walletId]
+  );
+
+  if (walletLock.rows.length === 0) {
+    throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
+  }
+
+  // Bloqueamos el saldo concreto para evitar que dos transacciones concurrentes
+  // lean y actualicen el mismo balance al mismo tiempo.
+  const existingBalance = await client.query(
+    `
+      SELECT id, wallet_id, currency_code, amount, created_at, updated_at
+      FROM balances
+      WHERE wallet_id = $1 AND currency_code = $2
+      FOR UPDATE
+    `,
+    [walletId, currencyCode]
+  );
+
+  if (existingBalance.rows.length === 0) {
+    if (amountDelta < 0) {
+      throw Object.assign(new Error("Saldo insuficiente para realizar la operación."), { status: 400, code: "INSUFFICIENT_FUNDS" });
+    }
+
+    const insertSql = `
+      INSERT INTO balances (wallet_id, currency_code, amount)
+      VALUES ($1, $2, $3)
+      RETURNING id, wallet_id, currency_code, amount, created_at, updated_at;
+    `;
+    const result = await client.query(insertSql, [walletId, currencyCode, truncateTo8Decimals(amountDelta)]);
+    if (result.rows.length === 0) {
+      throw Object.assign(new Error("No se pudo actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
+    }
+    return result.rows[0];
+  }
+
+  const currentAmount = parseFloat(existingBalance.rows[0].amount);
+  const newAmount = currentAmount + amountDelta;
+
+  if (newAmount < 0) {
+    throw Object.assign(new Error("Saldo insuficiente para realizar la operación."), { status: 400, code: "INSUFFICIENT_FUNDS" });
+  }
+
+  const updateSql = `
+    UPDATE balances
+    SET amount = $3, updated_at = CURRENT_TIMESTAMP
+    WHERE wallet_id = $1 AND currency_code = $2
+    RETURNING id, wallet_id, currency_code, amount, created_at, updated_at;
+  `;
+  const result = await client.query(updateSql, [walletId, currencyCode, truncateTo8Decimals(newAmount)]);
+  if (result.rows.length === 0) {
+    throw Object.assign(new Error("No se pudo actualizar el saldo en la base de datos."), { status: 500, code: "DB_UPDATE_ERROR" });
+  }
+  return result.rows[0];
 }

@@ -1,0 +1,532 @@
+# Guia de Endpoints para Insomnia / REST Client
+
+Esta es la guia paso a paso para probar tu backend localmente utilizando **Insomnia** o cualquier cliente HTTP.
+
+> ⚠️ **IMPORTANTE: Configuracion de Base de Datos y Seguridad TLS**
+> Antes de empezar, asegurate de que tu archivo `.env` contenga la siguiente variable al final. Esto soluciona el error `self-signed certificate` con la base de datos de Railway.
+> *Advertencia: Esto deshabilita la verificación TLS estricta. Utilízalo únicamente para desarrollo local, o si el proveedor proxy remoto (Railway) requiere tolerancia a certificados auto-firmados.*
+> ```env
+> DB_SSL_REJECT_UNAUTHORIZED=false
+> ```
+
+---
+
+## 0. Utilidades (`/health`)
+
+### 0.1 Verificar Estado del Servidor
+*   **Metodo:** `GET`
+*   **URL:** `http://localhost:3000/health`
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "status": "UP",
+      "timestamp": "2023-10-25T10:00:00.000Z"
+    }
+    ```
+
+---
+
+## 1. Autenticacion (`/auth`)
+
+### 1.1 Registrar un Usuario
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/auth/register`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "email": "carlos.prueba@email.com",
+      "password": "PasswordSeguro123!",
+      "firstName": "Carlos",
+      "lastName": "Lopez",
+      "dateOfBirth": "10/10/1995",
+      "phone": "+525512345678",
+      "country": "AR",
+      "du": "12345678"
+    }
+    ```
+*   **Respuesta de Exito (201 Created):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "token": "eyJhbGciOiJIUzI1...",
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@email.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "dateOfBirth": "10/10/1995",
+          "phone": "+525512345678",
+          "country": "AR",
+          "du": "12345678",
+          "profileComplete": true
+        },
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        }
+      }
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - Email en uso):**
+    ```json
+    {
+      "success": false,
+      "error": "DuplicateEmailError",
+      "message": "El correo electrónico ya se encuentra registrado"
+    }
+    ```
+
+### 1.2 Iniciar Sesion
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/auth/login`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "email": "carlos.prueba@email.com",
+      "password": "PasswordSeguro123!"
+    }
+    ```
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "token": "eyJhbGciOiJIUzI1...",
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@email.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "dateOfBirth": "10/10/1995",
+          "phone": "+525512345678",
+          "country": "AR",
+          "du": "12345678",
+          "profileComplete": true
+        },
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        }
+      }
+    }
+    ```
+
+### 1.3 Obtener Mi Perfil 🔒
+*   **Metodo:** `GET`
+*   **URL:** `http://localhost:3000/auth/me`
+*   **Headers:** `Authorization: Bearer <TOKEN>`
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@email.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "dateOfBirth": "10/10/1995",
+          "phone": "+525512345678",
+          "country": "AR",
+          "du": "12345678",
+          "profileComplete": true
+        },
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        },
+        "balances": [
+          {
+            "id": "uuid-balance",
+            "walletId": "uuid-wallet",
+            "currency": "USD",
+            "amount": "500.00000000",
+            "updatedAt": "2023-10-25T10:00:00.000Z"
+          }
+        ]
+      }
+    }
+    ```
+
+### 1.4 Iniciar Sesion con Google
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/auth/google`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "idToken": "<idToken devuelto por el SDK de Google en el frontend>"
+    }
+    ```
+*   **Respuesta de Exito (200 OK):** Si la cuenta ya existia, la loguea. Si no existia, la crea **sin celular ni DU** (esos datos no los provee Google) — ver 1.5 para completarlos.
+    ```json
+    {
+      "success": true,
+      "data": {
+        "token": "eyJhbGciOiJIUzI1...",
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@gmail.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "dateOfBirth": null,
+          "phone": null,
+          "country": "AR",
+          "du": null,
+          "profileComplete": false
+        },
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "carlos.lopez.valora"
+        }
+      }
+    }
+    ```
+*   ⚠️ Mientras `profileComplete` sea `false`, el backend rechaza con `403` cualquier intento de depositar, comprar, vender o intercambiar (ver nota al final de la sección 3). El frontend deberia mostrar un paso de "completar perfil" apenas detecte `profileComplete: false`.
+
+### 1.5 Completar/Editar Celular, Pais y DU 🔒
+*   **Metodo:** `PATCH`
+*   **URL:** `http://localhost:3000/auth/me`
+*   **Headers:** `Authorization: Bearer <TOKEN>`
+*   Sirve tanto para completar el perfil de una cuenta creada con Google como para editar estos datos en cualquier cuenta ya existente. Los tres campos van siempre juntos (la validacion del DU depende del pais, y la del celular depende de que sea un celular real, no linea fija).
+*   **Request Body (JSON):**
+    ```json
+    {
+      "phone": "+54 9 11 2345-6789",
+      "country": "AR",
+      "du": "12345678"
+    }
+    ```
+    `phone` puede venir en cualquier formato razonable (con espacios, guiones, etc.) — el backend lo normaliza a E.164 antes de guardarlo. Tiene que incluir el codigo de pais del celular (`+54...`), que puede ser distinto al `country` de residencia.
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@gmail.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "phone": "+5491123456789",
+          "country": "AR",
+          "du": "12345678",
+          "profileComplete": true
+        }
+      }
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - Celular invalido o linea fija):**
+    ```json
+    {
+      "success": false,
+      "error": "VALIDATION_ERROR",
+      "message": "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
+      "issues": ["El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado."]
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - Celular o DU ya en uso):** el mensaje es genérico a propósito — no confirma si el dato ya existe, para no habilitar que se use este endpoint para probar si un celular o DNI específico ya está registrado.
+    ```json
+    {
+      "success": false,
+      "error": "DuplicateFieldError",
+      "message": "No pudimos guardar esos datos. Si creés que se trata de un error, escribinos a nexot.solutions@gmail.com."
+    }
+    ```
+
+### 1.6 Activar/Desactivar Notificaciones por Email 🔒
+*   **Metodo:** `PATCH`
+*   **URL:** `http://localhost:3000/auth/me/notifications`
+*   **Headers:** `Authorization: Bearer <TOKEN>`
+*   Prende/apaga los mails transaccionales (depósito, compra, venta, intercambio, transferencia). No afecta el mail de recuperación de contraseña, que siempre se manda.
+*   **Request Body (JSON):**
+    ```json
+    {
+      "enabled": false
+    }
+    ```
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": "uuid",
+          "email": "carlos.prueba@email.com",
+          "firstName": "Carlos",
+          "lastName": "Lopez",
+          "phone": "+5491123456789",
+          "country": "AR",
+          "du": "12345678",
+          "profileComplete": true,
+          "emailNotificationsEnabled": false
+        }
+      }
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - falta el campo o no es booleano):**
+    ```json
+    {
+      "success": false,
+      "error": "VALIDATION_ERROR",
+      "message": "El campo enabled es requerido y debe ser true o false.",
+      "issues": ["El campo enabled es requerido y debe ser true o false."]
+    }
+    ```
+
+### 1.7 Eliminar Cuenta 🔒
+*   **Metodo:** `DELETE`
+*   **URL:** `http://localhost:3000/auth/me`
+*   **Headers:** `Authorization: Bearer <TOKEN>`
+*   Borra la cuenta de forma **permanente e irreversible**: wallet, balances, transacciones e historial del chatbot se borran en cascada. El frontend debería confirmar con el usuario antes de llamar a este endpoint (ej. un modal de "esta acción no se puede deshacer").
+*   Si la cuenta tiene contraseña (no es una cuenta de Google), hay que reconfirmarla en el body — así un JWT filtrado no alcanza por sí solo para borrar la cuenta:
+    ```json
+    {
+      "password": "PasswordSeguro123!"
+    }
+    ```
+    Si la cuenta es de Google (sin contraseña), el body puede ir vacío (`{}`).
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "message": "Cuenta eliminada correctamente."
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - falta la contraseña):**
+    ```json
+    {
+      "success": false,
+      "error": "VALIDATION_ERROR",
+      "message": "La contraseña es requerida para eliminar la cuenta."
+    }
+    ```
+*   **Respuesta de Error (401 Unauthorized - contraseña incorrecta):**
+    ```json
+    {
+      "success": false,
+      "error": "UnauthorizedError",
+      "message": "Contraseña incorrecta."
+    }
+    ```
+
+### 1.8 Recuperar Contraseña
+No existe un endpoint de "cambiar contraseña" estando logueado — el flujo es de recuperación por email, en dos pasos, y **ninguno de los dos requiere estar autenticado** (no llevan `Authorization`).
+
+#### 1.8.a Solicitar el link de recuperación
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/auth/forgot-password`
+*   Limitado a 10 pedidos cada 15 minutos por IP (protege la cuota de envío de AWS SES).
+*   **Request Body (JSON):**
+    ```json
+    {
+      "email": "carlos.prueba@email.com"
+    }
+    ```
+*   **Respuesta (200 OK):** siempre el mismo mensaje genérico, exista o no el email — a propósito, para no filtrar qué correos están registrados.
+    ```json
+    {
+      "message": "Si el correo está registrado, vas a recibir instrucciones para restablecer tu contraseña."
+    }
+    ```
+*   El mail que llega linkea a `<FRONTEND_URL>/reset-password?token=<token>` — el front necesita esa ruta armada para leer el `token` de la URL y pasarlo al paso siguiente. El token vence a los 30 minutos.
+*   **Respuesta de Error (429 Too Many Requests):**
+    ```json
+    {
+      "success": false,
+      "error": "TooManyRequestsError",
+      "message": "Demasiados intentos. Probá de nuevo más tarde."
+    }
+    ```
+
+#### 1.8.b Confirmar la nueva contraseña
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/auth/reset-password`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "token": "<token de la URL del mail>",
+      "password": "NuevaPasswordSegura123!"
+    }
+    ```
+    `password` requiere mínimo 6 caracteres.
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "message": "Tu contraseña fue actualizada correctamente."
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - token invalido o vencido):**
+    ```json
+    {
+      "success": false,
+      "error": "InvalidTokenError",
+      "message": "El link de recuperación no es válido o expiró."
+    }
+    ```
+
+---
+
+## 2. Billetera (`/wallet`)
+
+### 2.1 Actualizar Alias 🔒
+*   **Metodo:** `PUT`
+*   **URL:** `http://localhost:3000/wallet/alias`
+*   **Headers:** `Authorization: Bearer <TOKEN>`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "alias": "mi.nuevo.alias"
+    }
+    ```
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "wallet": {
+          "id": "uuid-wallet",
+          "cvu": "1234567890123456789012",
+          "alias": "mi.nuevo.alias"
+        }
+      },
+      "message": "Alias actualizado correctamente."
+    }
+    ```
+*   **Respuesta de Error (409 Conflict - Alias ocupado):**
+    ```json
+    {
+      "success": false,
+      "error": "DuplicateAliasError",
+      "message": "Este alias ya está en uso por otro usuario."
+    }
+    ```
+
+---
+
+## 3. Transacciones (`/transactions`)
+
+> ⚠️ **Perfil incompleto:** depositar, comprar (`/buy`), vender (`/sell`) e intercambiar (`/exchange`) requieren que la cuenta tenga celular y DU cargados (`profileComplete: true` en el usuario — ver seccion 1.4 y 1.5). Si no, devuelven:
+> ```json
+> {
+>   "success": false,
+>   "error": "IncompleteProfileError",
+>   "message": "Completá tu celular y tu <documento> antes de operar con tu billetera."
+> }
+> ```
+> con status `403`. `<documento>` varía según el `country` de la cuenta (DNI, CPF, CURP, CI, etc. — ver seccion 1.5 y `GET /catalogs/document-types`), no es siempre "DNI". Cotizar (`/quote`) es de solo lectura y **no** requiere perfil completo.
+
+### 3.1 Realizar un Deposito 🔒
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/transactions/deposit`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "currency": "USD",
+      "amount": 500
+    }
+    ```
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": "uuid-tx",
+        "walletId": "uuid-wallet",
+        "transactionType": "DEPOSIT",
+        "sourceCurrency": null,
+        "targetCurrency": "USD",
+        "sourceAmount": null,
+        "targetAmount": 500,
+        "exchangeRate": null,
+        "resultingBalance": 500,
+        "createdAt": "2023-10-25T10:00:00.000Z"
+      }
+    }
+    ```
+
+### 3.2 Realizar un Exchange 🔒
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/transactions/exchange`
+*   Toda conversión (exchange, compra y venta) aplica una comisión/spread del 1% — `targetAmount` sale un 1% por debajo del monto a la tasa de mercado cruda.
+*   **Request Body (JSON):**
+    ```json
+    {
+      "fromCurrency": "USD",
+      "toCurrency": "ARS",
+      "amount": 100,
+      "amountSide": "source"
+    }
+    ```
+    `amountSide` es opcional (default `"source"`). Con `"source"`, `amount` es lo que se debita de `fromCurrency` y `targetAmount` se calcula solo. Con `"target"`, `amount` es lo que se quiere recibir en `toCurrency` y el backend calcula cuánto hay que debitar de `fromCurrency` (incluyendo la comisión) — útil para un flujo de "quiero recibir exactamente X".
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": "uuid-tx",
+        "walletId": "uuid-wallet",
+        "transactionType": "EXCHANGE",
+        "sourceCurrency": "USD",
+        "targetCurrency": "ARS",
+        "sourceAmount": 100,
+        "targetAmount": 103999.5,
+        "exchangeRate": 1039.995,
+        "resultingBalance": 400,
+        "createdAt": "2023-10-25T10:05:00.000Z"
+      }
+    }
+    ```
+    `exchangeRate` acá ya incluye la comisión del 1% (es la tasa efectiva realmente aplicada, `targetAmount = sourceAmount * exchangeRate`) — no es la tasa de mercado cruda. `POST /transactions/quote` (mismo body, sin mover saldo) sí devuelve la tasa de mercado cruda sin comisión, para mostrar una cotización previa.
+*   **Respuesta de Error (400 Bad Request - Sin fondos):**
+    ```json
+    {
+      "success": false,
+      "error": "INSUFFICIENT_FUNDS",
+      "message": "Saldo insuficiente para realizar la operación."
+    }
+    ```
+*   **Respuesta de Error (400 Bad Request - Monto derivado excede el límite operativo):** puede pasar con `amountSide: "target"`, donde el monto a debitar se calcula después de validar `amount` — si ese cálculo supera 1.000.000, se rechaza igual.
+    ```json
+    {
+      "success": false,
+      "error": "AMOUNT_TOO_LARGE",
+      "message": "El monto excede el límite operativo permitido por transacción."
+    }
+    ```
+
+---
+
+## 4. Asistente Financiero (Chatbot)
+
+### 4.1 Enviar Mensaje a la IA 🔒
+*   **Metodo:** `POST`
+*   **URL:** `http://localhost:3000/chatbot/message`
+*   **Headers:** `Authorization: Bearer <TOKEN>`
+*   **Request Body (JSON):**
+    ```json
+    {
+      "message": "¿Me alcanza el saldo para comprar un café de 5 euros?"
+    }
+    ```
+*   **Respuesta de Exito (200 OK):**
+    ```json
+    {
+      "success": true,
+      "data": {
+        "reply": "Si tienes saldo suficiente. Actualmente cuentas con 55 EUR en tu billetera."
+      }
+    }
+    ```
+*   **Respuesta de Error (500 Internal Server Error - Falla IA):**
+    ```json
+    {
+      "success": false,
+      "error": "InternalServerError",
+      "message": "Error interno del servidor. Por favor, inténtelo de nuevo más tarde."
+    }
+    ```
