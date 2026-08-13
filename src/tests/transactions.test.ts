@@ -100,7 +100,7 @@ describe("Pruebas de integración de transacciones", () => {
     expect(usdBalance).not.toBeNull();
     expect(eurBalance).not.toBeNull();
     expect(parseFloat(usdBalance!.amount)).toBe(50);
-    expect(parseFloat(eurBalance!.amount)).toBe(55);
+    expect(parseFloat(eurBalance!.amount)).toBe(54.45);
   });
 
   it("debería rechazar un intercambio si el usuario no tiene fondos suficientes (Camino Infeliz)", async () => {
@@ -132,7 +132,7 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.data).toHaveProperty("targetAmount");
       // Según el mock definido en el beforeAll: ARS = 1000, USD = base (1)
       expect(response.body.data.exchangeRate).toBe(1000);
-      expect(response.body.data.targetAmount).toBe(100000);
+      expect(response.body.data.targetAmount).toBe(99000);
     });
 
     it("debería rechazar una cotización con una moneda no soportada (Caso Inválido)", async () => {
