@@ -24,6 +24,12 @@ export interface WalletAndUser {
   last_name: string;
   email: string;
   du: string | null;
+  email_notifications_enabled: boolean;
+}
+
+export interface WalletWithNotificationRecipient extends Wallet {
+  email: string;
+  email_notifications_enabled: boolean;
 }
 
 /**
@@ -127,6 +133,23 @@ export async function findWalletByUserId(userId: string, client?: PoolClient): P
 }
 
 /**
+ * Obtiene la billetera y la preferencia de notificaciones de su titular en una sola consulta.
+ */
+export async function findWalletWithNotificationRecipientByUserId(
+  userId: string
+): Promise<WalletWithNotificationRecipient | null> {
+  const sql = `
+    SELECT w.id, w.user_id, w.cvu, w.alias, w.created_at, w.updated_at,
+           u.email, u.email_notifications_enabled
+    FROM wallets w
+    JOIN users u ON u.id = w.user_id
+    WHERE w.user_id = $1
+  `;
+  const result = await query(sql, [userId]);
+  return (result.rows[0] as WalletWithNotificationRecipient) || null;
+}
+
+/**
  * Updates a wallet's alias.
  */
 export async function updateWalletAlias(walletId: string, newAlias: string): Promise<Wallet | null> {
@@ -155,7 +178,8 @@ export async function findWalletAndUserByIdentifier(identifier: string): Promise
       u.first_name,
       u.last_name,
       u.email,
-      u.du
+      u.du,
+      u.email_notifications_enabled
     FROM wallets w
     JOIN users u ON w.user_id = u.id
     WHERE LOWER(u.email) = $1 OR w.cvu = $1 OR LOWER(w.alias) = $1

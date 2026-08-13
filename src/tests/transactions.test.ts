@@ -183,12 +183,9 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.exchangeRate).toBe(1000);
       expect(response.body.data.targetAmount).toBe(100000);
-      // NOTA: con estas tasas "redondas" del mock (USD=1, ARS=1000) el round-trip da un
-      // sourceAmount exacto, pero el truncamiento a 8 decimales no es simétrico en general
-      // (side "source" trunca después de dividir, side "target" trunca antes) — con tasas
-      // reales no enteras, sourceAmount puede diferir en el último decimal. toBeCloseTo en
-      // vez de toBe para no acoplar el test a esa coincidencia numérica.
-      expect(response.body.data.sourceAmount).toBeCloseTo(100, 8);
+      // Al solicitar el monto destino se calcula el origen necesario incluyendo la comisión
+      // del 1%: 100000 / (1000 * 0.99) = 101.01010101 USD.
+      expect(response.body.data.sourceAmount).toBeCloseTo(101.01010101, 8);
     });
 
     it("debería rechazar una cotización cuyo monto derivado trunca a cero por el piso de 8 decimales", async () => {
@@ -350,6 +347,45 @@ describe("Pruebas de integración de transacciones", () => {
         initialRecipientBalance + TRANSFER_AMOUNT,
         8
       );
+    }, 10_000);
+
+    it("debería ejecutar una transferencia exitosa con un concepto de texto", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 5, destination: testRecipient.email, concepto: "Pago de almuerzo" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        concepto: "Pago de almuerzo",
+      });
+    });
+
+    it("debería ejecutar una transferencia exitosa con un concepto null", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 5, destination: testRecipient.email, concepto: null });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        concepto: null,
+      });
+    });
+
+    it("debería resolver destinatario exitosamente ignorando campos extra del formulario como concepto", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer/resolve")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ identifier: testRecipient.email, concepto: "Test de ignorado", amount: 100, currency: "USD" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.email).toBe(testRecipient.email);
     });
   });
 
@@ -370,10 +406,9 @@ describe("Pruebas de integración de transacciones", () => {
         targetAmount: 10,
       });
 
-      // Ida y vuelta: sourceAmount * exchangeRate debe reconstruir targetAmount, con la
-      // misma tolerancia de truncamiento a 8 decimales que usa el resto del suite.
+      // Ida y vuelta: la tasa de mercado más la comisión del 1% debe reconstruir el destino.
       const { sourceAmount, exchangeRate, targetAmount } = response.body.data;
-      expect(sourceAmount * exchangeRate).toBeCloseTo(targetAmount, 5);
+      expect(sourceAmount * exchangeRate * 0.99).toBeCloseTo(targetAmount, 5);
     });
 
     it("debería mantener el comportamiento default (source) cuando no se envía amountSide", async () => {

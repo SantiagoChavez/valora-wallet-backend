@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
     -- del alta y quedan sin completar hasta que el usuario lo carga vía PATCH /auth/me.
     -- Postgres permite múltiples NULL en una columna UNIQUE sin problema, así que esto no
     -- debilita la regla de "un DNI, una cuenta" una vez que el valor sí está cargado.
-    du VARCHAR(20) UNIQUE,
+    du VARCHAR(20),
+    CONSTRAINT users_country_du_key UNIQUE (country, du),
     password_reset_token_hash VARCHAR(64),
     password_reset_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -75,8 +76,22 @@ CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(5) DEFAULT 'AR';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS du VARCHAR(20) UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS du VARCHAR(20);
 ALTER TABLE users ALTER COLUMN du DROP NOT NULL;
+-- Reemplaza la unicidad global histórica del documento por una compuesta con el país.
+-- Es segura sobre instalaciones existentes: el constraint anterior impedía duplicados de DU.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_du_key;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_country_du_key'
+          AND conrelid = 'users'::regclass
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT users_country_du_key UNIQUE (country, du);
+    END IF;
+END $$;
 ALTER TABLE wallets ADD COLUMN IF NOT EXISTS cvu VARCHAR(22) UNIQUE;
 ALTER TABLE wallets ADD COLUMN IF NOT EXISTS alias VARCHAR(100) UNIQUE;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
@@ -128,3 +143,15 @@ CREATE TABLE IF NOT EXISTS chatbot_histories (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chatbot_histories_user_id ON chatbot_histories(user_id);
+
+-- Toggle simple para dejar de recibir los emails transaccionales (depósito/compra/venta/
+-- intercambio/transferencia) sin tocar nada más. Default true para no cambiar el
+-- comportamiento de las cuentas existentes.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN DEFAULT true NOT NULL;
+
+-- Concepto/motivo opcional para transferencias P2P (ej. "alquiler agosto").
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS concepto VARCHAR(140);
+
+-- Alias de la contraparte en transferencias P2P: counterparty_wallet ya guarda el UUID de la
+-- wallet, pero eso no sirve para mostrar en UI — el front necesita el alias legible.
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_alias TEXT;

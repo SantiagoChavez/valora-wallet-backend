@@ -74,6 +74,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         country: "AR",
         du: "11111111",
         profileComplete: true,
+        emailNotificationsEnabled: true,
       });
 
       const { wallet, user } = response.body.data;
@@ -119,6 +120,27 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
       expect(response.body.message.toLowerCase()).not.toContain("documento");
       expect(response.body.message).not.toContain("correo");
       expect(response.body.message).toContain("nexot.solutions@gmail.com");
+    });
+
+    it("debería permitir el mismo documento cuando pertenece a otro país", async () => {
+      const response = await request(app)
+        .post("/auth/register")
+        .send({
+          ...testUser,
+          email: "du_mismo_otro_pais_test@valora.com",
+          phone: "+598 99 123 456",
+          country: "UY",
+          du: testUser.du,
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.user).toMatchObject({
+        country: "UY",
+        du: testUser.du,
+      });
+
+      await query("DELETE FROM users WHERE email = $1", ["du_mismo_otro_pais_test@valora.com"]);
     });
 
     it("debería fallar al registrar si faltan campos requeridos", async () => {
@@ -237,6 +259,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         country: "AR",
         du: "11111111",
         profileComplete: true,
+        emailNotificationsEnabled: true,
       });
     });
 
@@ -306,6 +329,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         country: "AR",
         du: "11111111",
         profileComplete: true,
+        emailNotificationsEnabled: true,
       });
     });
 
