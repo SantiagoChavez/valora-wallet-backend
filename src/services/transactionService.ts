@@ -48,12 +48,18 @@ const isValidCurrency = (cur: string): cur is BaseCurrency => ["USD", "EUR", "AR
 // Comisión/spread aplicada a toda conversión — mitigación de "salami slicing" (ver CHANGELOG).
 const CONVERSION_FEE_RATE = 0.01;
 
-// Límite operativo máximo por transacción — aplica a depósitos, transferencias y conversiones.
+// Límites operativos por moneda — aplica a depósitos, transferencias y conversiones.
 // El schema (amountBaseSchema) tiene un techo más alto (1.000.000.000) como barrera anti-overflow
-// de BD; este límite de negocio es el que realmente controla el máximo razonable por operación.
-// Fijado en 100.000.000 para cubrir operaciones legítimas en ARS sin abrir la puerta a montos
-// absurdos (ej. 667 USD × ~1500 ARS/USD = ~1.000.000 ARS, así que 100M da margen de sobra).
-const MAX_TRANSACTION_AMOUNT = 100_000_000;
+// de BD; estos límites de negocio son los que realmente controlan el máximo razonable por operación.
+const MAX_AMOUNT_BY_CURRENCY: Record<BaseCurrency, number> = {
+    USD: 10_000,
+    EUR: 10_000,
+    ARS: 10_000_000,
+};
+
+function getMaxAmount(currency: string): number {
+    return MAX_AMOUNT_BY_CURRENCY[currency as BaseCurrency] ?? 10_000;
+}
 
 /**
  * Calcula sourceAmount/targetAmount para una conversión, aplicando la comisión del 1% en la
@@ -69,7 +75,9 @@ function computeConversionAmounts(
     amount: number,
     amountSide: "source" | "target",
     rateFrom: number,
-    rateTo: number
+    rateTo: number,
+    fromCurrency: string,
+    toCurrency: string
 ): { sourceAmount: number; targetAmount: number; effectiveRate: number } {
     const rawRatio = rateTo / rateFrom;
 
@@ -92,7 +100,7 @@ function computeConversionAmounts(
         );
     }
 
-    if (sourceAmount > MAX_TRANSACTION_AMOUNT || targetAmount > MAX_TRANSACTION_AMOUNT) {
+    if (sourceAmount > getMaxAmount(fromCurrency) || targetAmount > getMaxAmount(toCurrency)) {
         throw Object.assign(
             new Error("El monto excede el límite operativo permitido por transacción."),
             { status: 400, code: "AMOUNT_TOO_LARGE" }
@@ -110,7 +118,7 @@ function computeConversionAmounts(
 
 export async function executeDeposit(userId: string, currency: string, amount: number) {
     if (amount <= 0) throw Object.assign(new Error("El monto a depositar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
-    if (amount > MAX_TRANSACTION_AMOUNT) throw Object.assign(new Error("El monto excede el límite operativo permitido por transacción."), { status: 400, code: "AMOUNT_TOO_LARGE" });
+    if (amount > getMaxAmount(currency)) throw Object.assign(new Error("El monto excede el límite operativo permitido por transacción."), { status: 400, code: "AMOUNT_TOO_LARGE" });
 
     const wallet = await findWalletWithNotificationRecipientByUserId(userId);
     if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
@@ -168,7 +176,7 @@ export async function getExchangeQuote(
     // cotización informativa antes de confirmar la operación. La comisión del 1% se aplica y
     // se documenta aparte en sourceAmount/targetAmount (ver computeConversionAmounts).
     const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
-    const { sourceAmount, targetAmount } = computeConversionAmounts(amount, amountSide, rateFrom, rateTo);
+    const { sourceAmount, targetAmount } = computeConversionAmounts(amount, amountSide, rateFrom, rateTo, fromCurrency, toCurrency);
 
     return { exchangeRate, sourceAmount, targetAmount };
 }
@@ -208,7 +216,7 @@ async function executeConversion(
         let targetAmount: number;
         let effectiveRate: number;
         try {
-            ({ sourceAmount: cleanAmount, targetAmount, effectiveRate } = computeConversionAmounts(amount, amountSide, rateFrom, rateTo));
+            ({ sourceAmount: cleanAmount, targetAmount, effectiveRate } = computeConversionAmounts(amount, amountSide, rateFrom, rateTo, fromCurrency, toCurrency));
         } catch (conversionError: unknown) {
             // Los mensajes de AMOUNT_TOO_SMALL/AMOUNT_TOO_LARGE del helper compartido son
             // genéricos ("el monto"); acá se personalizan con la acción (comprar/vender/etc.)
@@ -313,7 +321,7 @@ export async function resolveTransferDestination(identifier: string) {
  */
 export async function executeTransfer(senderUserId: string, currency: string, amount: number, destinationIdentifier: string, concepto?: string | null) {
     if (amount <= 0) throw Object.assign(new Error("El monto a transferir debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
-    if (amount > MAX_TRANSACTION_AMOUNT) throw Object.assign(new Error("El monto excede el límite operativo permitido por transacción."), { status: 400, code: "AMOUNT_TOO_LARGE" });
+    if (amount > getMaxAmount(currency)) throw Object.assign(new Error("El monto excede el límite operativo permitido por transacción."), { status: 400, code: "AMOUNT_TOO_LARGE" });
 
     // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
     const cleanAmount = truncateTo8Decimals(amount);
