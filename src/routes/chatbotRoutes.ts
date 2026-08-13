@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { chatController } from "../controllers/chatbotController.js";
+import { chatController, resetChatController } from "../controllers/chatbotController.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 
 import { validateSchema } from "../middlewares/validateSchema.js";
@@ -13,4 +13,11 @@ chatbotRouter.post(
     authMiddleware,
     validateSchema(chatbotMessageSchema),
     chatController
+);
+
+// Endpoint protegido para resetear el historial del chatbot
+chatbotRouter.post(
+    "/reset",
+    authMiddleware,
+    resetChatController
 );

@@ -1,20 +1,78 @@
 import { z } from "zod";
 
+// -----------------------------------------------------------------------------
+// 1. CONSTANTES BASE (Single Source of Truth & Blindaje Fintech)
+// -----------------------------------------------------------------------------
+
+// Bloquea espacios, etiquetas HTML (<, >), comillas y caracteres raros (Anti-XSS).
+const validIdentifierRegex = /^[a-zA-Z0-9.@_+-]+$/;
+
+// Validación estricta para monedas (Ej. ARS, USD). Previene DoS por strings gigantes.
+const currencyBaseSchema = z
+  .string({ message: "La moneda es obligatoria." })
+  .trim()
+  .length(3, "La moneda debe tener exactamente 3 caracteres (ej. ARS, USD).")
+  .toUpperCase();
+
+// Validación estricta para dinero. Previene desbordamiento DB, números falsos y robo fraccional.
+const amountBaseSchema = z
+  .number({ message: "El monto debe ser numérico." })
+  .positive("El monto debe ser un número mayor a cero.")
+  .max(1000000, "El monto excede el límite operativo permitido por transacción.")
+  .refine((val) => {
+    // FIX: Permitimos una pequeñísima tolerancia (epsilon) para evitar falsos rechazos 
+    // producidos por el ruido del formato IEEE-754 de JavaScript en operaciones matemáticas (ej. 0.1 + 0.2).
+    return Math.abs(Number(val.toFixed(8)) - val) < 1e-10;
+  }, "El monto no puede tener más de 8 decimales.");
+
+// -----------------------------------------------------------------------------
+// 2. ESQUEMAS DE ENDPOINTS (Limpios, Cortos y Seguros)
+// -----------------------------------------------------------------------------
+
 export const depositSchema = z.object({
-  currency: z.string({ message: "La moneda es obligatoria." }).trim().min(1, "La moneda es obligatoria.").toUpperCase(),
-  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero.").max(1_000_000, "El monto máximo por transacción es 1,000,000."),
-});
+  currency: currencyBaseSchema,
+  amount: amountBaseSchema,
+}).strict();
+
+// Indica a qué lado de la operación pertenece "amount": "source" (lo que se debita,
+// comportamiento histórico) o "target" (lo que se acredita, calculando el débito).
+const amountSideSchema = z.enum(["source", "target"]).optional().default("source");
+
 export const quoteSchema = z.object({
-  fromCurrency: z.string({ message: "La moneda de origen es obligatoria." }).trim().min(1, "La moneda de origen es obligatoria.").toUpperCase(),
-  toCurrency: z.string({ message: "La moneda de destino es obligatoria." }).trim().min(1, "La moneda de destino es obligatoria.").toUpperCase(),
-  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero.").max(1_000_000, "El monto máximo por transacción es 1,000,000."),
-});
+  fromCurrency: currencyBaseSchema,
+  toCurrency: currencyBaseSchema,
+  amount: amountBaseSchema,
+  amountSide: amountSideSchema,
+}).strict();
 
 export const exchangeSchema = z.object({
-  fromCurrency: z.string({ message: "La moneda de origen es obligatoria." }).trim().min(1, "La moneda de origen es obligatoria.").toUpperCase(),
-  toCurrency: z.string({ message: "La moneda de destino es obligatoria." }).trim().min(1, "La moneda de destino es obligatoria.").toUpperCase(),
-  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero.").max(1_000_000, "El monto máximo por transacción es 1,000,000."),
-});
+  fromCurrency: currencyBaseSchema,
+  toCurrency: currencyBaseSchema,
+  amount: amountBaseSchema,
+  amountSide: amountSideSchema,
+}).strict();
+
+export const transferSchema = z.object({
+  currency: currencyBaseSchema,
+  amount: amountBaseSchema,
+  destination: z
+    .string({ message: "El destino es obligatorio." })
+    .trim()
+    .max(100, "El destino es demasiado largo (máx 100 caracteres).")
+    .regex(validIdentifierRegex, "El destino contiene caracteres no permitidos o está vacío."), // Blindaje Anti-XSS
+}).strict();
+
+export const resolveUserSchema = z.object({
+  identifier: z
+    .string({ message: "El identificador es obligatorio." })
+    .trim()
+    .max(100, "El identificador es demasiado largo (máx 100 caracteres).")
+    .regex(validIdentifierRegex, "El identificador contiene caracteres no permitidos o está vacío."), // Blindaje Anti-XSS
+}).strict();
+
+// -----------------------------------------------------------------------------
+// 3. ESQUEMAS DE BÚSQUEDA / PAGINACIÓN
+// -----------------------------------------------------------------------------
 
 export const getTransactionsQuerySchema = z.object({
   limit: z
@@ -44,6 +102,7 @@ export const getTransactionsQuerySchema = z.object({
     }, z.number({ message: "La página debe ser un número entero." })
        .int("La página debe ser un número entero.")
        .min(1, "La página mínima es 1.")
+       .max(10000, "La página máxima permitida es 10000.") // Prevención Offset DoS
        .optional())
     .default(1),
   type: z
@@ -52,6 +111,8 @@ export const getTransactionsQuerySchema = z.object({
       z.literal("SELL"),
       z.literal("EXCHANGE"),
       z.literal("DEPOSIT"),
+      z.literal("TRANSFER_OUT"),
+      z.literal("TRANSFER_IN"),
     ], {
       message: "El tipo de transacción no es válido.",
     })

@@ -54,12 +54,14 @@ export async function createUser(
 }
 
 /**
- * Completa (o edita) celular, país y DU de un usuario ya existente — usado para el flujo
- * de cuentas de Google, que no piden estos datos en el alta.
+ * Completa (o edita) celular, país, DU y opcionalmente fecha de nacimiento de un usuario ya
+ * existente — usado para el flujo de cuentas de Google, que no piden estos datos en el alta.
  * @param userId - User UUID
  * @param phone - Celular en formato E.164
  * @param country - Código ISO 3166-1 alpha-2
  * @param du - Documento único, normalizado
+ * @param dateOfBirth - Fecha de nacimiento en formato YYYY-MM-DD; si no viene, se conserva la
+ * existente (ej. el placeholder "1990-01-01" que googleLoginController usa al crear la cuenta).
  * @returns The updated user object, or null si el userId no corresponde a ningún usuario
  * (ej. token válido de una cuenta borrada mientras tanto) — igual que findUserById.
  */
@@ -67,15 +69,16 @@ export async function updateUserProfile(
   userId: string,
   phone: string,
   country: string,
-  du: string
+  du: string,
+  dateOfBirth?: string
 ): Promise<User | null> {
   const sql = `
     UPDATE users
-    SET phone = $1, country = $2, du = $3, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $4
+    SET phone = $1, country = $2, du = $3, date_of_birth = COALESCE($4, date_of_birth), updated_at = CURRENT_TIMESTAMP
+    WHERE id = $5
     RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
   `;
-  const result = await query(sql, [phone, country, du, userId]);
+  const result = await query(sql, [phone, country, du, dateOfBirth ?? null, userId]);
   return result.rows[0] || null;
 }
 
