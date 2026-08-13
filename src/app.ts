@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import rateLimit from "express-rate-limit";
 
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { router } from "./routes/index.js";
@@ -55,6 +56,22 @@ app.use(
   }),
 );
 app.use(express.json());
+
+// Limitador de peticiones (Rate Limiting) global para prevenir ataques DoS
+// Limita a cada IP a un máximo de 100 peticiones cada 15 minutos.
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // límite de 100 peticiones por ventana por IP
+  message: {
+    success: false,
+    error: "TOO_MANY_REQUESTS",
+    message: "Demasiadas peticiones desde esta IP. Por favor, intenta de nuevo en 15 minutos."
+  },
+  standardHeaders: true, // Devuelve los headers de límite de rate en la respuesta (RateLimit-*)
+  legacyHeaders: false, // Deshabilita los headers viejos (X-RateLimit-*)
+});
+
+app.use(limiter);
 
 app.use(router);
 

@@ -39,6 +39,8 @@ Si te preguntan por qué programaste las cosas de esta manera, esta es tu argume
 
 - **Ledger Inmutable**: Diseñaste la lógica de transacciones para que solo inserte registros (`INSERT`) en la tabla `transactions`. Nunca se hace `UPDATE` ni `DELETE` sobre el historial de movimientos, para mantener una auditoría contable perfecta.
 
+- **Protección contra Denegación de Servicio (Rate Limiting)**: Para proteger la infraestructura de la API y evitar que un ataque de spam (DoS) agote los recursos del servidor o intente forzar el uso de la API de Fallback, implementaste un middleware global de contención (`express-rate-limit`). Este bloquea automáticamente temporalmente a cualquier IP que envíe peticiones de forma abusiva, garantizando la estabilidad de la app.
+
 ---
 
 # 🔄 3. El Flujo Técnico End-to-End (Cómo funciona tu sistema)
