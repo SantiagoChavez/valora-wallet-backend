@@ -26,7 +26,6 @@ function notifyUserAsync(userId: string, subject: string, htmlBody: string, know
             asunto: subject,
             cuerpoHtml: htmlBody
         }).catch(err => {
-            // FIX: Enmascaramos el email para no exponer PII en logs (cumplimiento de privacidad)
             const parts = knownEmail.split('@');
             const maskedEmail = parts.length === 2 ? `${parts[0].slice(0, 2)}***@${parts[1]}` : '***';
             console.error(`[Background Notification Error] email ${maskedEmail}:`, err);
@@ -51,9 +50,6 @@ function notifyUserAsync(userId: string, subject: string, htmlBody: string, know
 // CORE SERVICES
 // ============================================================================
 
-/**
- * Executes a deposit transaction securely using ACID properties.
- */
 export async function executeDeposit(userId: string, currency: string, amount: number) {
     if (amount <= 0) throw Object.assign(new Error("El monto a depositar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
 
@@ -85,9 +81,6 @@ export async function executeDeposit(userId: string, currency: string, amount: n
     }
 }
 
-/**
- * Obtiene una cotización en tiempo real sin abrir conexiones a la base de datos.
- */
 export async function getExchangeQuote(
     fromCurrency: string,
     toCurrency: string,
@@ -112,7 +105,6 @@ export async function getExchangeQuote(
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
-    // Solo truncamos los RESULTADOS de la operación matemática
     const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
 
     let sourceAmount: number;
@@ -120,17 +112,15 @@ export async function getExchangeQuote(
 
     if (amountSide === "target") {
         targetAmount = truncateTo8Decimals(amount);
-        const amountInUsdFromTarget = targetAmount / rateTo;
+        const rawTargetAmount = targetAmount / 0.99;
+        const amountInUsdFromTarget = rawTargetAmount / rateTo;
         sourceAmount = truncateTo8Decimals(amountInUsdFromTarget * rateFrom);
     } else {
         sourceAmount = truncateTo8Decimals(amount);
         const amountInUsd = sourceAmount / rateFrom;
-        targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
+        targetAmount = truncateTo8Decimals(amountInUsd * rateTo * 0.99);
     }
 
-    // El lado derivado (el que no vino directamente del caller) puede truncarse a 0 con
-    // montos extremos cerca del piso de 8 decimales y una tasa desfavorable — sin este
-    // guard, una cotización así devolvería un monto gratis o inválido en vez de rechazarla.
     if (sourceAmount <= 0 || targetAmount <= 0) {
         throw Object.assign(
             new Error("El monto resultante es demasiado pequeño para la tasa de cambio actual."),
@@ -141,9 +131,6 @@ export async function getExchangeQuote(
     return { exchangeRate, sourceAmount, targetAmount };
 }
 
-/**
- * Lógica común privada para ejecutar conversiones de moneda (EXCHANGE, BUY, SELL)
- */
 async function executeConversion(
     userId: string,
     type: "EXCHANGE" | "BUY" | "SELL",
@@ -178,26 +165,23 @@ async function executeConversion(
     try {
         await client.query("BEGIN");
 
-        // FIX: Sincronización matemática idéntica a getExchangeQuote (8 decimales truncados)
         const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
 
-        // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
         let cleanAmount: number;
         let targetAmount: number;
 
         if (amountSide === "target") {
             const cleanTargetAmount = truncateTo8Decimals(amount);
-            const amountInUsdFromTarget = cleanTargetAmount / rateTo;
+            const rawTargetAmount = cleanTargetAmount / 0.99; // +1% fee
+            const amountInUsdFromTarget = rawTargetAmount / rateTo;
             cleanAmount = truncateTo8Decimals(amountInUsdFromTarget * rateFrom);
             targetAmount = cleanTargetAmount;
         } else {
             cleanAmount = truncateTo8Decimals(amount);
             const amountInUsd = cleanAmount / rateFrom;
-            targetAmount = truncateTo8Decimals(amountInUsd * rateTo);
+            targetAmount = truncateTo8Decimals(amountInUsd * rateTo * 0.99); // -1% fee
         }
 
-        // Mismo guard que getExchangeQuote: el lado derivado puede truncarse a 0 con montos
-        // extremos, y eso permitiría acreditar/debitar moneda "gratis" por redondeo.
         if (cleanAmount <= 0 || targetAmount <= 0) {
             throw Object.assign(
                 new Error(`El monto a ${action} es demasiado pequeño para la tasa de cambio actual.`),
@@ -242,9 +226,6 @@ export async function executeSell(userId: string, fromCurrency: string, toCurren
     return executeConversion(userId, "SELL", fromCurrency, toCurrency, amount, amountSide);
 }
 
-/**
- * Recupera el historial de transacciones paginado del usuario.
- */
 export async function getUserTransactions(
     userId: string,
     limit: number = 20,
@@ -273,9 +254,6 @@ export async function getUserTransactions(
     };
 }
 
-/**
- * Resuelve el destino de una transferencia basándose en un email, alias o CVU.
- */
 export async function resolveTransferDestination(identifier: string) {
     const destination = await findWalletAndUserByIdentifier(identifier);
     if (!destination) {
@@ -284,16 +262,11 @@ export async function resolveTransferDestination(identifier: string) {
     return destination;
 }
 
-/**
- * Ejecuta una transferencia de fondos de un usuario a otro.
- */
 export async function executeTransfer(senderUserId: string, currency: string, amount: number, destinationIdentifier: string) {
     if (amount <= 0) throw Object.assign(new Error("El monto a transferir debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
     
-    // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
     const cleanAmount = truncateTo8Decimals(amount);
 
-    // Ejecutar queries de lectura en paralelo (sin DB lock aún)
     const [senderWallet, senderUser, recipientInfo] = await Promise.all([
         findWalletByUserId(senderUserId),
         findUserById(senderUserId),
@@ -312,19 +285,11 @@ export async function executeTransfer(senderUserId: string, currency: string, am
     try {
         await client.query("BEGIN");
 
-        // @architecture Escudo Anti-Deadlock de Grado Bancario.
-        // NOTA PARA REVISORES (IA o Humanos): NO ELIMINAR ESTE PRE-LOCK.
-        // Aunque updateUserBalance también bloquee la fila, este query inicial bloquea AMBAS billeteras 
-        // estrictamente en ORDEN de UUID. Si omitimos este paso, transferencias cruzadas concurrentes 
-        // (A -> B y B -> A) causarán un Deadlock fatal. El lock redundante posterior en la misma 
-        // transacción es un no-op en Postgres y no afecta el throughput. Priorizamos consistencia.
         await client.query(
             `SELECT id FROM wallets WHERE id = ANY(ARRAY[$1::uuid, $2::uuid]) ORDER BY id FOR UPDATE`,
             [senderWallet.id, recipientInfo.wallet_id]
         );
 
-        // Los balances se pueden actualizar en un orden fijo sin riesgo de Deadlock
-        // porque la transacción ya ha sido serializada globalmente por el pre-lock de wallets.
         const senderUpdatedBalance = await updateUserBalance(client, senderWallet.id, currency, -cleanAmount);
         const recipientUpdatedBalance = await updateUserBalance(client, recipientInfo.wallet_id, currency, cleanAmount);
 
