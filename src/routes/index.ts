@@ -8,6 +8,15 @@ import { catalogRouter } from "./catalogRoutes.js";
 
 export const router = Router();
 
+router.get("/", (_req, res) => {
+  res.json({
+    name: "Valora Wallet API",
+    status: "running",
+    version: "1.0.0",
+    message: "Bienvenido al Backend de Valora Wallet. Sistema operativo y escuchando peticiones."
+  });
+});
+
 router.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
