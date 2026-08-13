@@ -2,18 +2,18 @@ import { z } from "zod";
 
 export const depositSchema = z.object({
   currency: z.string({ message: "La moneda es obligatoria." }).trim().min(1, "La moneda es obligatoria.").toUpperCase(),
-  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero."),
+  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero.").max(1_000_000, "El monto máximo por transacción es 1,000,000."),
 });
 export const quoteSchema = z.object({
   fromCurrency: z.string({ message: "La moneda de origen es obligatoria." }).trim().min(1, "La moneda de origen es obligatoria.").toUpperCase(),
   toCurrency: z.string({ message: "La moneda de destino es obligatoria." }).trim().min(1, "La moneda de destino es obligatoria.").toUpperCase(),
-  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero."),
+  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero.").max(1_000_000, "El monto máximo por transacción es 1,000,000."),
 });
 
 export const exchangeSchema = z.object({
   fromCurrency: z.string({ message: "La moneda de origen es obligatoria." }).trim().min(1, "La moneda de origen es obligatoria.").toUpperCase(),
   toCurrency: z.string({ message: "La moneda de destino es obligatoria." }).trim().min(1, "La moneda de destino es obligatoria.").toUpperCase(),
-  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero."),
+  amount: z.number({ message: "El monto debe ser un número mayor a cero." }).positive("El monto debe ser un número mayor a cero.").max(1_000_000, "El monto máximo por transacción es 1,000,000."),
 });
 
 export const getTransactionsQuerySchema = z.object({

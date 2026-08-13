@@ -81,10 +81,11 @@ export async function getExchangeQuote(fromCurrency: string, toCurrency: string,
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
-    //Redondeo de los numeros
+    //Redondeo de los numeros con comisión del 1%
     const exchangeRate = Number((rateTo / rateFrom).toFixed(8));
     const amountInUsd = amount / rateFrom;
-    const targetAmount = Number((amountInUsd * rateTo).toFixed(8));
+    const rawTargetAmount = amountInUsd * rateTo;
+    const targetAmount = Number((rawTargetAmount * 0.99).toFixed(8));
 
     return {
         exchangeRate,
@@ -136,18 +137,14 @@ async function executeConversion(
     try {
         await client.query("BEGIN");
 
-        // Mathematical logic for exchange
         const amountInUsd = amount / rateFrom;
-        const targetAmount = amountInUsd * rateTo;
-        const exchangeRate = rateTo / rateFrom;
+        const rawTargetAmount = amountInUsd * rateTo;
+        const targetAmount = Number((rawTargetAmount * 0.99).toFixed(8));
+        const exchangeRate = Number((rateTo / rateFrom).toFixed(8));
 
-        // Deduct from source currency (negative amount)
         await updateUserBalance(client, wallet.id, fromCurrency, -amount);
-
-        // Add to target currency (positive amount)
         const newTargetBalance = await updateUserBalance(client, wallet.id, toCurrency, targetAmount);
 
-        // Record the operation in the ledger
         const transaction = await insertTransaction(
             client, wallet.id, type, fromCurrency, toCurrency, amount, targetAmount, exchangeRate, newTargetBalance.amount
         );
