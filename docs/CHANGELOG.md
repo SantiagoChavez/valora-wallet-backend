@@ -5,6 +5,13 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.3.1] - 2026-08-12
+
+### Security (Seguridad)
+- **Mitigación Salami Slicing:** Implementación de un spread/comisión del 1% en las operaciones de conversión de divisas para neutralizar la rentabilidad de ataques de alta frecuencia basados en redondeos.
+- **Prevención de Desbordamiento Numérico:** Se incorporó un límite estricto de `.max(1_000_000)` en los validadores Zod de todas las transacciones para proteger el sistema de desbordamientos matemáticos (Number Overflow).
+- **Protección contra Denegación de Servicio (DoS):** Se añadió el middleware global `express-rate-limit` (máx. 100 peticiones cada 15 min por IP) para prevenir bombardeos masivos de peticiones y proteger la disponibilidad de las APIs externas.
+
 ## [1.3.0] - 2026-08-11
 
 ### Added (Añadido)
