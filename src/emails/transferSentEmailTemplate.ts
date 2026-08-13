@@ -24,6 +24,7 @@ export interface TransferSentEmailParams {
   concepto: string | null;
   transactionId: string;
   date: Date;
+  country?: string | null;
 }
 
 /**
@@ -39,7 +40,7 @@ export function buildTransferSentEmailHtml(params: TransferSentEmailParams): str
   if (params.recipientAlias) {
     rows.push({ icon: ROW_ICON_ALIAS, label: "Alias", value: escapeHtml(params.recipientAlias) });
   }
-  rows.push({ icon: ROW_ICON_CLOCK, label: "Fecha", value: formatDateShort(params.date) });
+  rows.push({ icon: ROW_ICON_CLOCK, label: "Fecha", value: formatDateShort(params.date, params.country) });
   if (params.concepto) {
     rows.push({ icon: ROW_ICON_DOCUMENT, label: "Concepto", value: escapeHtml(params.concepto) });
   }

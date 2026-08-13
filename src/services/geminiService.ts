@@ -132,7 +132,7 @@ Cotizaciones actuales (si están disponibles): ${safeJsonStringify(sanitizedExch
   try {
     const genAI = getGenAIClient();
     const model = genAI.getGenerativeModel({
-      model: "gemini-3.5-flash-lite",
+      model: "gemini-3.5-flash",
       systemInstruction: fullSystemInstruction,
     });
 
@@ -149,8 +149,18 @@ Cotizaciones actuales (si están disponibles): ${safeJsonStringify(sanitizedExch
     const result = await chat.sendMessage(userMessage);
     const responseText = result.response.text();
 
-    await saveChatMessage(userId, "user", userMessage);
-    await saveChatMessage(userId, "model", responseText);
+    // La persistencia del historial se aísla en su propio try/catch: si Gemini ya respondió
+    // (y ya se facturó esa llamada), un fallo puntual al guardar no puede tirar la respuesta ya
+    // generada — el usuario se quedaría sin nada por un problema de infraestructura ajeno a su
+    // pregunta. El orden secuencial (user primero, model después) es a propósito: preserva el
+    // orden cronológico real vía created_at, que es de lo que depende getChatHistoryByUserId
+    // para reconstruir el hilo de la conversación en la próxima consulta.
+    try {
+      await saveChatMessage(userId, "user", userMessage);
+      await saveChatMessage(userId, "model", responseText);
+    } catch (persistError: unknown) {
+      console.error("[Gemini Service] Error al guardar el historial del chat:", persistError);
+    }
 
     return responseText;
   } catch (error: unknown) {

@@ -17,7 +17,10 @@ CREATE TABLE IF NOT EXISTS users (
     date_of_birth DATE,
     phone VARCHAR(20) UNIQUE,
     phone_verificado BOOLEAN DEFAULT false NOT NULL,
-    country VARCHAR(5) DEFAULT 'AR' NOT NULL,
+    -- CHECK en mayúsculas: la unicidad compuesta de abajo (country, du) solo protege si
+    -- "country" siempre está normalizado — sin esto, 'ar' y 'AR' serían namespaces distintos
+    -- y el mismo DU podría registrarse dos veces con distinto casing.
+    country VARCHAR(5) DEFAULT 'AR' NOT NULL CHECK (country = upper(country)),
     -- Nullable a propósito (igual que phone): las cuentas creadas con Google no traen DU
     -- del alta y quedan sin completar hasta que el usuario lo carga vía PATCH /auth/me.
     -- Postgres permite múltiples NULL en una columna UNIQUE sin problema, así que esto no
@@ -90,6 +93,20 @@ BEGIN
           AND conrelid = 'users'::regclass
     ) THEN
         ALTER TABLE users ADD CONSTRAINT users_country_du_key UNIQUE (country, du);
+    END IF;
+END $$;
+-- Normaliza instalaciones existentes antes de exigir el CHECK, y lo agrega si falta (instalaciones
+-- creadas antes de este cambio no lo tienen porque CREATE TABLE IF NOT EXISTS no lo agrega solo).
+UPDATE users SET country = upper(country) WHERE country <> upper(country);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_country_uppercase_check'
+          AND conrelid = 'users'::regclass
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT users_country_uppercase_check CHECK (country = upper(country));
     END IF;
 END $$;
 ALTER TABLE wallets ADD COLUMN IF NOT EXISTS cvu VARCHAR(22) UNIQUE;

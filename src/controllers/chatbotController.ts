@@ -3,11 +3,8 @@ import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { initializeAndGetBalances } from "../services/balanceService.js";
 import { getFinancialAdvice } from "../services/geminiService.js";
 import { getUserTransactions } from "../services/transactionService.js";
-import { getExchangeRates, type ExchangeRates } from "../services/exchangeRateService.js";
+import { getExchangeRates } from "../services/exchangeRateService.js";
 import { deleteChatHistoryByUserId } from "../models/chatbotModel.js";
-
-// Interfaz sugerida para tipar el resultado (Pilar 4)
-type ExchangeRatesResult = ExchangeRates | { error: string };
 
 /**
  * Controlador para manejar las consultas al asistente financiero con IA.
@@ -27,12 +24,14 @@ export async function chatController(
             return;
         }
 
-        const [balances, transactions, exchangeRatesResult] = await Promise.all([
+        const [balances, transactionsResult, exchangeRatesResult] = await Promise.all([
             initializeAndGetBalances(userId),
             getUserTransactions(userId, 20, 1),
             getExchangeRates().catch(e => {
                 console.warn("No se pudieron obtener las cotizaciones para el chatbot:", e);
-                return { error: "Cotizaciones no disponibles temporalmente" };
+                // null (no un objeto {error: ...}) para que sanitizeExchangeRatesForContext lo
+                // omita del prompt en vez de serializarlo como si fuera una tasa de cambio real.
+                return null;
             })
         ]);
 
@@ -47,8 +46,8 @@ export async function chatController(
             message.trim(),
             formattedBalances,
             {
-                transactions: transactions,
-                exchangeRatesResult: exchangeRatesResult as ExchangeRatesResult
+                transactions: transactionsResult.transactions,
+                exchangeRatesResult
             }
         );
 

@@ -377,15 +377,18 @@ describe("Pruebas de integración de transacciones", () => {
       });
     });
 
-    it("debería resolver destinatario exitosamente ignorando campos extra del formulario como concepto", async () => {
+    it("debería rechazar campos extra no esperados en el body (identifier es el único campo válido)", async () => {
+      // El frontend real solo manda { identifier } a este endpoint (ver
+      // shared/services/transactionService.ts) — .strict() es una barrera contra que
+      // código futuro empiece a esparcir campos de otro formulario acá sin darse cuenta.
       const response = await request(app)
         .post("/transactions/transfer/resolve")
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ identifier: testRecipient.email, concepto: "Test de ignorado", amount: 100, currency: "USD" });
+        .send({ identifier: testRecipient.email, concepto: "Test de campo extra", amount: 100, currency: "USD" });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.email).toBe(testRecipient.email);
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("VALIDATION_ERROR");
     });
   });
 
@@ -406,9 +409,10 @@ describe("Pruebas de integración de transacciones", () => {
         targetAmount: 10,
       });
 
-      // Ida y vuelta: la tasa de mercado más la comisión del 1% debe reconstruir el destino.
+      // exchangeRate acá es rate_applied (persistido en el ledger), que ya incluye la
+      // comisión del 1% — a diferencia del endpoint de quote, no hay que aplicarla de nuevo.
       const { sourceAmount, exchangeRate, targetAmount } = response.body.data;
-      expect(sourceAmount * exchangeRate * 0.99).toBeCloseTo(targetAmount, 5);
+      expect(sourceAmount * exchangeRate).toBeCloseTo(targetAmount, 5);
     });
 
     it("debería mantener el comportamiento default (source) cuando no se envía amountSide", async () => {
@@ -420,6 +424,23 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data.sourceAmount).toBe(5);
+    });
+
+    it("debería rechazar un amountSide: target cuyo sourceAmount derivado supera el límite de 1.000.000, aunque el amount recibido esté por debajo", async () => {
+      // El campo "amount" (100000 USD de destino) pasa el .max(1_000_000) del schema, pero al
+      // ser amountSide: "target" el sourceAmount se deriva DESPUÉS: 100000 / 0.99 / (1/1000) ≈
+      // 101.010.101 ARS — muy por encima del límite operativo, que tiene que frenarlo igual.
+      const response = await request(app)
+        .post("/transactions/exchange")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "ARS", toCurrency: "USD", amount: 100000, amountSide: "target" });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "AMOUNT_TOO_LARGE",
+        message: "El monto excede el límite operativo permitido por transacción."
+      });
     });
   });
 });

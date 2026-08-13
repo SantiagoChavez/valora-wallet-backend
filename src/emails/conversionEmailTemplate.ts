@@ -23,6 +23,7 @@ export interface ConversionEmailParams {
   targetCurrency: string;
   transactionId: string;
   date: Date;
+  country?: string | null;
 }
 
 const CONVERSION_COPY: Record<ConversionType, { heading: string; verb: string; label: string }> = {
@@ -47,7 +48,7 @@ export function buildConversionEmailHtml(params: ConversionEmailParams): string 
   const rows: DetailRow[] = [
     { icon: ROW_ICON_MONEY, label: "Monto", value: formatMoney(params.sourceAmount, params.sourceCurrency) },
     { icon: ROW_ICON_MONEY, label: "Cotización", value: formatMoney(unitPrice, params.sourceCurrency) },
-    { icon: ROW_ICON_CLOCK, label: "Fecha", value: formatDateLong(params.date) },
+    { icon: ROW_ICON_CLOCK, label: "Fecha", value: formatDateLong(params.date, params.country) },
     { icon: ROW_ICON_OPERATION, label: "ID de operación", value: buildOperationId(params.transactionId) },
   ];
 

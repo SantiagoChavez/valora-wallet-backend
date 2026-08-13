@@ -39,6 +39,72 @@ function notifyUserAsync(
 }
 
 // ============================================================================
+// CONVERSIÓN DE MONEDAS (compra/venta/intercambio) — helpers compartidos
+// ============================================================================
+
+type BaseCurrency = "USD" | "EUR" | "ARS";
+const isValidCurrency = (cur: string): cur is BaseCurrency => ["USD", "EUR", "ARS"].includes(cur);
+
+// Comisión/spread aplicada a toda conversión — mitigación de "salami slicing" (ver CHANGELOG).
+const CONVERSION_FEE_RATE = 0.01;
+
+// Debe coincidir con el .max() de amountBaseSchema en transactionSchema.ts. El schema solo
+// valida el campo "amount" tal cual lo manda el cliente; cuando amountSide es "target", el
+// monto que realmente se debita (sourceAmount) se deriva DESPUÉS de esa validación, así que
+// hay que volver a chequearlo acá o un monto "target" bajo el límite puede derivar un
+// sourceAmount muy por encima de 1.000.000 sin que nada lo frene.
+const MAX_TRANSACTION_AMOUNT = 1_000_000;
+
+/**
+ * Calcula sourceAmount/targetAmount para una conversión, aplicando la comisión del 1% en la
+ * dirección correcta según qué lado del monto mandó el usuario (misma aritmética que antes
+ * tenían por separado getExchangeQuote y executeConversion, ahora en un solo lugar).
+ *
+ * effectiveRate es la tasa YA con la comisión aplicada — es lo que hay que persistir como
+ * rate_applied en el ledger para que target_amount = source_amount * rate_applied cierre
+ * siempre (antes se guardaba la tasa cruda sin comisión, y el ledger quedaba inconsistente
+ * con los montos reales y con el "Cotización" que muestra el email de confirmación).
+ */
+function computeConversionAmounts(
+    amount: number,
+    amountSide: "source" | "target",
+    rateFrom: number,
+    rateTo: number
+): { sourceAmount: number; targetAmount: number; effectiveRate: number } {
+    const rawRatio = rateTo / rateFrom;
+
+    let sourceAmount: number;
+    let targetAmount: number;
+
+    if (amountSide === "target") {
+        targetAmount = truncateTo8Decimals(amount);
+        const rawTargetAmount = targetAmount / (1 - CONVERSION_FEE_RATE);
+        sourceAmount = truncateTo8Decimals(rawTargetAmount / rawRatio);
+    } else {
+        sourceAmount = truncateTo8Decimals(amount);
+        targetAmount = truncateTo8Decimals(sourceAmount * rawRatio * (1 - CONVERSION_FEE_RATE));
+    }
+
+    if (sourceAmount <= 0 || targetAmount <= 0) {
+        throw Object.assign(
+            new Error("El monto resultante es demasiado pequeño para la tasa de cambio actual."),
+            { status: 400, code: "AMOUNT_TOO_SMALL" }
+        );
+    }
+
+    if (sourceAmount > MAX_TRANSACTION_AMOUNT || targetAmount > MAX_TRANSACTION_AMOUNT) {
+        throw Object.assign(
+            new Error("El monto excede el límite operativo permitido por transacción."),
+            { status: 400, code: "AMOUNT_TOO_LARGE" }
+        );
+    }
+
+    const effectiveRate = truncateTo8Decimals(rawRatio * (1 - CONVERSION_FEE_RATE));
+
+    return { sourceAmount, targetAmount, effectiveRate };
+}
+
+// ============================================================================
 // CORE SERVICES
 // ============================================================================
 
@@ -63,7 +129,7 @@ export async function executeDeposit(userId: string, currency: string, amount: n
 
         notifyUserAsync(
             "Depósito confirmado - Valora Wallet",
-            buildDepositEmailHtml({ amount: cleanAmount, currency, transactionId: transaction.id, date: new Date() }),
+            buildDepositEmailHtml({ amount: cleanAmount, currency, transactionId: transaction.id, date: new Date(), country: wallet.country }),
             { email: wallet.email, notificationsEnabled: wallet.email_notifications_enabled }
         );
 
@@ -85,9 +151,6 @@ export async function getExchangeQuote(
     if (amount <= 0) throw Object.assign(new Error("El monto a cotizar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
     if (fromCurrency === toCurrency) throw Object.assign(new Error("Las monedas de origen y destino no pueden ser iguales."), { status: 400, code: "SAME_CURRENCY" });
 
-    type BaseCurrency = "USD" | "EUR" | "ARS";
-    const isValidCurrency = (cur: string): cur is BaseCurrency => ["USD", "EUR", "ARS"].includes(cur);
-
     if (!isValidCurrency(fromCurrency) || !isValidCurrency(toCurrency)) {
         throw Object.assign(new Error("Moneda no soportada para cotización."), { status: 400, code: "UNSUPPORTED_CURRENCY" });
     }
@@ -100,28 +163,11 @@ export async function getExchangeQuote(
         throw Object.assign(new Error("Tasa de cambio no disponible para las monedas seleccionadas."), { status: 400, code: "RATE_NOT_AVAILABLE" });
     }
 
+    // exchangeRate acá es la tasa de mercado cruda (sin comisión) — es lo que se muestra como
+    // cotización informativa antes de confirmar la operación. La comisión del 1% se aplica y
+    // se documenta aparte en sourceAmount/targetAmount (ver computeConversionAmounts).
     const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
-
-    let sourceAmount: number;
-    let targetAmount: number;
-
-    if (amountSide === "target") {
-        targetAmount = truncateTo8Decimals(amount);
-        const rawTargetAmount = targetAmount / 0.99;
-        const amountInUsdFromTarget = rawTargetAmount / rateTo;
-        sourceAmount = truncateTo8Decimals(amountInUsdFromTarget * rateFrom);
-    } else {
-        sourceAmount = truncateTo8Decimals(amount);
-        const amountInUsd = sourceAmount / rateFrom;
-        targetAmount = truncateTo8Decimals(amountInUsd * rateTo * 0.99);
-    }
-
-    if (sourceAmount <= 0 || targetAmount <= 0) {
-        throw Object.assign(
-            new Error("El monto resultante es demasiado pequeño para la tasa de cambio actual."),
-            { status: 400, code: "AMOUNT_TOO_SMALL" }
-        );
-    }
+    const { sourceAmount, targetAmount } = computeConversionAmounts(amount, amountSide, rateFrom, rateTo);
 
     return { exchangeRate, sourceAmount, targetAmount };
 }
@@ -141,9 +187,6 @@ async function executeConversion(
     const wallet = await findWalletWithNotificationRecipientByUserId(userId);
     if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
-    type BaseCurrency = "USD" | "EUR" | "ARS";
-    const isValidCurrency = (cur: string): cur is BaseCurrency => ["USD", "EUR", "ARS"].includes(cur);
-
     if (!isValidCurrency(fromCurrency) || !isValidCurrency(toCurrency)) {
         throw Object.assign(new Error("Moneda no soportada para conversión."), { status: 400, code: "UNSUPPORTED_CURRENCY" });
     }
@@ -160,35 +203,32 @@ async function executeConversion(
     try {
         await client.query("BEGIN");
 
-        const exchangeRate = truncateTo8Decimals(rateTo / rateFrom);
-
         let cleanAmount: number;
         let targetAmount: number;
-
-        if (amountSide === "target") {
-            const cleanTargetAmount = truncateTo8Decimals(amount);
-            const rawTargetAmount = cleanTargetAmount / 0.99; // +1% fee
-            const amountInUsdFromTarget = rawTargetAmount / rateTo;
-            cleanAmount = truncateTo8Decimals(amountInUsdFromTarget * rateFrom);
-            targetAmount = cleanTargetAmount;
-        } else {
-            cleanAmount = truncateTo8Decimals(amount);
-            const amountInUsd = cleanAmount / rateFrom;
-            targetAmount = truncateTo8Decimals(amountInUsd * rateTo * 0.99); // -1% fee
-        }
-
-        if (cleanAmount <= 0 || targetAmount <= 0) {
-            throw Object.assign(
-                new Error(`El monto a ${action} es demasiado pequeño para la tasa de cambio actual.`),
-                { status: 400, code: "AMOUNT_TOO_SMALL" }
-            );
+        let effectiveRate: number;
+        try {
+            ({ sourceAmount: cleanAmount, targetAmount, effectiveRate } = computeConversionAmounts(amount, amountSide, rateFrom, rateTo));
+        } catch (conversionError: unknown) {
+            // Los mensajes de AMOUNT_TOO_SMALL/AMOUNT_TOO_LARGE del helper compartido son
+            // genéricos ("el monto"); acá se personalizan con la acción (comprar/vender/etc.)
+            // igual que antes, sin cambiar el status/code.
+            if (
+                conversionError && typeof conversionError === "object" && "code" in conversionError &&
+                conversionError.code === "AMOUNT_TOO_SMALL"
+            ) {
+                throw Object.assign(
+                    new Error(`El monto a ${action} es demasiado pequeño para la tasa de cambio actual.`),
+                    { status: 400, code: "AMOUNT_TOO_SMALL" }
+                );
+            }
+            throw conversionError;
         }
 
         await updateUserBalance(client, wallet.id, fromCurrency, -cleanAmount);
         const newTargetBalance = await updateUserBalance(client, wallet.id, toCurrency, targetAmount);
 
         const transaction = await insertTransaction(
-            client, wallet.id, type, fromCurrency, toCurrency, cleanAmount, targetAmount, exchangeRate, newTargetBalance.amount
+            client, wallet.id, type, fromCurrency, toCurrency, cleanAmount, targetAmount, effectiveRate, newTargetBalance.amount
         );
 
         await client.query("COMMIT");
@@ -205,6 +245,7 @@ async function executeConversion(
                 targetCurrency: toCurrency,
                 transactionId: transaction.id,
                 date: new Date(),
+                country: wallet.country,
             }),
             { email: wallet.email, notificationsEnabled: wallet.email_notifications_enabled }
         );
@@ -326,6 +367,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
                 concepto: cleanConcepto,
                 transactionId: senderTransaction.id,
                 date: transferDate,
+                country: senderUser.country,
             }),
             { email: senderUser.email, notificationsEnabled: senderUser.email_notifications_enabled }
         );
@@ -339,6 +381,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
                 concepto: cleanConcepto,
                 transactionId: recipientTransaction.id,
                 date: transferDate,
+                country: recipientInfo.country,
             }),
             { email: recipientInfo.email, notificationsEnabled: recipientInfo.email_notifications_enabled }
         );
