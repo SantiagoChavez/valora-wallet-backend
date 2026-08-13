@@ -377,15 +377,18 @@ describe("Pruebas de integración de transacciones", () => {
       });
     });
 
-    it("debería resolver destinatario exitosamente ignorando campos extra del formulario como concepto", async () => {
+    it("debería rechazar campos extra no esperados en el body (identifier es el único campo válido)", async () => {
+      // El frontend real solo manda { identifier } a este endpoint (ver
+      // shared/services/transactionService.ts) — .strict() es una barrera contra que
+      // código futuro empiece a esparcir campos de otro formulario acá sin darse cuenta.
       const response = await request(app)
         .post("/transactions/transfer/resolve")
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ identifier: testRecipient.email, concepto: "Test de ignorado", amount: 100, currency: "USD" });
+        .send({ identifier: testRecipient.email, concepto: "Test de campo extra", amount: 100, currency: "USD" });
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.email).toBe(testRecipient.email);
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("VALIDATION_ERROR");
     });
   });
 

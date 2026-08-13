@@ -74,7 +74,7 @@ export const resolveUserSchema = z.object({
     .trim()
     .max(100, "El identificador es demasiado largo (máx 100 caracteres).")
     .regex(validIdentifierRegex, "El identificador contiene caracteres no permitidos o está vacío."), // Blindaje Anti-XSS
-});
+}).strict();
 
 // -----------------------------------------------------------------------------
 // 3. ESQUEMAS DE BÚSQUEDA / PAGINACIÓN
