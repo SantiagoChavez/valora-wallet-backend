@@ -27,6 +27,11 @@ export interface WalletAndUser {
   email_notifications_enabled: boolean;
 }
 
+export interface WalletWithNotificationRecipient extends Wallet {
+  email: string;
+  email_notifications_enabled: boolean;
+}
+
 /**
  * Genera un CVU simulado criptográficamente seguro de 22 dígitos.
  */
@@ -125,6 +130,23 @@ export async function findWalletByUserId(userId: string, client?: PoolClient): P
   `;
   const result = client ? await client.query(sql, [userId]) : await query(sql, [userId]);
   return (result.rows[0] as Wallet) || null;
+}
+
+/**
+ * Obtiene la billetera y la preferencia de notificaciones de su titular en una sola consulta.
+ */
+export async function findWalletWithNotificationRecipientByUserId(
+  userId: string
+): Promise<WalletWithNotificationRecipient | null> {
+  const sql = `
+    SELECT w.id, w.user_id, w.cvu, w.alias, w.created_at, w.updated_at,
+           u.email, u.email_notifications_enabled
+    FROM wallets w
+    JOIN users u ON u.id = w.user_id
+    WHERE w.user_id = $1
+  `;
+  const result = await query(sql, [userId]);
+  return (result.rows[0] as WalletWithNotificationRecipient) || null;
 }
 
 /**

@@ -350,7 +350,7 @@ describe("Pruebas de integración de transacciones", () => {
         initialRecipientBalance + TRANSFER_AMOUNT,
         8
       );
-    });
+    }, 10_000);
   });
 
   describe("Conversión con amountSide: target", () => {

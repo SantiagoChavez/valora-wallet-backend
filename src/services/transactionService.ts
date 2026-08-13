@@ -1,5 +1,5 @@
 import { pool } from "../database/db.js";
-import { findWalletByUserId, findWalletAndUserByIdentifier } from "../models/walletModel.js";
+import { findWalletByUserId, findWalletAndUserByIdentifier, findWalletWithNotificationRecipientByUserId } from "../models/walletModel.js";
 import { updateUserBalance } from "../models/balanceModel.js";
 import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
@@ -21,37 +21,22 @@ import { buildTransferReceivedEmailHtml } from "../emails/transferReceivedEmailT
  * email_notifications_enabled del usuario — si está en false, no envía nada.
  */
 function notifyUserAsync(
-    userId: string,
     subject: string,
     htmlBody: string,
-    knownRecipient?: { email: string; notificationsEnabled: boolean }
+    recipient: { email: string; notificationsEnabled: boolean }
 ): void {
-    if (knownRecipient) {
-        if (!knownRecipient.notificationsEnabled) return;
-        void enviarEmailConfirmacion({
-            destinatario: knownRecipient.email,
-            asunto: subject,
-            cuerpoHtml: htmlBody
-        }).catch(err => {
-            // FIX: Enmascaramos el email para no exponer PII en logs (cumplimiento de privacidad)
-            const parts = knownRecipient.email.split('@');
-            const maskedEmail = parts.length === 2 ? `${parts[0].slice(0, 2)}***@${parts[1]}` : '***';
-            console.error(`[Background Notification Error] email ${maskedEmail}:`, err);
-        });
-        return;
-    }
+    if (!recipient.notificationsEnabled) return;
 
-    void findUserById(userId)
-        .then(user => {
-            if (user && user.email_notifications_enabled) {
-                return enviarEmailConfirmacion({
-                    destinatario: user.email,
-                    asunto: subject,
-                    cuerpoHtml: htmlBody
-                });
-            }
-        })
-        .catch(err => console.error(`[Background Notification Error] userId ${userId}:`, err));
+    void enviarEmailConfirmacion({
+        destinatario: recipient.email,
+        asunto: subject,
+        cuerpoHtml: htmlBody
+    }).catch(err => {
+        // FIX: Enmascaramos el email para no exponer PII en logs (cumplimiento de privacidad)
+        const parts = recipient.email.split('@');
+        const maskedEmail = parts.length === 2 ? `${parts[0].slice(0, 2)}***@${parts[1]}` : '***';
+        console.error(`[Background Notification Error] email ${maskedEmail}:`, err);
+    });
 }
 
 // ============================================================================
@@ -64,7 +49,7 @@ function notifyUserAsync(
 export async function executeDeposit(userId: string, currency: string, amount: number) {
     if (amount <= 0) throw Object.assign(new Error("El monto a depositar debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
 
-    const wallet = await findWalletByUserId(userId);
+    const wallet = await findWalletWithNotificationRecipientByUserId(userId);
     if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
     const cleanAmount = truncateTo8Decimals(amount);
@@ -81,9 +66,9 @@ export async function executeDeposit(userId: string, currency: string, amount: n
         await client.query("COMMIT");
 
         notifyUserAsync(
-            userId,
             "Depósito confirmado - Valora Wallet",
-            buildDepositEmailHtml({ amount: cleanAmount, currency, transactionId: transaction.id, date: new Date() })
+            buildDepositEmailHtml({ amount: cleanAmount, currency, transactionId: transaction.id, date: new Date() }),
+            { email: wallet.email, notificationsEnabled: wallet.email_notifications_enabled }
         );
 
         return transaction;
@@ -166,7 +151,7 @@ async function executeConversion(
     if (amount <= 0) throw Object.assign(new Error(`El monto a ${action} debe ser mayor a cero.`), { status: 400, code: "INVALID_AMOUNT" });
     if (fromCurrency === toCurrency) throw Object.assign(new Error("Las monedas de origen y destino no pueden ser iguales."), { status: 400, code: "SAME_CURRENCY" });
 
-    const wallet = await findWalletByUserId(userId);
+    const wallet = await findWalletWithNotificationRecipientByUserId(userId);
     if (!wallet) throw Object.assign(new Error("Billetera no encontrada."), { status: 404, code: "WALLET_NOT_FOUND" });
 
     type BaseCurrency = "USD" | "EUR" | "ARS";
@@ -227,7 +212,6 @@ async function executeConversion(
         const actionName = type === "EXCHANGE" ? "Intercambio" : type === "BUY" ? "Compra" : "Venta";
 
         notifyUserAsync(
-            userId,
             `${actionName} confirmada - Valora Wallet`,
             buildConversionEmailHtml({
                 type,
@@ -237,7 +221,8 @@ async function executeConversion(
                 targetCurrency: toCurrency,
                 transactionId: transaction.id,
                 date: new Date(),
-            })
+            }),
+            { email: wallet.email, notificationsEnabled: wallet.email_notifications_enabled }
         );
 
         return transaction;
@@ -363,7 +348,6 @@ export async function executeTransfer(senderUserId: string, currency: string, am
         const transferDate = new Date();
 
         notifyUserAsync(
-            senderUserId,
             "Transferencia enviada - Valora Wallet",
             buildTransferSentEmailHtml({
                 amount: cleanAmount,
@@ -377,7 +361,6 @@ export async function executeTransfer(senderUserId: string, currency: string, am
             { email: senderUser.email, notificationsEnabled: senderUser.email_notifications_enabled }
         );
         notifyUserAsync(
-            recipientInfo.user_id,
             "Transferencia recibida - Valora Wallet",
             buildTransferReceivedEmailHtml({
                 amount: cleanAmount,
