@@ -42,15 +42,8 @@ export function buildPasswordResetEmailHtml(resetLink: string): string {
   <tr>
     <td style="padding:36px 40px 24px 40px;text-align:center;">
       <a href="https://valora-wallet-frontend.vercel.app/" style="text-decoration:none;display:inline-block;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-          <tr>
-            <td style="padding-right:10px;vertical-align:middle;"><img src="https://valora-wallet-frontend.vercel.app/valora-logo.png" width="34" height="34" alt="Valora" style="display:block;width:34px;height:34px;border:0;"></td>
-            <td style="vertical-align:middle;text-align:left;">
-              <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#f0b429;letter-spacing:0.5px;line-height:24px;">VALORA</div>
-              <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:600;color:#9c8f7a;letter-spacing:3px;line-height:12px;">WALLET</div>
-            </td>
-          </tr>
-        </table>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#f0b429;letter-spacing:0.5px;line-height:24px;">VALORA</div>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:600;color:#9c8f7a;letter-spacing:3px;line-height:12px;">WALLET</div>
       </a>
     </td>
   </tr>
