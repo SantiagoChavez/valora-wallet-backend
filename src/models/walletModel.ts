@@ -24,6 +24,7 @@ export interface WalletAndUser {
   last_name: string;
   email: string;
   du: string | null;
+  email_notifications_enabled: boolean;
 }
 
 /**
@@ -155,7 +156,8 @@ export async function findWalletAndUserByIdentifier(identifier: string): Promise
       u.first_name,
       u.last_name,
       u.email,
-      u.du
+      u.du,
+      u.email_notifications_enabled
     FROM wallets w
     JOIN users u ON w.user_id = u.id
     WHERE LOWER(u.email) = $1 OR w.cvu = $1 OR LOWER(w.alias) = $1

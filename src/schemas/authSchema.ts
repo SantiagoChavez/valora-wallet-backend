@@ -186,11 +186,33 @@ export const resetPasswordSchema = z.object({
         .min(6, "La contraseña debe tener al menos 6 caracteres."),
 });
 
+/**
+ * Esquema de validación para activar/desactivar los emails transaccionales
+ */
+export const updateEmailNotificationsSchema = z.object({
+    enabled: z.boolean({ message: "El campo enabled es requerido y debe ser true o false." }),
+}).strict();
+
+/**
+ * Esquema de validación para eliminar la cuenta. La contraseña es opcional acá porque las
+ * cuentas de Google (password_hash null) no tienen una que confirmar — el controller decide
+ * si es obligatoria según el tipo de cuenta.
+ */
+export const deleteAccountSchema = z.object({
+    password: z
+        .string()
+        .trim()
+        .min(1, "La contraseña es requerida para eliminar la cuenta.")
+        .optional(),
+}).strict();
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type CompleteProfileInput = z.infer<typeof completeProfileSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type UpdateEmailNotificationsInput = z.infer<typeof updateEmailNotificationsSchema>;
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
 
 /**
  * Esquema de validación para el inicio de sesión con Google

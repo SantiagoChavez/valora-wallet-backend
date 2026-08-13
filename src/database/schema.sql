@@ -128,3 +128,15 @@ CREATE TABLE IF NOT EXISTS chatbot_histories (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chatbot_histories_user_id ON chatbot_histories(user_id);
+
+-- Toggle simple para dejar de recibir los emails transaccionales (depósito/compra/venta/
+-- intercambio/transferencia) sin tocar nada más. Default true para no cambiar el
+-- comportamiento de las cuentas existentes.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN DEFAULT true NOT NULL;
+
+-- Concepto/motivo opcional para transferencias P2P (ej. "alquiler agosto").
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS concepto VARCHAR(140);
+
+-- Alias de la contraparte en transferencias P2P: counterparty_wallet ya guarda el UUID de la
+-- wallet, pero eso no sirve para mostrar en UI — el front necesita el alias legible.
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_alias TEXT;

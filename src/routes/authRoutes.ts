@@ -5,6 +5,8 @@ import {
   loginController,
   meController,
   completeProfileController,
+  updateEmailNotificationsController,
+  deleteAccountController,
   logoutController,
   googleLoginController,
   forgotPasswordController,
@@ -12,7 +14,7 @@ import {
 } from "../controllers/authController.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { validateSchema } from "../middlewares/validateSchema.js";
-import { registerSchema, loginSchema, completeProfileSchema, googleLoginSchema, forgotPasswordSchema, resetPasswordSchema } from "../schemas/authSchema.js";
+import { registerSchema, loginSchema, completeProfileSchema, googleLoginSchema, forgotPasswordSchema, resetPasswordSchema, updateEmailNotificationsSchema, deleteAccountSchema } from "../schemas/authSchema.js";
 
 export const authRouter = Router();
 
@@ -34,6 +36,13 @@ authRouter.post("/register", validateSchema(registerSchema), registerController)
 authRouter.post("/login", validateSchema(loginSchema), loginController);
 authRouter.get("/me", authMiddleware, meController);
 authRouter.patch("/me", authMiddleware, validateSchema(completeProfileSchema), completeProfileController);
+authRouter.patch(
+  "/me/notifications",
+  authMiddleware,
+  validateSchema(updateEmailNotificationsSchema),
+  updateEmailNotificationsController
+);
+authRouter.delete("/me", authMiddleware, validateSchema(deleteAccountSchema), deleteAccountController);
 authRouter.post("/logout", authMiddleware, logoutController);
 authRouter.post("/google", validateSchema(googleLoginSchema), googleLoginController);
 authRouter.post(

@@ -6,28 +6,35 @@ import { getExchangeRates } from "./exchangeRateService.js";
 import { enviarEmailConfirmacion } from "./sesService.js";
 import { findUserById } from "../models/userModel.js";
 import { truncateTo8Decimals } from "../utils/mathUtils.js";
+import { buildDepositEmailHtml } from "../emails/depositEmailTemplate.js";
+import { buildConversionEmailHtml } from "../emails/conversionEmailTemplate.js";
+import { buildTransferSentEmailHtml } from "../emails/transferSentEmailTemplate.js";
+import { buildTransferReceivedEmailHtml } from "../emails/transferReceivedEmailTemplate.js";
 
 // ============================================================================
 // HELPERS Y UTILIDADES (DRY)
 // ============================================================================
 
-function sanitizeHtmlString(input: string): string {
-    return input.replace(/[<&>"']/g, "");
-}
-
 /**
  * Notificador asíncrono centralizado (Fire-and-Forget).
- * No bloquea la respuesta HTTP ni la base de datos.
+ * No bloquea la respuesta HTTP ni la base de datos. Respeta el toggle
+ * email_notifications_enabled del usuario — si está en false, no envía nada.
  */
-function notifyUserAsync(userId: string, subject: string, htmlBody: string, knownEmail?: string): void {
-    if (knownEmail) {
+function notifyUserAsync(
+    userId: string,
+    subject: string,
+    htmlBody: string,
+    knownRecipient?: { email: string; notificationsEnabled: boolean }
+): void {
+    if (knownRecipient) {
+        if (!knownRecipient.notificationsEnabled) return;
         void enviarEmailConfirmacion({
-            destinatario: knownEmail,
+            destinatario: knownRecipient.email,
             asunto: subject,
             cuerpoHtml: htmlBody
         }).catch(err => {
             // FIX: Enmascaramos el email para no exponer PII en logs (cumplimiento de privacidad)
-            const parts = knownEmail.split('@');
+            const parts = knownRecipient.email.split('@');
             const maskedEmail = parts.length === 2 ? `${parts[0].slice(0, 2)}***@${parts[1]}` : '***';
             console.error(`[Background Notification Error] email ${maskedEmail}:`, err);
         });
@@ -36,7 +43,7 @@ function notifyUserAsync(userId: string, subject: string, htmlBody: string, know
 
     void findUserById(userId)
         .then(user => {
-            if (user) {
+            if (user && user.email_notifications_enabled) {
                 return enviarEmailConfirmacion({
                     destinatario: user.email,
                     asunto: subject,
@@ -73,8 +80,11 @@ export async function executeDeposit(userId: string, currency: string, amount: n
 
         await client.query("COMMIT");
 
-        const safeCurrency = sanitizeHtmlString(currency);
-        notifyUserAsync(userId, "Depósito Confirmado - Valora Wallet", `<h1>Depósito Exitoso</h1><p>Has depositado ${cleanAmount} ${safeCurrency} en tu billetera.</p>`);
+        notifyUserAsync(
+            userId,
+            "Depósito confirmado - Valora Wallet",
+            buildDepositEmailHtml({ amount: cleanAmount, currency, transactionId: transaction.id, date: new Date() })
+        );
 
         return transaction;
     } catch (error: unknown) {
@@ -215,11 +225,20 @@ async function executeConversion(
         await client.query("COMMIT");
 
         const actionName = type === "EXCHANGE" ? "Intercambio" : type === "BUY" ? "Compra" : "Venta";
-        const safeFrom = sanitizeHtmlString(fromCurrency);
-        const safeTo = sanitizeHtmlString(toCurrency);
-        const timestamp = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
-        
-        notifyUserAsync(userId, `${actionName} Confirmada - Valora Wallet`, `<h1>${actionName} Exitosa</h1><p>Operación: ${cleanAmount} ${safeFrom} por ${targetAmount} ${safeTo}</p><p>Fecha y hora: ${timestamp}</p>`);
+
+        notifyUserAsync(
+            userId,
+            `${actionName} confirmada - Valora Wallet`,
+            buildConversionEmailHtml({
+                type,
+                sourceAmount: cleanAmount,
+                sourceCurrency: fromCurrency,
+                targetAmount,
+                targetCurrency: toCurrency,
+                transactionId: transaction.id,
+                date: new Date(),
+            })
+        );
 
         return transaction;
     } catch (error: unknown) {
@@ -287,11 +306,12 @@ export async function resolveTransferDestination(identifier: string) {
 /**
  * Ejecuta una transferencia de fondos de un usuario a otro.
  */
-export async function executeTransfer(senderUserId: string, currency: string, amount: number, destinationIdentifier: string) {
+export async function executeTransfer(senderUserId: string, currency: string, amount: number, destinationIdentifier: string, concepto?: string | null) {
     if (amount <= 0) throw Object.assign(new Error("El monto a transferir debe ser mayor a cero."), { status: 400, code: "INVALID_AMOUNT" });
-    
+
     // FIX: Sanitizamos el monto EXACTO al inicio para que Saldos, Historial y Emails usen la misma fuente de verdad.
     const cleanAmount = truncateTo8Decimals(amount);
+    const cleanConcepto = concepto?.trim() || null;
 
     // Ejecutar queries de lectura en paralelo (sin DB lock aún)
     const [senderWallet, senderUser, recipientInfo] = await Promise.all([
@@ -330,18 +350,46 @@ export async function executeTransfer(senderUserId: string, currency: string, am
 
         const senderTransaction = await insertTransaction(
             client, senderWallet.id, "TRANSFER_OUT", currency, currency, cleanAmount, cleanAmount, null, senderUpdatedBalance.amount,
-            recipientInfo.user_id, recipientInfo.first_name, recipientInfo.last_name, recipientInfo.email, recipientInfo.wallet_id
+            recipientInfo.user_id, recipientInfo.first_name, recipientInfo.last_name, recipientInfo.email, recipientInfo.wallet_id, recipientInfo.alias, cleanConcepto
         );
 
-        await insertTransaction(
+        const recipientTransaction = await insertTransaction(
             client, recipientInfo.wallet_id, "TRANSFER_IN", currency, currency, null, cleanAmount, null, recipientUpdatedBalance.amount,
-            senderUserId, senderUser.first_name, senderUser.last_name, senderUser.email, senderWallet.id
+            senderUserId, senderUser.first_name, senderUser.last_name, senderUser.email, senderWallet.id, senderWallet.alias, cleanConcepto
         );
 
         await client.query("COMMIT");
 
-        notifyUserAsync(senderUserId, "Transferencia Enviada - Valora Wallet", `<h1>Transferencia Exitosa</h1><p>Has enviado ${cleanAmount} ${sanitizeHtmlString(currency)} a ${sanitizeHtmlString(recipientInfo.first_name)} ${sanitizeHtmlString(recipientInfo.last_name)}.</p>`, senderUser.email);
-        notifyUserAsync(recipientInfo.user_id, "Transferencia Recibida - Valora Wallet", `<h1>Has recibido una transferencia</h1><p>Has recibido ${cleanAmount} ${sanitizeHtmlString(currency)}.</p>`, recipientInfo.email);
+        const transferDate = new Date();
+
+        notifyUserAsync(
+            senderUserId,
+            "Transferencia enviada - Valora Wallet",
+            buildTransferSentEmailHtml({
+                amount: cleanAmount,
+                currency,
+                recipientName: `${recipientInfo.first_name} ${recipientInfo.last_name}`,
+                recipientAlias: recipientInfo.alias,
+                concepto: cleanConcepto,
+                transactionId: senderTransaction.id,
+                date: transferDate,
+            }),
+            { email: senderUser.email, notificationsEnabled: senderUser.email_notifications_enabled }
+        );
+        notifyUserAsync(
+            recipientInfo.user_id,
+            "Transferencia recibida - Valora Wallet",
+            buildTransferReceivedEmailHtml({
+                amount: cleanAmount,
+                currency,
+                senderName: `${senderUser.first_name} ${senderUser.last_name}`,
+                senderAlias: senderWallet.alias,
+                concepto: cleanConcepto,
+                transactionId: recipientTransaction.id,
+                date: transferDate,
+            }),
+            { email: recipientInfo.email, notificationsEnabled: recipientInfo.email_notifications_enabled }
+        );
 
         return senderTransaction;
     } catch (error: unknown) {

@@ -74,6 +74,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         country: "AR",
         du: "11111111",
         profileComplete: true,
+        emailNotificationsEnabled: true,
       });
 
       const { wallet, user } = response.body.data;
@@ -237,6 +238,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         country: "AR",
         du: "11111111",
         profileComplete: true,
+        emailNotificationsEnabled: true,
       });
     });
 
@@ -306,6 +308,7 @@ describe("Pruebas de integración del sistema de Autenticación", () => {
         country: "AR",
         du: "11111111",
         profileComplete: true,
+        emailNotificationsEnabled: true,
       });
     });
 
