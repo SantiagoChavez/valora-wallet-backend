@@ -28,6 +28,8 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     counterpartyLastName: tx.counterparty_last_name ?? null,
     counterpartyEmail: tx.counterparty_email ?? null,
     counterpartyWallet: tx.counterparty_wallet ?? null,
+    counterpartyAlias: tx.counterparty_alias ?? null,
+    concepto: tx.concepto ?? null,
 });
 
 
@@ -193,9 +195,9 @@ export async function resolveTransferController(req: AuthenticatedRequest, res: 
 export async function transferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
         const userId = req.user!.userId;
-        const { currency, amount, destination } = req.body;
+        const { currency, amount, destination, concepto } = req.body;
 
-        const transaction = await executeTransfer(userId, currency, amount, destination);
+        const transaction = await executeTransfer(userId, currency, amount, destination, concepto);
 
         res.status(200).json({
             success: true,

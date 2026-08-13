@@ -17,6 +17,8 @@ export interface Transaction {
   counterparty_last_name?: string | null;
   counterparty_email?: string | null;
   counterparty_wallet?: string | null;
+  counterparty_alias?: string | null;
+  concepto?: string | null;
 }
 
 /**
@@ -35,6 +37,8 @@ export interface Transaction {
  * @param counterpartyLastName - The counterparty last name
  * @param counterpartyEmail - The counterparty email
  * @param counterpartyWallet - The counterparty wallet ID
+ * @param counterpartyAlias - The counterparty wallet alias (para mostrar en UI)
+ * @param concepto - Motivo/nota opcional de la transferencia
  * @returns The created transaction record
  */
 
@@ -52,12 +56,14 @@ export async function insertTransaction(
   counterpartyName: string | null = null,
   counterpartyLastName: string | null = null,
   counterpartyEmail: string | null = null,
-  counterpartyWallet: string | null = null
+  counterpartyWallet: string | null = null,
+  counterpartyAlias: string | null = null,
+  concepto: string | null = null
 ): Promise<Transaction> {
   const sql = `
-    INSERT INTO transactions 
-    (wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance, counterparty_id, counterparty_name, counterparty_last_name, counterparty_email, counterparty_wallet)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    INSERT INTO transactions
+    (wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance, counterparty_id, counterparty_name, counterparty_last_name, counterparty_email, counterparty_wallet, counterparty_alias, concepto)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING *;
   `;
 
@@ -74,7 +80,9 @@ export async function insertTransaction(
     counterpartyName,
     counterpartyLastName,
     counterpartyEmail,
-    counterpartyWallet
+    counterpartyWallet,
+    counterpartyAlias,
+    concepto
   ];
 
   const result = await client.query(sql, values);
@@ -99,7 +107,9 @@ export async function insertTransaction(
     counterparty_name: row.counterparty_name,
     counterparty_last_name: row.counterparty_last_name,
     counterparty_email: row.counterparty_email,
-    counterparty_wallet: row.counterparty_wallet
+    counterparty_wallet: row.counterparty_wallet,
+    counterparty_alias: row.counterparty_alias,
+    concepto: row.concepto
   } satisfies Transaction;
 }
 
@@ -119,7 +129,7 @@ export async function findTransactionsByWalletId(
 ): Promise<Transaction[]> {
   const values: unknown[] = [walletId];
   let sql = `
-    SELECT id, wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance, created_at, counterparty_id, counterparty_name, counterparty_last_name, counterparty_email, counterparty_wallet
+    SELECT id, wallet_id, transaction_type, source_currency, target_currency, source_amount, target_amount, exchange_rate, resulting_balance, created_at, counterparty_id, counterparty_name, counterparty_last_name, counterparty_email, counterparty_wallet, counterparty_alias, concepto
     FROM transactions
     WHERE wallet_id = $1
   `;

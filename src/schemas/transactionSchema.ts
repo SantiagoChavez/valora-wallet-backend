@@ -60,6 +60,11 @@ export const transferSchema = z.object({
     .trim()
     .max(100, "El destino es demasiado largo (máx 100 caracteres).")
     .regex(validIdentifierRegex, "El destino contiene caracteres no permitidos o está vacío."), // Blindaje Anti-XSS
+  concepto: z
+    .string()
+    .trim()
+    .max(140, "El concepto es demasiado largo (máx 140 caracteres).")
+    .optional(),
 }).strict();
 
 export const resolveUserSchema = z.object({
