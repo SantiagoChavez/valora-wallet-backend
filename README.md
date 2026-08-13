@@ -1,11 +1,15 @@
 # Valora Wallet — Backend
 
-API REST para **Valora Wallet**, billetera digital multi-moneda para freelancers y trabajadores remotos en LATAM. Permite gestionar balances en USD, EUR y ARS, ejecutar compra/venta/intercambio con tasas reales, enviar comprobantes por email y consultar un asistente financiero con IA.
+API REST para **Valora Wallet**, billetera digital multi-moneda para freelancers y trabajadores remotos en LATAM. 
+
+Desarrollado por **Nexo Tech Solutions** como Proyecto Final para la carrera Full Stack de **Henry**.
+
+> **Nuestra Misión:** Facilitar la vida financiera de los profesionales independientes permitiéndoles centralizar cobros internacionales en múltiples monedas, realizar conversiones con tasas transparentes en tiempo real y contar con un asistente de IA para optimizar la gestión de sus ingresos.
 
 ## 🚀 Enlaces de Despliegue
 
 - **Backend API (Railway):** [https://valora-wallet-backend-production.up.railway.app](https://valora-wallet-backend-production.up.railway.app)
-- **Base de Datos PostgreSQL (Railway):** Instancia de base de datos activa y provisionada.
+- **Base de Datos PostgreSQL (Railway):** Privada (Conexión TCP interna con el backend, cumpliendo estándar de seguridad).
 - **Frontend (Vercel):** [https://valora-wallet-frontend.vercel.app](https://valora-wallet-frontend.vercel.app)
 
 ## Stack
@@ -74,6 +78,30 @@ docs/
   ├── Explicacion.md   # Detalle técnico del motor financiero
   └── informe_frontend.md  # Reporte de integración Backend → Frontend
 ```
+
+---
+
+## 🤝 Metodología de Trabajo y Reglas de Contribución
+
+Trabajamos bajo un marco **Ágil** en Sprints semanales (Sprint 1: Fundamentos, Sprint 2: Funcionalidad core). Usamos tableros Kanban (Trello/Ora) y aplicamos la regla **INVEST** para dividir las historias de usuario en tareas pequeñas y manejables antes de tirar la primera línea de código.
+
+### Flujo de Git (Feature Branches + PRs)
+1. **Ramas Protegidas:** `main` (Producción estable, rama "épica") y `dev` (Integración).
+2. **Ramas Personales:** Cada integrante desarrolla sus tareas en su rama personal (ej. `feat/santiago_db`).
+3. **Pull Requests (PRs):** 
+   - Se abren hacia la rama `dev`.
+   - Deben ser atómicos ("Do one thing and do it well").
+   - Si un PR está en progreso y sirve para conversar, se titula con `WIP: `.
+   - **Code Review Obligatorio:** Todo PR requiere al menos 1 aprobación cruzada. Fomenta la visión holística del proyecto y evita que "reinventemos la rueda". El autor del PR es responsable de mergearlo una vez aprobado.
+
+### Convenciones de Código (Clean Code)
+- **Idioma Híbrido:** Todo el código fuente (variables, funciones, esquemas) se escribe estrictamente en **Inglés** por estándar de la industria. Sin embargo, los **comentarios y los mensajes de los commits se escriben en Español** para agilizar la comunicación interna del equipo.
+- **Nombramiento (El nombre justo):** 
+  - Variables/Funciones: `camelCase` (ej. `getUserTransactions`). Priorizamos nombres explícitos que eviten la necesidad de comentarios.
+  - Constantes ("No hardcodeo"): `UPPER_SNAKE_CASE` (ej. `PASSWORD_RESET_TOKEN_TTL_MS`).
+- **Commits:** Pequeños y específicos. Usamos **Conventional Commits** adaptado al español:
+  - Formato: `tipo(área): descripción clara`
+  - Ejemplos: `feat(auth): implementar límite de tasa por IP`, `fix(db): corregir desbordamiento numérico`.
 
 ## 📊 Modelo de Datos y Justificación de Diseño (PostgreSQL)
 
@@ -270,9 +298,11 @@ El script es idempotente (seguro de re-ejecutar) y corre dentro de una transacci
 
 La guía paso a paso para probar todos los endpoints con Insomnia o cualquier cliente HTTP se encuentra en [`docs/Endpoints.txt`](docs/Endpoints.txt).
 
-## Equipo
+## 👥 El Equipo (Nexo Tech Solutions)
 
-- **Santiago Chavez** — Backend Core (modelo de datos, autenticación, seguridad, despliegue, testing, seed data)
-- **Daniel Sardinas** — Lógica de negocio + IA (compra/venta/intercambio, tasas de cambio, chatbot Gemini, transferencias P2P)
-- **Gerardo Acosta** — Frontend Lead
-- **Analía Pérez Juliá** — Integración AWS SES, Google OAuth, validaciones multi-país, documentación, CORS dinámico
+Trabajamos como un **Equipo de Desarrollo Full-Stack** coordinado bajo la visión del PO (Product Owner - Henry). Roles internos de ejecución:
+
+- **Santiago Ezequiel Chavez:** Full Stack (Backend Core Lead). Base de datos PostgreSQL ACID, seguridad de API, validaciones Zod, testing y despliegue en Railway.
+- **Daniel Sardinas:** Full Stack (AI & Core Logic). Integración de Gemini 2.5, lógica de transacciones complejas.
+- **Gerardo Acosta:** Full Stack (Orientación Frontend). Routing, layout, vistas principales e historial.
+- **Analía Pérez Juliá:** Full Stack (Orientación Frontend + Integraciones). UX/UI, AWS SES, validaciones multi-país, documentación y Scrum Master.

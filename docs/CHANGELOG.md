@@ -5,6 +5,17 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.3.2] - 2026-08-13
+
+### Added (Añadido)
+- **Ruta Raíz:** Se agregó el endpoint `GET /` que devuelve un JSON de bienvenida y estado de la API, evitando el error visual `Cannot GET /` en el navegador.
+
+### Changed (Modificado)
+- **Documentación de Proyecto (Henry):** Actualización masiva de los README del Frontend y Backend para alinearse al estándar "Sobresaliente" de la rúbrica de Henry.
+- **Arquitectura y Git Flow:** Documentación detallada del patrón Screaming Architecture, la metodología ágil (Sprints/INVEST) y el flujo de ramas de 4 etapas (`personal` -> `dev` -> `pre-staging` -> `main`).
+- **Idioma Híbrido:** Formalización de la regla de código en inglés y comentarios/commits en español.
+- **Seguridad de Infraestructura:** Se aclaró en la documentación que la base de datos PostgreSQL en Railway no expone una URL pública por razones de seguridad (conexión TCP interna).
+
 ## [1.3.1] - 2026-08-12
 
 ### Security (Seguridad)
