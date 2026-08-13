@@ -348,6 +348,45 @@ describe("Pruebas de integración de transacciones", () => {
         8
       );
     }, 10_000);
+
+    it("debería ejecutar una transferencia exitosa con un concepto de texto", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 5, destination: testRecipient.email, concepto: "Pago de almuerzo" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        concepto: "Pago de almuerzo",
+      });
+    });
+
+    it("debería ejecutar una transferencia exitosa con un concepto null", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 5, destination: testRecipient.email, concepto: null });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        concepto: null,
+      });
+    });
+
+    it("debería resolver destinatario exitosamente ignorando campos extra del formulario como concepto", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer/resolve")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ identifier: testRecipient.email, concepto: "Test de ignorado", amount: 100, currency: "USD" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.email).toBe(testRecipient.email);
+    });
   });
 
   describe("Conversión con amountSide: target", () => {
