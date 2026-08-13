@@ -5,6 +5,27 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.3.2] - 2026-08-13
+
+### Added (Añadido)
+- **Ruta Raíz:** Se agregó el endpoint `GET /` que devuelve un JSON de bienvenida y estado de la API, evitando el error visual `Cannot GET /` en el navegador.
+
+### Changed (Modificado)
+- **Documentación de Proyecto (Henry):** Actualización masiva de los README del Frontend y Backend para alinearse al estándar "Sobresaliente" de la rúbrica de Henry.
+- **Arquitectura y Git Flow:** Documentación detallada del patrón Screaming Architecture, la metodología ágil (Sprints/INVEST) y el flujo de ramas de 4 etapas (`personal` -> `dev` -> `pre-staging` -> `main`).
+- **Idioma Híbrido:** Formalización de la regla de código en inglés y comentarios/commits en español.
+- **Seguridad de Infraestructura:** Se aclaró en la documentación que la base de datos PostgreSQL en Railway no expone una URL pública por razones de seguridad (conexión TCP interna).
+
+## [1.3.1] - 2026-08-12
+
+### Security (Seguridad)
+- **Mitigación Salami Slicing:** Implementación de un spread/comisión del 1% en las operaciones de conversión de divisas para neutralizar la rentabilidad de ataques de alta frecuencia basados en redondeos.
+- **Prevención de Desbordamiento Numérico:** Se incorporó un límite estricto de `.max(1_000_000)` en los validadores Zod de todas las transacciones para proteger el sistema de desbordamientos matemáticos (Number Overflow). Extendido para cubrir también el monto derivado cuando se cotiza/opera especificando el lado destino (`amountSide: "target"`), que antes esquivaba este límite.
+- **Protección contra Denegación de Servicio (DoS):** Se añadió el middleware global `express-rate-limit` (máx. 100 peticiones cada 15 min por IP) para prevenir bombardeos masivos de peticiones y proteger la disponibilidad de las APIs externas. Se sumó además un límite propio, por usuario, en `POST /chatbot/message` (20 cada 15 min) — es la única ruta que factura contra la API de Gemini y el límite global por IP no la distinguía de rutas gratis como `/health`.
+
+### Known Issues (Pendientes)
+- **PII sin enmascarar en `POST /transactions/transfer/resolve`:** el endpoint devuelve nombre, apellido, alias, CVU, email y documento (DU) completos de cualquier cuenta consultada por email/CVU/alias, sin verificar relación previa con quien consulta. Decisión de equipo (2026-08-13): se evaluó enmascarar y se optó por dejarlo así por ahora para no complicar la UX de confirmación de destinatario antes de la demo. Queda como posible mejora futura reintroducir enmascarado parcial (nombre completo, pero email/CVU/DU ocultos parcialmente). Ver comentario en `resolveTransferController` (`src/controllers/transactionController.ts`).
+
 ## [1.3.0] - 2026-08-11
 
 ### Added (Añadido)

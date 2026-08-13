@@ -17,12 +17,16 @@ CREATE TABLE IF NOT EXISTS users (
     date_of_birth DATE,
     phone VARCHAR(20) UNIQUE,
     phone_verificado BOOLEAN DEFAULT false NOT NULL,
-    country VARCHAR(5) DEFAULT 'AR' NOT NULL,
+    -- CHECK en mayúsculas: la unicidad compuesta de abajo (country, du) solo protege si
+    -- "country" siempre está normalizado — sin esto, 'ar' y 'AR' serían namespaces distintos
+    -- y el mismo DU podría registrarse dos veces con distinto casing.
+    country VARCHAR(5) DEFAULT 'AR' NOT NULL CHECK (country = upper(country)),
     -- Nullable a propósito (igual que phone): las cuentas creadas con Google no traen DU
     -- del alta y quedan sin completar hasta que el usuario lo carga vía PATCH /auth/me.
     -- Postgres permite múltiples NULL en una columna UNIQUE sin problema, así que esto no
     -- debilita la regla de "un DNI, una cuenta" una vez que el valor sí está cargado.
-    du VARCHAR(20) UNIQUE,
+    du VARCHAR(20),
+    CONSTRAINT users_country_du_key UNIQUE (country, du),
     password_reset_token_hash VARCHAR(64),
     password_reset_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -75,8 +79,36 @@ CREATE INDEX IF NOT EXISTS idx_transactions_wallet_id ON transactions(wallet_id)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(5) DEFAULT 'AR';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS du VARCHAR(20) UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS du VARCHAR(20);
 ALTER TABLE users ALTER COLUMN du DROP NOT NULL;
+-- Reemplaza la unicidad global histórica del documento por una compuesta con el país.
+-- Es segura sobre instalaciones existentes: el constraint anterior impedía duplicados de DU.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_du_key;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_country_du_key'
+          AND conrelid = 'users'::regclass
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT users_country_du_key UNIQUE (country, du);
+    END IF;
+END $$;
+-- Normaliza instalaciones existentes antes de exigir el CHECK, y lo agrega si falta (instalaciones
+-- creadas antes de este cambio no lo tienen porque CREATE TABLE IF NOT EXISTS no lo agrega solo).
+UPDATE users SET country = upper(country) WHERE country <> upper(country);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_country_uppercase_check'
+          AND conrelid = 'users'::regclass
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT users_country_uppercase_check CHECK (country = upper(country));
+    END IF;
+END $$;
 ALTER TABLE wallets ADD COLUMN IF NOT EXISTS cvu VARCHAR(22) UNIQUE;
 ALTER TABLE wallets ADD COLUMN IF NOT EXISTS alias VARCHAR(100) UNIQUE;
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
@@ -100,3 +132,43 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verificado BOOLEAN DEFAULT fals
 -- (sin este ALTER todavía aplicado) crear el índice antes rompería todo el deploy,
 -- ya que deploy.ts ejecuta este archivo entero como una sola consulta.
 CREATE INDEX IF NOT EXISTS idx_users_password_reset_token_hash ON users(password_reset_token_hash);
+
+-- Soportar TRANSFER_OUT y TRANSFER_IN en historial de transacciones
+ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_transaction_type_check;
+ALTER TABLE transactions ADD CONSTRAINT transactions_transaction_type_check CHECK (transaction_type IN ('BUY', 'SELL', 'EXCHANGE', 'DEPOSIT', 'TRANSFER_OUT', 'TRANSFER_IN')) NOT VALID;
+
+-- Ejecutar en una migración posterior o en mantenimiento programado:
+-- ALTER TABLE transactions VALIDATE CONSTRAINT transactions_transaction_type_check;
+
+-- Añadir metadatos de contraparte para transferencias (Efecto Fantasma mitigado)
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_id UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_name VARCHAR(100);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_last_name VARCHAR(100);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_email VARCHAR(255);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_wallet UUID REFERENCES wallets(id) ON DELETE SET NULL;
+
+-- Tabla de Historial del Chatbot
+-- chatbotModel.ts ya la usa (getChatHistoryByUserId/saveChatMessage/deleteChatHistoryByUserId)
+-- pero nunca se había agregado acá — sin esto, el historial real (no mockeado en tests)
+-- rompe en cualquier ambiente con "no existe la relación «chatbot_histories»".
+CREATE TABLE IF NOT EXISTS chatbot_histories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'model')),
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chatbot_histories_user_id ON chatbot_histories(user_id);
+
+-- Toggle simple para dejar de recibir los emails transaccionales (depósito/compra/venta/
+-- intercambio/transferencia) sin tocar nada más. Default true para no cambiar el
+-- comportamiento de las cuentas existentes.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN DEFAULT true NOT NULL;
+
+-- Concepto/motivo opcional para transferencias P2P (ej. "alquiler agosto").
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS concepto VARCHAR(140);
+
+-- Alias de la contraparte en transferencias P2P: counterparty_wallet ya guarda el UUID de la
+-- wallet, pero eso no sirve para mostrar en UI — el front necesita el alias legible.
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_alias TEXT;

@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import type { Transaction } from "../models/transactionModel.js";
-import { executeDeposit, executeExchange, getUserTransactions, executeBuy, executeSell, getExchangeQuote } from "../services/transactionService.js";
+import { executeDeposit, executeExchange, getUserTransactions, executeBuy, executeSell, getExchangeQuote, resolveTransferDestination, executeTransfer } from "../services/transactionService.js";
 import type { GetTransactionsQuery } from "../schemas/transactionSchema.js";
 
 /**
@@ -15,25 +15,31 @@ const mapTransactionToCamelCase = (tx: Transaction) => ({
     transactionType: tx.transaction_type,
     sourceCurrency: tx.source_currency,
     targetCurrency: tx.target_currency,
-    sourceAmount: tx.source_amount ? parseFloat(tx.source_amount) : null,
-    targetAmount: tx.target_amount ? parseFloat(tx.target_amount) : null,
-    exchangeRate: tx.exchange_rate ? parseFloat(tx.exchange_rate) : null,
-    resultingBalance: tx.resulting_balance ? parseFloat(tx.resulting_balance) : null,
+    // FIX: Eliminamos el parseFloat().toFixed() redundante.
+    // TRADEOFF: Casteamos el NUMERIC estricto de PostgreSQL a Number de JS.
+    // Es seguro para montos normales, pero montos colosales (>90 millones con 8 decimales) podrían perder precisión por el límite IEEE 754.
+    sourceAmount: tx.source_amount ? Number(tx.source_amount) : null,
+    targetAmount: tx.target_amount ? Number(tx.target_amount) : null,
+    exchangeRate: tx.exchange_rate ? Number(tx.exchange_rate) : null,
+    resultingBalance: tx.resulting_balance ? Number(tx.resulting_balance) : null,
     createdAt: tx.created_at,
+    counterpartyId: tx.counterparty_id ?? null,
+    counterpartyName: tx.counterparty_name ?? null,
+    counterpartyLastName: tx.counterparty_last_name ?? null,
+    counterpartyEmail: tx.counterparty_email ?? null,
+    counterpartyWallet: tx.counterparty_wallet ?? null,
+    counterpartyAlias: tx.counterparty_alias ?? null,
+    concepto: tx.concepto ?? null,
 });
+
 
 /**
  * Controller to handle deposit requests.
  */
 export async function depositController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
+        const userId = req.user!.userId;
         const { currency, amount } = req.body;
-
-        if (!userId) {
-            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
 
         const transaction = await executeDeposit(userId, currency, amount);
 
@@ -51,15 +57,8 @@ export async function depositController(req: AuthenticatedRequest, res: Response
  */
 export async function quoteController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
-        const { fromCurrency, toCurrency, amount } = req.body;
-
-        if (!userId) {
-            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
-        
-        const quote = await getExchangeQuote(fromCurrency, toCurrency, amount);
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
+        const quote = await getExchangeQuote(fromCurrency, toCurrency, amount, amountSide);
 
         res.status(200).json({
             success: true,
@@ -75,15 +74,10 @@ export async function quoteController(req: AuthenticatedRequest, res: Response, 
  */
 export async function exchangeController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
-        const { fromCurrency, toCurrency, amount } = req.body;
+        const userId = req.user!.userId;
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
 
-        if (!userId) {
-            res.status(401).json({ success: false, error: "AUTH_ERROR", message: "Usuario no autorizado." });
-            return;
-        }
-
-        const transaction = await executeExchange(userId, fromCurrency, toCurrency, amount);
+        const transaction = await executeExchange(userId, fromCurrency, toCurrency, amount, amountSide);
 
         res.status(200).json({
             success: true,
@@ -103,16 +97,7 @@ export async function getTransactionsController(
     next: NextFunction
 ): Promise<void> {
     try {
-        const userId = req.user?.userId;
-
-        if (!userId) {
-            res.status(401).json({
-                success: false,
-                error: "AUTH_ERROR",
-                message: "Usuario no autorizado."
-            });
-            return;
-        }
+        const userId = req.user!.userId;
 
         // Extraer los query params ya validados y parseados por el middleware validateSchema
         const { limit, page, type } = req.validatedQuery as unknown as GetTransactionsQuery;
@@ -135,19 +120,10 @@ export async function getTransactionsController(
  */
 export async function buyController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
-        const { fromCurrency, toCurrency, amount } = req.body;
+        const userId = req.user!.userId;
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
 
-        if (!userId) {
-            res.status(401).json({
-                success: false,
-                error: "AUTH_ERROR",
-                message: "Usuario no autorizado."
-            });
-            return;
-        }
-
-        const transaction = await executeBuy(userId, fromCurrency, toCurrency, amount);
+        const transaction = await executeBuy(userId, fromCurrency, toCurrency, amount, amountSide);
 
         res.status(200).json({
             success: true,
@@ -163,19 +139,72 @@ export async function buyController(req: AuthenticatedRequest, res: Response, ne
  */
 export async function sellController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-        const userId = req.user?.userId;
-        const { fromCurrency, toCurrency, amount } = req.body;
+        const userId = req.user!.userId;
+        const { fromCurrency, toCurrency, amount, amountSide } = req.body;
 
-        if (!userId) {
-            res.status(401).json({
-                success: false,
-                error: "AUTH_ERROR",
-                message: "Usuario no autorizado."
-            });
-            return;
+        const transaction = await executeSell(userId, fromCurrency, toCurrency, amount, amountSide);
+
+        res.status(200).json({
+            success: true,
+            data: mapTransactionToCamelCase(transaction)
+        });
+    } catch (error: unknown) {
+        next(error);
+    }
+}
+
+/**
+ * Controller to handle resolving a transfer destination by identifier (email, cvu, alias).
+ *
+ * NOTA (decisión de equipo, no descuido): esto devuelve nombre, alias, CVU, email y documento
+ * SIN enmascarar a cualquier usuario autenticado, sin verificar relación previa con la cuenta
+ * consultada. Se evaluó enmascarar (y de hecho se hizo y se deshizo un par de veces el mismo
+ * día) y se optó por dejarlo así por ahora para no complicar la UX de confirmación antes de la
+ * demo — ver CLAUDE.md § Decisiones técnicas registradas. Posible mejora futura, no aplicar
+ * enmascarado acá sin discutirlo de nuevo con el equipo.
+ */
+export async function resolveTransferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    const startTime = Date.now();
+    const MIN_RESPONSE_MS = 300; // tiempo mínimo de respuesta normalizado
+
+    try {
+        const { identifier } = req.body;
+        const destination = await resolveTransferDestination(identifier);
+
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime < MIN_RESPONSE_MS) {
+            await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_MS - elapsedTime));
         }
 
-        const transaction = await executeSell(userId, fromCurrency, toCurrency, amount);
+        res.status(200).json({
+            success: true,
+            data: {
+                firstName: destination.first_name,
+                lastName: destination.last_name,
+                alias: destination.alias,
+                cvu: destination.cvu,
+                email: destination.email,
+                document: destination.du
+            }
+        });
+    } catch (error: unknown) {
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime < MIN_RESPONSE_MS) {
+            await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_MS - elapsedTime));
+        }
+        next(error);
+    }
+}
+
+/**
+ * Controller to handle executing a transfer to a third party.
+ */
+export async function transferController(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+        const userId = req.user!.userId;
+        const { currency, amount, destination, concepto } = req.body;
+
+        const transaction = await executeTransfer(userId, currency, amount, destination, concepto);
 
         res.status(200).json({
             success: true,

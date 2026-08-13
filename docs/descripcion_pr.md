@@ -1,37 +1,32 @@
-# Propuesta de PR: Estabilización y Seed Data
+# Propuesta de PR: Security Patches (Anti-PO) & Rate Limiting
 
 ## Título del PR
-`feat: estabilización del backend, parches de seguridad y seed data para demo`
+`feat(security): implementar mitigación de salami slicing, topes numéricos y rate limiting`
 
 ## Descripción del PR
 
-Este PR consolida las tareas de estabilización del backend e infraestructura necesarias para la demo final del proyecto.
+Este PR implementa una serie de parches de seguridad críticos diseñados específicamente para acorazar la lógica financiera del backend frente a vulnerabilidades de negocio (ataques que buscarían quebrar la plataforma a nivel lógico o matemático).
 
 ### 🚀 Cambios Principales
 
-#### 1. Parche Google OAuth
-- Se eliminó el `NOT NULL` de la columna `du` en `users` (se mantiene `UNIQUE`).
-- Esto permite registrar usuarios vía Google OAuth de manera atómica sin que la base de datos rebote la transacción (ya que Google no provee documento).
-- Se añadió una migración explícita (`ALTER TABLE`) en `schema.sql` para no romper bases de datos ya existentes como la de Railway.
+#### 1. Prevención de Salami Slicing (Micro-extracciones)
+- Se aplicó una comisión/spread estricta del **1%** en todas las operaciones de conversión de moneda (`EXCHANGE`, `BUY`, `SELL`) dentro de `transactionService.ts`. 
+- **Objetivo:** Inhabilitar ataques de alta frecuencia donde un actor malicioso aprovecha redondeos favorables a costo cero. Toda conversión de ida y vuelta genera pérdida, protegiendo las arcas del sistema.
 
-#### 2. Seguridad y JWT
-- Se redujo el TTL (tiempo de expiración) de los JWT de `24h` a `15m` para mejorar la seguridad ante tokens comprometidos.
-- Se actualizó la documentación (JSDoc) y la suite de pruebas unitarias.
+#### 2. Prevención de Number Overflow (IEEE 754)
+- Se ajustaron los esquemas de validación de Zod (`transactionSchema.ts`) añadiendo el modificador `.max(1_000_000)` al campo `amount`.
+- **Objetivo:** Evitar el colapso del sistema y desbordamientos matemáticos que ocurrirían si se envían cifras excesivas (ej. `999999999999.99`) que corromperían la precisión flotante de Node o la base de datos `NUMERIC(18,8)`.
 
-#### 3. Script de Seed Data (`src/database/seed.ts`)
-- Creado un script TypeScript para poblar la base de datos de manera limpia y consistente.
-- **Fintech Ready:** Corre bajo una única transacción de base de datos (`BEGIN`/`COMMIT`/`ROLLBACK`).
-- **Consistencia:** Genera de forma matemática e inmutable saldos e historiales de transacciones consistentes para 3 usuarios demo.
-- **Seguridad:** El script es idempotente y el borrado está acotado estrictamente a correos `@valora.com` para no comprometer cuentas reales en Railway.
-- **Formato:** CVU fijo de 22 caracteres y alias limpios de acentos.
+#### 3. Prevención de DoS y Fallback Spoofing (Rate Limiting)
+- Se implementó el middleware `express-rate-limit` a nivel global en `app.ts`.
+- Límite configurado a **100 peticiones cada 15 minutos por IP**.
+- **Objetivo:** Neutralizar cualquier intento de denegación de servicio (DoS) o spam masivo destinado a agotar recursos del backend o saturar el límite de peticiones hacia las APIs proveedoras externas.
 
-#### 4. Documentación
-- **README.md:** Actualizado con variables de entorno (`GOOGLE_CLIENT_ID`), comandos del seed y estructura de carpetas de este Sprint. Se eliminó la guía duplicada de endpoints.
-- **CHANGELOG.md:** Agregada la versión `1.3.0` con todos los cambios y breaking changes (wallet object format) del Sprint 2.
-- **Explicacion.md:** Corregidas referencias internas.
+#### 4. Consistencia Matemática y Correcciones Internas
+- Se forzó el uso estricto de `.toFixed(8)` seguido de un cast a `Number` en las etapas finales del cálculo transaccional. Esto erradica la acumulación de basura de punto flotante de JavaScript que pudiera desencadenar crashes al insertar en PostgreSQL.
+- Se refactorizó y limpió el bloque matemático de `executeConversion` para una lectura más limpia.
 
 ---
 
 ### 🧪 Verificación de Calidad
-- **Tests:** Suite estabilizada con las nuevas validaciones de JWT (18 suites de pruebas y 100+ tests pasando en verde).
-- **Ejecución exitosa:** El seed corre sin infringir ninguna regla o constraint de la base de datos remota.
+- **Tests (103/103):** Se actualizaron las aserciones en `transactions.test.ts` para que coincidan exitosamente con la merma del 1% en la creación de saldos objetivo y cotizaciones. Todo en verde.

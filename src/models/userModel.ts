@@ -11,6 +11,7 @@ export interface User {
   phone: string | null;
   country: string;
   du: string | null;
+  email_notifications_enabled: boolean;
   // Opcionales: solo los devuelven las queries que explícitamente los seleccionan
   // (createUser/findUserByEmail/findUserById excluyen explícitamente estos tokens/hashes por seguridad).
   password_reset_token_hash?: string | null;
@@ -42,7 +43,7 @@ export async function createUser(
   const sql = `
     INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth, phone, country, du)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
+    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, email_notifications_enabled, created_at, updated_at
   `;
   const result = client
     ? await client.query(sql, [email, passwordHash, firstName, lastName, dateOfBirth, phone, country, du])
@@ -54,12 +55,14 @@ export async function createUser(
 }
 
 /**
- * Completa (o edita) celular, país y DU de un usuario ya existente — usado para el flujo
- * de cuentas de Google, que no piden estos datos en el alta.
+ * Completa (o edita) celular, país, DU y opcionalmente fecha de nacimiento de un usuario ya
+ * existente — usado para el flujo de cuentas de Google, que no piden estos datos en el alta.
  * @param userId - User UUID
  * @param phone - Celular en formato E.164
  * @param country - Código ISO 3166-1 alpha-2
  * @param du - Documento único, normalizado
+ * @param dateOfBirth - Fecha de nacimiento en formato YYYY-MM-DD; si no viene, se conserva la
+ * existente (ej. el placeholder "1990-01-01" que googleLoginController usa al crear la cuenta).
  * @returns The updated user object, or null si el userId no corresponde a ningún usuario
  * (ej. token válido de una cuenta borrada mientras tanto) — igual que findUserById.
  */
@@ -67,16 +70,46 @@ export async function updateUserProfile(
   userId: string,
   phone: string,
   country: string,
-  du: string
+  du: string,
+  dateOfBirth?: string
 ): Promise<User | null> {
   const sql = `
     UPDATE users
-    SET phone = $1, country = $2, du = $3, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $4
-    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
+    SET phone = $1, country = $2, du = $3, date_of_birth = COALESCE($4, date_of_birth), updated_at = CURRENT_TIMESTAMP
+    WHERE id = $5
+    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, email_notifications_enabled, created_at, updated_at
   `;
-  const result = await query(sql, [phone, country, du, userId]);
+  const result = await query(sql, [phone, country, du, dateOfBirth ?? null, userId]);
   return result.rows[0] || null;
+}
+
+/**
+ * Activa o desactiva los emails transaccionales (depósito/compra/venta/intercambio/
+ * transferencia) de un usuario. No afecta los emails de recuperación de contraseña.
+ * @param userId - User UUID
+ * @param enabled - true para recibirlos, false para dejar de recibirlos
+ * @returns The updated user object, or null si el userId no corresponde a ningún usuario.
+ */
+export async function setEmailNotificationsEnabled(userId: string, enabled: boolean): Promise<User | null> {
+  const sql = `
+    UPDATE users
+    SET email_notifications_enabled = $1, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $2
+    RETURNING id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, email_notifications_enabled, created_at, updated_at
+  `;
+  const result = await query(sql, [enabled, userId]);
+  return result.rows[0] || null;
+}
+
+/**
+ * Elimina permanentemente una cuenta. La FK de wallets (ON DELETE CASCADE) se encarga de
+ * borrar en cascada wallet, balances, transacciones y historial de chatbot asociados.
+ * @param userId - User UUID
+ * @returns true si había una cuenta con ese id y se borró, false si no existía.
+ */
+export async function deleteUser(userId: string): Promise<boolean> {
+  const result = await query("DELETE FROM users WHERE id = $1", [userId]);
+  return (result.rowCount ?? 0) > 0;
 }
 
 /**
@@ -86,7 +119,7 @@ export async function updateUserProfile(
  */
 export async function findUserById(id: string): Promise<User | null> {
   const sql = `
-    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
+    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, email_notifications_enabled, created_at, updated_at
     FROM users
     WHERE id = $1
   `;
@@ -101,7 +134,7 @@ export async function findUserById(id: string): Promise<User | null> {
  */
 export async function findUserByEmail(email: string): Promise<User | null> {
   const sql = `
-    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, created_at, updated_at
+    SELECT id, email, password_hash, first_name, last_name, date_of_birth, phone, country, du, email_notifications_enabled, created_at, updated_at
     FROM users
     WHERE email = $1
   `;

@@ -16,12 +16,24 @@ describe("Pruebas de integración de transacciones", () => {
     du: "33333333",
   };
 
+  const testRecipient = {
+    email: "recipient_test_santiago@valora.com",
+    password: "PasswordSegura123!",
+    firstName: "Maria",
+    lastName: "Perez",
+    dateOfBirth: "20/08/1990",
+    phone: "+5491123456799",
+    country: "AR",
+    du: "55555555",
+  };
+
   const originalFetch = global.fetch;
   let authToken: string;
   let walletId: string;
+  let recipientWalletId: string;
 
   beforeAll(async () => {
-    await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+    await query("DELETE FROM users WHERE email = $1 OR email = $2", [testUser.email, testRecipient.email]);
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -37,13 +49,25 @@ describe("Pruebas de integración de transacciones", () => {
       .post("/auth/register")
       .send(testUser);
 
+    expect(registerResponse.status).toBe(201);
+    expect(registerResponse.body.success).toBe(true);
+
     authToken = registerResponse.body.data.token;
     walletId = registerResponse.body.data.wallet.id;
+
+    const recipientResponse = await request(app)
+      .post("/auth/register")
+      .send(testRecipient);
+    
+    expect(recipientResponse.status).toBe(201);
+    expect(recipientResponse.body.success).toBe(true);
+    
+    recipientWalletId = recipientResponse.body.data.wallet.id;
   });
 
   afterAll(async () => {
     global.fetch = originalFetch;
-    await query("DELETE FROM users WHERE email = $1", [testUser.email]);
+    await query("DELETE FROM users WHERE email = $1 OR email = $2", [testUser.email, testRecipient.email]);
   });
 
   it("debería registrar un depósito exitoso y actualizar el saldo del usuario", async () => {
@@ -100,7 +124,7 @@ describe("Pruebas de integración de transacciones", () => {
     expect(usdBalance).not.toBeNull();
     expect(eurBalance).not.toBeNull();
     expect(parseFloat(usdBalance!.amount)).toBe(50);
-    expect(parseFloat(eurBalance!.amount)).toBe(55);
+    expect(parseFloat(eurBalance!.amount)).toBe(54.45);
   });
 
   it("debería rechazar un intercambio si el usuario no tiene fondos suficientes (Camino Infeliz)", async () => {
@@ -132,7 +156,7 @@ describe("Pruebas de integración de transacciones", () => {
       expect(response.body.data).toHaveProperty("targetAmount");
       // Según el mock definido en el beforeAll: ARS = 1000, USD = base (1)
       expect(response.body.data.exchangeRate).toBe(1000);
-      expect(response.body.data.targetAmount).toBe(100000);
+      expect(response.body.data.targetAmount).toBe(99000);
     });
 
     it("debería rechazar una cotización con una moneda no soportada (Caso Inválido)", async () => {
@@ -147,6 +171,34 @@ describe("Pruebas de integración de transacciones", () => {
         error: "UNSUPPORTED_CURRENCY",
         message: "Moneda no soportada para cotización."
       });
+    });
+
+    it("debería retornar el sourceAmount correcto al cotizar especificando el monto de destino (amountSide: target)", async () => {
+      const response = await request(app)
+        .post("/transactions/quote")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "ARS", amount: 100000, amountSide: "target" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.exchangeRate).toBe(1000);
+      expect(response.body.data.targetAmount).toBe(100000);
+      // Al solicitar el monto destino se calcula el origen necesario incluyendo la comisión
+      // del 1%: 100000 / (1000 * 0.99) = 101.01010101 USD.
+      expect(response.body.data.sourceAmount).toBeCloseTo(101.01010101, 8);
+    });
+
+    it("debería rechazar una cotización cuyo monto derivado trunca a cero por el piso de 8 decimales", async () => {
+      // targetAmount = 0.00000001 ARS / rateTo(1000) => 1e-11 USD => * rateFrom(1) => 1e-11,
+      // que trunca a 0.00000000 al recortar a 8 decimales: no hay sourceAmount válido posible.
+      const response = await request(app)
+        .post("/transactions/quote")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "ARS", amount: 0.00000001, amountSide: "target" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("AMOUNT_TOO_SMALL");
     });
   });
 
@@ -195,6 +247,199 @@ describe("Pruebas de integración de transacciones", () => {
         success: false,
         error: "UnauthorizedError",
         message: "Acceso no autorizado. Token no proporcionado."
+      });
+    });
+  });
+
+  describe("Transferencias P2P", () => {
+    it("debería resolver correctamente un destinatario por email", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer/resolve")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ identifier: testRecipient.email });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        firstName: testRecipient.firstName,
+        lastName: testRecipient.lastName,
+        email: testRecipient.email
+      });
+    });
+
+    it("debería rechazar resolver un destinatario inexistente", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer/resolve")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ identifier: "noexiste@valora.com" });
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("USER_NOT_FOUND");
+    });
+
+    it("debería rechazar una auto-transferencia", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 10, destination: testUser.email });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("SELF_TRANSFER");
+    });
+
+    it("debería rechazar una transferencia por saldo insuficiente", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 999999, destination: testRecipient.email });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("INSUFFICIENT_FUNDS");
+    });
+
+    it("debería ejecutar una transferencia exitosa", async () => {
+      // 1. Asegurar fondos base con un depósito explícito y controlado
+      const depositResponse = await request(app)
+        .post("/transactions/deposit")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 50 });
+
+      expect(depositResponse.status).toBe(200);
+      expect(depositResponse.body.success).toBe(true);
+
+      // 2. Capturar balances DESPUÉS del depósito, antes de la transferencia
+      const senderBalanceBefore = await findBalanceByWalletAndCurrency(walletId, "USD");
+      const recipientBalanceBefore = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
+
+      const initialSenderBalance = senderBalanceBefore ? parseFloat(senderBalanceBefore.amount) : 0;
+      const initialRecipientBalance = recipientBalanceBefore ? parseFloat(recipientBalanceBefore.amount) : 0;
+
+      const TRANSFER_AMOUNT = 20;
+
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: TRANSFER_AMOUNT, destination: testRecipient.email });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        walletId,
+        sourceCurrency: "USD",
+        targetCurrency: "USD",
+        counterpartyEmail: testRecipient.email,
+      });
+
+      // 3. Validar saldos con la fuente de verdad correcta
+      const senderBalanceAfter = await findBalanceByWalletAndCurrency(walletId, "USD");
+      const recipientBalanceAfter = await findBalanceByWalletAndCurrency(recipientWalletId, "USD");
+
+      expect(parseFloat(senderBalanceAfter!.amount)).toBeCloseTo(
+        initialSenderBalance - TRANSFER_AMOUNT,
+        8
+      );
+      expect(parseFloat(recipientBalanceAfter!.amount)).toBeCloseTo(
+        initialRecipientBalance + TRANSFER_AMOUNT,
+        8
+      );
+    }, 10_000);
+
+    it("debería ejecutar una transferencia exitosa con un concepto de texto", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 5, destination: testRecipient.email, concepto: "Pago de almuerzo" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        concepto: "Pago de almuerzo",
+      });
+    });
+
+    it("debería ejecutar una transferencia exitosa con un concepto null", async () => {
+      const response = await request(app)
+        .post("/transactions/transfer")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ currency: "USD", amount: 5, destination: testRecipient.email, concepto: null });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "TRANSFER_OUT",
+        concepto: null,
+      });
+    });
+
+    it("debería rechazar campos extra no esperados en el body (identifier es el único campo válido)", async () => {
+      // El frontend real solo manda { identifier } a este endpoint (ver
+      // shared/services/transactionService.ts) — .strict() es una barrera contra que
+      // código futuro empiece a esparcir campos de otro formulario acá sin darse cuenta.
+      const response = await request(app)
+        .post("/transactions/transfer/resolve")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ identifier: testRecipient.email, concepto: "Test de campo extra", amount: 100, currency: "USD" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe("VALIDATION_ERROR");
+    });
+  });
+
+  describe("Conversión con amountSide: target", () => {
+    it("debería calcular el sourceAmount correcto al especificar el monto de destino en una conversión", async () => {
+      const response = await request(app)
+        .post("/transactions/exchange")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "EUR", toCurrency: "USD", amount: 10, amountSide: "target" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        transactionType: "EXCHANGE",
+        walletId,
+        sourceCurrency: "EUR",
+        targetCurrency: "USD",
+        targetAmount: 10,
+      });
+
+      // exchangeRate acá es rate_applied (persistido en el ledger), que ya incluye la
+      // comisión del 1% — a diferencia del endpoint de quote, no hay que aplicarla de nuevo.
+      const { sourceAmount, exchangeRate, targetAmount } = response.body.data;
+      expect(sourceAmount * exchangeRate).toBeCloseTo(targetAmount, 5);
+    });
+
+    it("debería mantener el comportamiento default (source) cuando no se envía amountSide", async () => {
+      const response = await request(app)
+        .post("/transactions/exchange")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "USD", toCurrency: "EUR", amount: 5 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.sourceAmount).toBe(5);
+    });
+
+    it("debería rechazar un amountSide: target cuyo sourceAmount derivado supera el límite de 1.000.000, aunque el amount recibido esté por debajo", async () => {
+      // El campo "amount" (100000 USD de destino) pasa el .max(1_000_000) del schema, pero al
+      // ser amountSide: "target" el sourceAmount se deriva DESPUÉS: 100000 / 0.99 / (1/1000) ≈
+      // 101.010.101 ARS — muy por encima del límite operativo, que tiene que frenarlo igual.
+      const response = await request(app)
+        .post("/transactions/exchange")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ fromCurrency: "ARS", toCurrency: "USD", amount: 100000, amountSide: "target" });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: "AMOUNT_TOO_LARGE",
+        message: "El monto excede el límite operativo permitido por transacción."
       });
     });
   });

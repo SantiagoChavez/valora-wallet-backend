@@ -8,6 +8,8 @@ import {
   findUserByEmail,
   findUserById,
   updateUserProfile,
+  setEmailNotificationsEnabled,
+  deleteUser,
   setPasswordResetToken,
   resetPasswordWithValidToken,
   type User,
@@ -17,6 +19,7 @@ import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balance
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { pool } from "../database/db.js";
 import { enviarEmailConfirmacion } from "../services/sesService.js";
+import { buildPasswordResetEmailHtml } from "../emails/passwordResetEmailTemplate.js";
 import { validarCelular } from "../utils/phoneValidation.js";
 
 const PASSWORD_RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutos
@@ -36,6 +39,7 @@ export interface UserResponse {
   country?: string;
   du?: string | null;
   profileComplete?: boolean;
+  emailNotificationsEnabled?: boolean;
 }
 
 function formatDate(dateInput: Date | string | null | undefined): string | null {
@@ -48,7 +52,7 @@ function formatDate(dateInput: Date | string | null | undefined): string | null 
     }
     const parsedDate = new Date(dateInput);
     if (isNaN(parsedDate.getTime())) return dateInput;
-    
+
     const year = parsedDate.getUTCFullYear();
     const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
     const day = String(parsedDate.getUTCDate()).padStart(2, "0");
@@ -78,6 +82,7 @@ export function toUserResponse(user: User, includePII = true): UserResponse {
     // alta por Google, que arranca sin celular ni DU) — ver requireCompleteProfile.ts,
     // que es quien realmente bloquea las operaciones de billetera del lado del backend.
     response.profileComplete = Boolean(user.phone) && Boolean(user.du);
+    response.emailNotificationsEnabled = user.email_notifications_enabled;
   }
 
   return response;
@@ -140,9 +145,9 @@ export async function registerController(
       const user = await createUser(email, passwordHash, firstName, lastName, dateOfBirth, celular.e164, country, du, client);
       const wallet = await createWallet(user.id, firstName, client);
       await createOrUpdateBalance(wallet.id, "USD", "0.00000000", client);
-      
+
       await client.query("COMMIT");
-      
+
       sendAuthSuccess(res, 201, user, wallet);
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch (e) { /* Ignorar error de rollback */ }
@@ -276,7 +281,7 @@ export async function completeProfileController(
       return;
     }
 
-    const { phone, country, du } = req.body;
+    const { phone, country, du, dateOfBirth } = req.body;
 
     // El schema de Zod ya validó que sea un celular real vía validarCelular; acá lo volvemos
     // a llamar para obtener el valor normalizado en E.164 y nunca persistir el string crudo.
@@ -290,7 +295,7 @@ export async function completeProfileController(
       return;
     }
 
-    const user = await updateUserProfile(userId, celular.e164, country, du);
+    const user = await updateUserProfile(userId, celular.e164, country, du, dateOfBirth);
     if (!user) {
       res.status(404).json({ success: false, error: "NotFoundError", message: "Usuario no encontrado." });
       return;
@@ -312,6 +317,88 @@ export async function completeProfileController(
   }
 }
 
+/**
+ * Activa o desactiva los emails transaccionales (depósito/compra/venta/intercambio/
+ * transferencia) de la cuenta autenticada. No afecta los emails de recuperación de contraseña.
+ */
+export async function updateEmailNotificationsController(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "UnauthorizedError", message: "Token no proporcionado." });
+      return;
+    }
+
+    const { enabled } = req.body;
+
+    const user = await setEmailNotificationsEnabled(userId, enabled);
+    if (!user) {
+      res.status(404).json({ success: false, error: "NotFoundError", message: "Usuario no encontrado." });
+      return;
+    }
+    res.status(200).json({ success: true, data: { user: toUserResponse(user) } });
+  } catch (error: unknown) {
+    next(error);
+  }
+}
+
+/**
+ * Elimina permanentemente la cuenta autenticada (wallet, balances, transacciones e historial
+ * de chatbot incluidos, vía ON DELETE CASCADE). Si la cuenta tiene contraseña, la exige y la
+ * verifica para que un JWT filtrado no alcance solo por sí para borrar la cuenta; las cuentas
+ * de Google (sin password_hash) no tienen contraseña que pedir, así que se saltea ese chequeo.
+ */
+export async function deleteAccountController(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, error: "UnauthorizedError", message: "Token no proporcionado." });
+      return;
+    }
+
+    const user = await findUserById(userId);
+    if (!user) {
+      res.status(404).json({ success: false, error: "NotFoundError", message: "Usuario no encontrado." });
+      return;
+    }
+
+    if (user.password_hash) {
+      const { password } = req.body;
+      if (!password) {
+        res.status(400).json({
+          success: false,
+          error: "VALIDATION_ERROR",
+          message: "La contraseña es requerida para eliminar la cuenta.",
+        });
+        return;
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      if (!isPasswordValid) {
+        res.status(401).json({ success: false, error: "UnauthorizedError", message: "Contraseña incorrecta." });
+        return;
+      }
+    }
+
+    await deleteUser(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Cuenta eliminada correctamente.",
+    });
+  } catch (error: unknown) {
+    next(error);
+  }
+}
+
 export function logoutController(_req: AuthenticatedRequest, res: Response): void {
   res.status(200).json({
     success: true,
@@ -319,8 +406,8 @@ export function logoutController(_req: AuthenticatedRequest, res: Response): voi
   });
 }
 
-const googleClient = process.env.GOOGLE_CLIENT_ID 
-  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) 
+const googleClient = process.env.GOOGLE_CLIENT_ID
+  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
   : null;
 
 export async function googleLoginController(
@@ -354,13 +441,13 @@ export async function googleLoginController(
       });
       return;
     }
-    
+
     const payload = ticket.getPayload();
     if (!payload || !payload.email || !payload.email_verified) {
-      res.status(401).json({ 
-        success: false, 
-        error: "UnauthorizedError", 
-        message: "Token inválido o email no verificado por Google." 
+      res.status(401).json({
+        success: false,
+        error: "UnauthorizedError",
+        message: "Token inválido o email no verificado por Google."
       });
       return;
     }
@@ -395,7 +482,7 @@ export async function googleLoginController(
         wallet = newWallet;
       } catch (error) {
         try { await client.query("ROLLBACK"); } catch (e) { /* Ignorar */ }
-        
+
         // Manejo de condición de carrera para Google Sign-in
         if (error && typeof error === "object" && "code" in error && error.code === "23505") {
           // El usuario fue creado concurrentemente. Lo recuperamos en lugar de fallar.
@@ -408,7 +495,7 @@ export async function googleLoginController(
                throw new Error("Error de consistencia en base de datos al buscar billetera existente.");
              }
           } else {
-             throw error; 
+             throw error;
           }
         } else {
           throw error;
@@ -458,8 +545,8 @@ export async function forgotPasswordController(
       // Este catch solo existe para evitar un unhandled rejection.
       enviarEmailConfirmacion({
         destinatario: user.email,
-        asunto: "Recuperación de contraseña - Valora Wallet",
-        cuerpoHtml: `<p>Recibimos una solicitud para restablecer tu contraseña en Valora Wallet.</p><p><a href="${resetLink}">Hacé clic acá para elegir una nueva contraseña</a></p><p>Este link expira en 30 minutos. Si no fuiste vos quien lo solicitó, podés ignorar este mensaje.</p>`,
+        asunto: "Restablecé o cambiá tu contraseña - Valora Wallet",
+        cuerpoHtml: buildPasswordResetEmailHtml(resetLink),
       }).catch(() => {});
     }
 
