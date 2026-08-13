@@ -1,3 +1,5 @@
+import { VALORA_LOGO_BASE64 } from "./emailLayout.js";
+
 const SUPPORT_EMAIL = "nexot.solutions@gmail.com";
 
 /**
@@ -43,7 +45,7 @@ export function buildPasswordResetEmailHtml(resetLink: string): string {
       <a href="https://valora-wallet-frontend.vercel.app/" style="text-decoration:none;display:inline-block;">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
           <tr>
-            <td style="padding-right:10px;vertical-align:middle;"><img src="https://valora-wallet-frontend.vercel.app/valora-logo.png" width="34" height="34" alt="Valora" style="display:block;width:34px;height:34px;border:0;"></td>
+            <td style="padding-right:10px;vertical-align:middle;"><img src="data:image/png;base64,${VALORA_LOGO_BASE64}" width="34" height="34" alt="Valora" style="display:block;width:34px;height:34px;border:0;"></td>
             <td style="vertical-align:middle;text-align:left;">
               <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#f0b429;letter-spacing:0.5px;line-height:24px;">VALORA</div>
               <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:600;color:#9c8f7a;letter-spacing:3px;line-height:12px;">WALLET</div>
@@ -56,7 +58,7 @@ export function buildPasswordResetEmailHtml(resetLink: string): string {
   <tr>
     <td style="text-align:center;padding-bottom:20px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-        <tr><td width="60" height="60" align="center" valign="middle" style="width:60px;height:60px;border-radius:50%;border:1px solid #f0b429;background-color:#1b1c19;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f0b429" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></td></tr>
+        <tr><td width="60" height="60" align="center" valign="middle" style="width:60px;height:60px;border-radius:50%;border:1px solid #f0b429;background-color:#1b1c19;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:60px;font-weight:700;color:#f0b429;">●</td></tr>
       </table>
     </td>
   </tr>
@@ -84,7 +86,7 @@ export function buildPasswordResetEmailHtml(resetLink: string): string {
     <td style="padding:0 40px 20px 40px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#1b1c19;border:1px solid #343531;border-radius:10px;">
         <tr>
-          <td width="36" style="padding:14px 0 14px 16px;vertical-align:top;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f0b429" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3Z"></path></svg></td>
+          <td width="36" style="padding:14px 0 14px 16px;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#f0b429;">●</td>
           <td style="padding:14px 16px 14px 10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:19px;color:#d4c5ad;">Este enlace es válido durante los próximos 30 minutos.</td>
         </tr>
       </table>
@@ -103,7 +105,7 @@ export function buildPasswordResetEmailHtml(resetLink: string): string {
     <td style="padding:0 40px 20px 40px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#1b1c19;border:1px solid #343531;border-radius:10px;">
         <tr>
-          <td width="36" style="padding:14px 0 14px 16px;vertical-align:top;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f0b429" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3Z"></path></svg></td>
+          <td width="36" style="padding:14px 0 14px 16px;vertical-align:top;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#f0b429;">●</td>
           <td style="padding:14px 16px 14px 10px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:19px;color:#d4c5ad;">Por tu seguridad, nunca te vamos a solicitar tu contraseña ni códigos de seguridad por correo electrónico.</td>
         </tr>
       </table>
