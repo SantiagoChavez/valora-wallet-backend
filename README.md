@@ -19,7 +19,7 @@ Desarrollado por **Nexo Tech Solutions** como Proyecto Final para la carrera Ful
 - **Autenticación:** JWT (HS256, TTL 15 min) + Google OAuth 2.0
 - **Validación:** Zod v4 + libphonenumber-js (celular por país) + validación de DU por país
 - **Emails:** AWS SES (comprobantes transaccionales)
-- **Chatbot:** Google Gemini API (gemini-3.5-flash)
+- **Chatbot:** Google Gemini API (gemini-3.5-flash-lite)
 - **Seguridad:** express-rate-limit, CORS whitelist dinámica, middleware de perfil completo
 - **Testing:** Vitest + Supertest (18 suites, 100+ tests)
 - **Despliegue:** Railway (CI/CD automático desde `main`)
