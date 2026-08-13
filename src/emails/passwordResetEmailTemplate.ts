@@ -1,11 +1,10 @@
-import { VALORA_LOGO_BASE64 } from "./emailLayout.js";
-
 const SUPPORT_EMAIL = "nexot.solutions@gmail.com";
 
 /**
  * Construye el HTML del email de recuperación/cambio de contraseña, según el diseño
- * "Valora Mail - Restablecer Contrasena" del proyecto de Claude Design. El logo va embebido
- * en base64 (más confiable en clientes de mail que bloquean imágenes externas).
+ * "Valora Mail - Restablecer Contrasena" del proyecto de Claude Design. El logo se linkea a
+ * una URL pública del front (Gmail y Outlook eliminan el atributo src cuando es un data URI
+ * base64, así que embeberlo inline no sirve — tiene que ser una imagen hosteada de verdad).
  *
  * Diferencias respecto al diseño original:
  * - El TTL del texto ("30 minutos") coincide con PASSWORD_RESET_TOKEN_TTL_MS real, no con el
@@ -45,7 +44,7 @@ export function buildPasswordResetEmailHtml(resetLink: string): string {
       <a href="https://valora-wallet-frontend.vercel.app/" style="text-decoration:none;display:inline-block;">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
           <tr>
-            <td style="padding-right:10px;vertical-align:middle;"><img src="data:image/png;base64,${VALORA_LOGO_BASE64}" width="34" height="34" alt="Valora" style="display:block;width:34px;height:34px;border:0;"></td>
+            <td style="padding-right:10px;vertical-align:middle;"><img src="https://valora-wallet-frontend.vercel.app/valora-logo.png" width="34" height="34" alt="Valora" style="display:block;width:34px;height:34px;border:0;"></td>
             <td style="vertical-align:middle;text-align:left;">
               <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#f0b429;letter-spacing:0.5px;line-height:24px;">VALORA</div>
               <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:600;color:#9c8f7a;letter-spacing:3px;line-height:12px;">WALLET</div>
