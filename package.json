@@ -13,7 +13,8 @@
     "start": "node dist/server.js",
     "test": "vitest run --pool=threads --max-workers=1",
     "migrate": "node-pg-migrate up",
-    "db:init": "tsx src/database/deploy.ts"
+    "db:init": "tsx src/database/deploy.ts",
+    "db:seed": "tsx src/database/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.1105.0",
