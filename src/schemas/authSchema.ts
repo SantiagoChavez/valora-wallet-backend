@@ -16,25 +16,29 @@ export const PAISES_LATAM = [
  * dependen del país elegido, así que no se pueden validar campo por campo de forma aislada.
  */
 function duYCelularRefinement(
-    data: { du: string; country: (typeof PAISES_LATAM)[number]; phone: string },
+    data: { du?: string; country?: (typeof PAISES_LATAM)[number]; phone?: string },
     ctx: z.RefinementCtx
 ): void {
-    const { valido, label } = validarDocumento(data.du, data.country);
-    if (!valido) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `El ${label} debe tener entre 5 y 15 caracteres alfanuméricos.`,
-            path: ["du"],
-        });
+    if (data.du && data.country) {
+        const { valido, label } = validarDocumento(data.du, data.country);
+        if (!valido) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `El ${label} debe tener entre 5 y 15 caracteres alfanuméricos.`,
+                path: ["du"],
+            });
+        }
     }
 
-    const celular = validarCelular(data.phone, data.country);
-    if (!celular.valido) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
-            path: ["phone"],
-        });
+    if (data.phone && data.country) {
+        const celular = validarCelular(data.phone, data.country);
+        if (!celular.valido) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "El número de celular provisto no es válido. Verificá que sea un celular (no línea fija) del país seleccionado.",
+                path: ["phone"],
+            });
+        }
     }
 }
 

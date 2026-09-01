@@ -293,7 +293,7 @@ describe("Pruebas de integración de transacciones", () => {
       const response = await request(app)
         .post("/transactions/transfer")
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ currency: "USD", amount: 999999, destination: testRecipient.email });
+        .send({ currency: "USD", amount: 5000, destination: testRecipient.email });
 
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);

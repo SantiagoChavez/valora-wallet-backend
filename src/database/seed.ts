@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { pool } from "./db.js";
 import bcrypt from "bcrypt";
+import type { PoolClient } from "pg";
 
 interface SeedUser {
   id: string;
@@ -11,7 +12,7 @@ interface SeedUser {
 /** Poblar la base de datos con cuentas demo para la presentación. */
 async function seed(): Promise<void> {
   console.log("🌱 Iniciando seed de datos...");
-  let client;
+  let client: PoolClient | undefined;
 
   try {
     client = await pool.connect();
