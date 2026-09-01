@@ -18,7 +18,7 @@ const currencyBaseSchema = z
 const amountBaseSchema = z
   .number({ message: "El monto debe ser numérico." })
   .positive("El monto debe ser un número mayor a cero.")
-  .max(1000000, "El monto excede el límite operativo permitido por transacción.")
+  .max(1000000000, "El monto excede el límite operativo permitido por transacción.")
   .refine((val) => {
     // FIX: Permitimos una pequeñísima tolerancia (epsilon) para evitar falsos rechazos 
     // producidos por el ruido del formato IEEE-754 de JavaScript en operaciones matemáticas (ej. 0.1 + 0.2).
