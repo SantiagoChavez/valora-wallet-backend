@@ -4,7 +4,7 @@ import { app } from "../app";
 
 // Archivo separado a propósito: agota el rate limit del endpoint, así que no puede
 // compartir ejecución con los tests funcionales de passwordReset.test.ts sin interferir.
-vi.mock("../services/sesService.js", () => ({
+vi.mock("../services/emailService.js", () => ({
   enviarEmailConfirmacion: vi.fn().mockResolvedValue("mock-message-id"),
 }));
 

@@ -7,7 +7,7 @@ const { enviarEmailConfirmacionMock } = vi.hoisted(() => ({
   enviarEmailConfirmacionMock: vi.fn(),
 }));
 
-vi.mock("../services/sesService.js", () => ({
+vi.mock("../services/emailService.js", () => ({
   enviarEmailConfirmacion: enviarEmailConfirmacionMock,
 }));
 

@@ -226,6 +226,7 @@ export function renderEmailShell(params: {
   bodyHtml: string;
 }): string {
   const year = new Date().getFullYear();
+  const frontendUrl = (process.env.FRONTEND_URL ?? "https://valora-wallet-frontend-chi.vercel.app").replace(/\/$/, "");
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -249,7 +250,7 @@ export function renderEmailShell(params: {
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;background-color:#121411;border:1px solid #262624;border-radius:16px;">
   <tr>
     <td style="padding:36px 40px 24px 40px;text-align:center;">
-      <a href="https://valora-wallet-frontend.vercel.app/" style="text-decoration:none;display:inline-block;">
+      <a href="${frontendUrl}/" style="text-decoration:none;display:inline-block;">
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#f0b429;letter-spacing:0.5px;line-height:24px;">VALORA</div>
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:600;color:#9c8f7a;letter-spacing:3px;line-height:12px;">WALLET</div>
       </a>
@@ -264,7 +265,7 @@ export function renderEmailShell(params: {
   <tr>
     <td style="padding:24px 40px 36px 40px;text-align:center;border-top:1px solid #262624;">
       <div style="padding-bottom:6px;">
-        <a href="https://valora-wallet-frontend.vercel.app/" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#f0b429;text-decoration:none;">Valora Wallet</a>
+        <a href="${frontendUrl}/" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:#f0b429;text-decoration:none;">Valora Wallet</a>
       </div>
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#9c8f7a;padding-bottom:8px;">© ${year} Valora Wallet. Todos los derechos reservados.</div>
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#f0b429;">
