@@ -172,3 +172,22 @@ ALTER TABLE transactions ADD COLUMN IF NOT EXISTS concepto VARCHAR(140);
 -- Alias de la contraparte en transferencias P2P: counterparty_wallet ya guarda el UUID de la
 -- wallet, pero eso no sirve para mostrar en UI — el front necesita el alias legible.
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS counterparty_alias TEXT;
+
+-- Tabla de Tarjetas Virtuales y Físicas
+CREATE TABLE IF NOT EXISTS cards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    wallet_id UUID NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
+    card_number VARCHAR(16) NOT NULL UNIQUE,
+    holder_name VARCHAR(100) NOT NULL,
+    expiry_month VARCHAR(2) NOT NULL,
+    expiry_year VARCHAR(2) NOT NULL,
+    cvv VARCHAR(3) NOT NULL,
+    brand VARCHAR(50) DEFAULT 'VALORA PLATINUM' NOT NULL,
+    card_type VARCHAR(20) DEFAULT 'VIRTUAL' NOT NULL CHECK (card_type IN ('VIRTUAL', 'PHYSICAL')),
+    label VARCHAR(50) DEFAULT 'Tarjeta Principal' NOT NULL,
+    is_frozen BOOLEAN DEFAULT false NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cards_wallet_id ON cards(wallet_id);

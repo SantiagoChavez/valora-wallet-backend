@@ -5,6 +5,11 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.5.0] - 2026-09-02
+
+### Added (Añadido)
+- **Módulo de Tarjetas (Base de datos y Modelo):** Creación de la tabla `cards` en PostgreSQL vinculada a `wallets(id)`, utilidad `cardGenerator.ts` con algoritmo de Luhn (Módulo 10) y modelo `cardModel.ts` para persistencia y gestión de múltiples tarjetas virtuales.
+
 ## [1.4.0] - 2026-09-01
 
 ### Changed (Modificado)
