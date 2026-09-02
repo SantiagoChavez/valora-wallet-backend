@@ -5,6 +5,21 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.5.0] - 2026-09-02
+
+### Added (Añadido)
+- **Módulo de Tarjetas (Base de datos y Modelo):** Creación de la tabla `cards` en PostgreSQL vinculada a `wallets(id)`, utilidad `cardGenerator.ts` con algoritmo de Luhn (Módulo 10) y modelo `cardModel.ts` para persistencia y gestión de múltiples tarjetas virtuales.
+
+## [1.4.0] - 2026-09-01
+
+### Changed (Modificado)
+- **Servicio de Emails (Nodemailer + Gmail SMTP):** Reemplazo integral del proveedor AWS SES por Nodemailer utilizando el transporte SMTP de Gmail (`service: 'gmail'`).
+- **Variables de Entorno:** Eliminación de `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SES_REGION` y `AWS_SES_SENDER_EMAIL` en favor de `EMAIL_USER` y `EMAIL_PASS` (App Password de Google).
+- **Controladores y Transacciones:** Refactorización de `authController` y `transactionService` para consumir el nuevo módulo unificado `emailService.ts`.
+- **Testing:** Creación de la suite de pruebas unitarias `emailService.test.ts` con Vitest y actualización de mocks en `passwordReset.test.ts`, `forgotPasswordRateLimit.test.ts` y `emailNotifications.test.ts`.
+- **Dependencias:** Desinstalación de `@aws-sdk/client-ses` e incorporación de `nodemailer` y `@types/nodemailer`.
+- **Chatbot (Google Gemini):** Configuración del modelo `gemini-3.5-flash-lite` como predeterminado con soporte dinámico para `process.env.GEMINI_MODEL`.
+
 ## [1.3.2] - 2026-08-13
 
 ### Added (Añadido)

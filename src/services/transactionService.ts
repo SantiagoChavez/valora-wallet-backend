@@ -3,7 +3,7 @@ import { findWalletByUserId, findWalletAndUserByIdentifier, findWalletWithNotifi
 import { updateUserBalance } from "../models/balanceModel.js";
 import { insertTransaction, findTransactionsByWalletId, countTransactionsByWalletId } from "../models/transactionModel.js";
 import { getExchangeRates } from "./exchangeRateService.js";
-import { enviarEmailConfirmacion } from "./sesService.js";
+import { enviarEmailConfirmacion } from "./emailService.js";
 import { findUserById } from "../models/userModel.js";
 import { truncateTo8Decimals } from "../utils/mathUtils.js";
 import { buildDepositEmailHtml } from "../emails/depositEmailTemplate.js";

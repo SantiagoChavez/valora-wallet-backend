@@ -6,7 +6,7 @@ const { enviarEmailConfirmacionMock } = vi.hoisted(() => ({
   enviarEmailConfirmacionMock: vi.fn(),
 }));
 
-vi.mock("../services/sesService.js", () => ({
+vi.mock("../services/emailService.js", () => ({
   enviarEmailConfirmacion: enviarEmailConfirmacionMock,
 }));
 
@@ -91,7 +91,7 @@ describe("Toggle de notificaciones por email", () => {
   });
 
   describe("Efecto real del toggle sobre el envío de emails", () => {
-    it("NO debería llamar a SES al confirmar un depósito si las notificaciones están desactivadas", async () => {
+    it("NO debería llamar al servicio de email al confirmar un depósito si las notificaciones están desactivadas", async () => {
       await request(app)
         .patch("/auth/me/notifications")
         .set("Authorization", `Bearer ${authToken}`)
@@ -110,7 +110,7 @@ describe("Toggle de notificaciones por email", () => {
       expect(enviarEmailConfirmacionMock).not.toHaveBeenCalled();
     });
 
-    it("SÍ debería llamar a SES al confirmar un depósito si las notificaciones están activadas", async () => {
+    it("SÍ debería llamar al servicio de email al confirmar un depósito si las notificaciones están activadas", async () => {
       await request(app)
         .patch("/auth/me/notifications")
         .set("Authorization", `Bearer ${authToken}`)

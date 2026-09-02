@@ -18,7 +18,7 @@ import { createWallet, findWalletByUserId, type Wallet } from "../models/walletM
 import { createOrUpdateBalance, findBalancesByWalletId } from "../models/balanceModel.js";
 import type { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { pool } from "../database/db.js";
-import { enviarEmailConfirmacion } from "../services/sesService.js";
+import { enviarEmailConfirmacion } from "../services/emailService.js";
 import { buildPasswordResetEmailHtml } from "../emails/passwordResetEmailTemplate.js";
 import { validarCelular } from "../utils/phoneValidation.js";
 
@@ -541,7 +541,7 @@ export async function forgotPasswordController(
       }
       const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
-      // No se loguea acá: sesService.ts ya loguea el error internamente antes de re-lanzarlo.
+      // No se loguea acá: emailService.ts ya loguea el error internamente antes de re-lanzarlo.
       // Este catch solo existe para evitar un unhandled rejection.
       enviarEmailConfirmacion({
         destinatario: user.email,

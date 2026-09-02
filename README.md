@@ -8,28 +8,47 @@ Desarrollado por **Nexo Tech Solutions** como Proyecto Final para la carrera Ful
 
 ## 🚀 Enlaces de Despliegue
 
-- **Backend API (Railway):** [https://valora-wallet-backend-production.up.railway.app](https://valora-wallet-backend-production.up.railway.app)
-- **Base de Datos PostgreSQL (Railway):** Privada (Conexión TCP interna con el backend, cumpliendo estándar de seguridad).
-- **Frontend (Vercel):** [https://valora-wallet-frontend.vercel.app](https://valora-wallet-frontend.vercel.app)
+- **Frontend (Vercel):** [https://valora-wallet-frontend-chi.vercel.app](https://valora-wallet-frontend-chi.vercel.app) *(¡Probá la aplicación en vivo desde acá!)*
+- **Backend API (Render):** [https://valora-wallet-backend.onrender.com](https://valora-wallet-backend.onrender.com)
+- **Base de Datos PostgreSQL (Neon):** PostgreSQL serverless activo y conectado.
+
+---
+
+## 🔑 Cuentas de Prueba (Demo Users)
+
+Para probar todas las funcionalidades en vivo o localmente sin necesidad de registrarse desde cero, puedes iniciar sesión con cualquiera de las siguientes cuentas demo precargadas:
+
+> **Contraseña universal para todas las cuentas demo:** `Test1234!`
+
+| Usuario | Correo Electrónico | País | Alias Valora | Saldos Precargados |
+| :--- | :--- | :---: | :--- | :--- |
+| **Juan Pérez** | `demo.juan@valora.com` | 🇦🇷 AR | `demo.juan.valora` | $3,900 USD · $150,000 ARS · €1,000 EUR |
+| **María Gómez** | `demo.maria@valora.com` | 🇨🇴 CO | `demo.maria.valora` | $3,900 USD · $150,000 ARS · €1,000 EUR |
+| **Carlos López** | `demo.carlos@valora.com` | 🇲🇽 MX | `demo.carlos.valora` | $3,900 USD · $150,000 ARS · €1,000 EUR |
+
+*(También puedes registrar una cuenta nueva o ingresar con tu cuenta de Google).*
+
+---
 
 ## Stack
 
 - **Runtime:** Node.js 22+ / Express 5 / TypeScript (ESM)
-- **Base de datos:** PostgreSQL (Railway)
+- **Base de datos:** PostgreSQL (Neon)
 - **Autenticación:** JWT (HS256, TTL 15 min) + Google OAuth 2.0
 - **Validación:** Zod v4 + libphonenumber-js (celular por país) + validación de DU por país
-- **Emails:** AWS SES (comprobantes transaccionales)
+- **Emails:** Nodemailer + Gmail SMTP (comprobantes transaccionales y recuperación de cuenta)
 - **Chatbot:** Google Gemini API (gemini-3.5-flash-lite)
 - **Seguridad:** express-rate-limit, CORS whitelist dinámica, middleware de perfil completo
 - **Testing:** Vitest + Supertest (18 suites, 100+ tests)
-- **Despliegue:** Railway (CI/CD automático desde `main`)
+- **Despliegue:** Render (Backend) / Vercel (Frontend)
 
 ## Requisitos
 
 - Node.js 22+
-- Cuenta de PostgreSQL local o acceso a la instancia de Railway
+- Cuenta de PostgreSQL local o acceso a la instancia de Neon
 - Variables de entorno (ver `.env.example`)
 - (Opcional) Google Cloud Console con OAuth Client ID configurado para login con Google
+- Cuenta de Gmail con Contraseña de Aplicación (App Password) habilitada
 
 ## Instalación y setup local
 
@@ -39,7 +58,7 @@ cd valora-wallet-backend
 npm install
 cp .env.example .env   # completar con tus valores locales
 npm run db:init        # inicializa el esquema de la base de datos (PostgreSQL)
-npx tsx src/database/seed.ts  # (opcional) poblar con datos demo para la presentación
+npm run db:seed        # (opcional) poblar con datos demo para la presentación
 npm run dev             # levanta el servidor en modo desarrollo
 ```
 
@@ -51,10 +70,8 @@ npm run dev             # levanta el servidor en modo desarrollo
 | `DB_SSL_REJECT_UNAUTHORIZED` | Valida estrictamente certificados SSL de la base de datos (por defecto `true`). Colocar `false` para omitir. |
 | `JWT_SECRET`            | Secreto para firmar los tokens JWT (HS256, TTL 15 min) |
 | `GOOGLE_CLIENT_ID`      | Client ID de Google OAuth 2.0 (Google Cloud Console)   |
-| `AWS_ACCESS_KEY_ID`     | Credencial de AWS SES                                  |
-| `AWS_SECRET_ACCESS_KEY` | Credencial de AWS SES                                  |
-| `AWS_SES_REGION`        | Región de AWS SES                                      |
-| `AWS_SES_SENDER_EMAIL`  | Email remitente verificado en AWS SES                  |
+| `EMAIL_USER`            | Dirección de correo de Gmail para el envío de notificaciones y comprobantes |
+| `EMAIL_PASS`            | Contraseña de aplicación (App Password) de 16 caracteres de Google |
 | `GEMINI_API_KEY`        | API key de Google Gemini                               |
 | `FRONTEND_URL`          | URL del frontend en Vercel, usada para configurar CORS |
 | `PORT`                  | Puerto local (default 3000)                            |
@@ -69,7 +86,7 @@ src/
   ├── models/          # Modelos de datos (users, wallets, balances, transactions)
   ├── routes/          # Definición de rutas de la API
   ├── schemas/         # Esquemas de validación Zod (auth, transactions)
-  ├── services/        # Integraciones externas (Frankfurter, Gemini, AWS SES)
+  ├── services/        # Integraciones externas (Frankfurter, Gemini, Nodemailer/Gmail SMTP)
   ├── tests/           # 18 suites de tests con Vitest + Supertest
   └── utils/           # JWT, validación de celular, validación de documento
 docs/
@@ -105,12 +122,14 @@ Trabajamos bajo un marco **Ágil** en Sprints semanales (Sprint 1: Fundamentos, 
 
 ## 📊 Modelo de Datos y Justificación de Diseño (PostgreSQL)
 
-El diseño de la base de datos sigue las mejores prácticas de modelado relacional para garantizar consistencia, integridad de los datos y alto rendimiento. El modelo consta de 4 tablas principales:
+El diseño de la base de datos sigue las mejores prácticas de modelado relacional para garantizar consistencia, integridad de los datos y alto rendimiento. Las tablas principales del esquema son:
 
 - **`users`** — Almacena las cuentas de los usuarios (datos personales, email y contraseña hasheada).
 - **`wallets`** — Representa la billetera digital vinculada al usuario (relación 1:1).
 - **`balances`** — Registra los saldos disponibles por moneda para cada billetera (relación 1:N).
-- **`transactions`** — Funciona como un ledger (libro contable) inmutable de todas las operaciones (compras, ventas, exchanges, depósitos).
+- **`transactions`** — Funciona como un ledger (libro contable) inmutable de todas las operaciones (compras, ventas, exchanges, depósitos, transferencias).
+- **`cards`** — Administra las tarjetas virtuales y físicas asociadas a la billetera (relación 1:N) con control de congelamiento y generación segura (algoritmo de Luhn).
+- **`chatbot_histories`** — Registra el historial de conversaciones del asistente financiero por usuario.
 
 ### Justificación de las Decisiones de Diseño (Criterio de Rúbrica)
 
