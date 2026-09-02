@@ -41,6 +41,9 @@ function getTransporter(): Transporter {
       user,
       pass,
     },
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
   });
 
   return transporter;
