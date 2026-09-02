@@ -2,7 +2,15 @@
 
 API REST para **Valora Wallet**, billetera digital multi-moneda para freelancers y trabajadores remotos en LATAM. 
 
-Desarrollado por **Nexo Tech Solutions** como Proyecto Final para la carrera Full Stack de **Henry**.
+Desarrollado originalmente por **Nexo Tech Solutions** como Proyecto Final para la carrera Full Stack de **Henry**, y actualmente mantenido y evolucionado de manera **personal e individual por Santiago Chavez**.
+
+> ℹ️ **Nota de Evolución del Proyecto:**  
+> La versión original del proyecto utilizaba infraestructura de pago (Railway para Backend/DB y AWS SES para emails). La presente versión fue optimizada, refactorizada y migrada para operar íntegramente sobre **planes gratuitos** bajo cuentas personales de Santiago Chavez:
+> - **Frontend:** Desplegado en **Vercel**.
+> - **Backend API:** Desplegado en **Render**.
+> - **Base de Datos:** **Neon PostgreSQL (Serverless)**.
+> - **Servicio de Emails:** Migrado a **Nodemailer + Gmail SMTP** (reemplazando AWS SES).
+> - **Asistente de IA (Chatbot):** Integrado con **Google Gemini 3.5 Flash Lite** para respuestas financieras inteligentes y alto límite de contexto.
 
 > **Nuestra Misión:** Facilitar la vida financiera de los profesionales independientes permitiéndoles centralizar cobros internacionales en múltiples monedas, realizar conversiones con tasas transparentes en tiempo real y contar con un asistente de IA para optimizar la gestión de sus ingresos.
 
@@ -39,7 +47,7 @@ Para probar todas las funcionalidades en vivo o localmente sin necesidad de regi
 - **Emails:** Nodemailer + Gmail SMTP (comprobantes transaccionales y recuperación de cuenta)
 - **Chatbot:** Google Gemini API (gemini-3.5-flash-lite)
 - **Seguridad:** express-rate-limit, CORS whitelist dinámica, middleware de perfil completo
-- **Testing:** Vitest + Supertest (18 suites, 100+ tests)
+- **Testing:** Vitest + Supertest (20 suites, 130+ tests)
 - **Despliegue:** Render (Backend) / Vercel (Frontend)
 
 ## Requisitos
@@ -290,13 +298,13 @@ npm run db:init    # inicializa y despliega el esquema SQL en la base de datos (
 npx tsx src/database/seed.ts  # poblar con usuarios demo y transacciones para la presentación
 ```
 
-## ⚙️ Despliegue en Producción (Railway y Vercel)
+## ⚙️ Despliegue en Producción (Render, Neon y Vercel)
 
-El backend de **Valora Wallet** se encuentra configurado para un flujo de Integración y Despliegue Continuo (CI/CD) conectado a **Railway**:
+El backend de **Valora Wallet** se encuentra configurado para un flujo de Integración y Despliegue Continuo (CI/CD) conectado a **Render** y **Neon**:
 
-1. **Conexión Automática:** Cada push a la rama `main` del repositorio de GitHub dispara un deploy automático en Railway.
-2. **Infraestructura de Base de Datos:** Se utiliza un servicio provisionado de PostgreSQL dentro de Railway, el cual mantiene la base de datos persistente.
-3. **Configuración de Entorno:** Las variables de entorno críticas (definidas en `.env.example`) se configuran directamente en el panel de control del servicio de Railway, asegurando que ningún dato sensible o credencial de API se exponga en el repositorio.
+1. **Conexión Automática:** Cada push a la rama `main` del repositorio de GitHub dispara un deploy automático en **Render**.
+2. **Infraestructura de Base de Datos:** Se utiliza una instancia serverless de **PostgreSQL en Neon**, la cual mantiene la persistencia y alta disponibilidad de los datos.
+3. **Configuración de Entorno:** Las variables de entorno críticas (definidas en `.env.example`) se configuran directamente en el panel de control del servicio de Render, asegurando que ningún dato sensible o credencial de API se exponga en el repositorio.
 4. **CORS:** El backend restringe el acceso de orígenes cruzados permitiendo únicamente peticiones provenientes de la URL del frontend desplegado en **Vercel** (configurado a través de `FRONTEND_URL`) y del entorno de desarrollo local.
 
 ## Seed Data (Datos de Demostración)
@@ -308,7 +316,7 @@ npx tsx src/database/seed.ts
 ```
 
 Esto crea 3 usuarios demo (`demo.juan@valora.com`, `demo.maria@valora.com`, `demo.carlos@valora.com`) con:
-- Saldos pre-cargados: $5,000 USD, $150,000 ARS y €1,000 EUR cada uno.
+- Saldos pre-cargados: $3,900 USD, $150,000 ARS y €1,000 EUR cada uno.
 - Historial de transacciones variado (depósito, compra de divisas, intercambio).
 
 El script es idempotente (seguro de re-ejecutar) y corre dentro de una transacción ACID.
@@ -317,11 +325,11 @@ El script es idempotente (seguro de re-ejecutar) y corre dentro de una transacci
 
 La guía paso a paso para probar todos los endpoints con Insomnia o cualquier cliente HTTP se encuentra en [`docs/Endpoints.txt`](docs/Endpoints.txt).
 
-## 👥 El Equipo (Nexo Tech Solutions)
+## 👥 El Equipo (Nexo Tech Solutions & Desarrollo Personal)
 
-Trabajamos como un **Equipo de Desarrollo Full-Stack** coordinado bajo la visión del PO (Product Owner - Henry). Roles internos de ejecución:
+El proyecto nació bajo la coordinación del equipo **Nexo Tech Solutions** para el Proyecto Final de Henry:
 
-- **Santiago Ezequiel Chavez:** Full Stack (Backend Core Lead). Base de datos PostgreSQL ACID, seguridad de API, validaciones Zod, testing y despliegue en Railway.
-- **Daniel Sardinas:** Full Stack (AI & Core Logic). Integración de Gemini 2.5, lógica de transacciones complejas.
+- **Santiago Ezequiel Chavez:** Full Stack (Backend Core Lead & Actual Maintainer). Arquitectura PostgreSQL ACID, seguridad de API, validaciones Zod, testing, despliegue en Render/Neon y evolución personal del proyecto.
+- **Daniel Sardinas:** Full Stack (AI & Core Logic). Integración inicial de Gemini y lógica de transacciones complejas.
 - **Gerardo Acosta:** Full Stack (Orientación Frontend). Routing, layout, vistas principales e historial.
-- **Analía Pérez Juliá:** Full Stack (Orientación Frontend + Integraciones). UX/UI, AWS SES, validaciones multi-país, documentación y Scrum Master.
+- **Analía Pérez Juliá:** Full Stack (Orientación Frontend + Integraciones). UX/UI, maquetado, validaciones multi-país y Scrum Master.
