@@ -15,8 +15,11 @@ import {
 const MAX_CARDS_PER_WALLET = 5;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function isValidUuid(id: string): boolean {
-  return UUID_REGEX.test(id);
+function getValidUuid(param: string | string[] | undefined): string | null {
+  if (typeof param === "string" && UUID_REGEX.test(param)) {
+    return param;
+  }
+  return null;
 }
 
 /**
@@ -63,14 +66,13 @@ export async function getCardDetailsController(
 ): Promise<void> {
   try {
     const userId = req.user?.userId;
-    const { id } = req.params;
-
     if (!userId) {
       res.status(401).json({ success: false, error: "UnauthorizedError", message: "Token no proporcionado." });
       return;
     }
 
-    if (!id || !isValidUuid(id)) {
+    const id = getValidUuid(req.params.id);
+    if (!id) {
       res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El ID de tarjeta provisto no es válido." });
       return;
     }
@@ -162,14 +164,13 @@ export async function toggleFreezeCardController(
 ): Promise<void> {
   try {
     const userId = req.user?.userId;
-    const { id } = req.params;
-
     if (!userId) {
       res.status(401).json({ success: false, error: "UnauthorizedError", message: "Token no proporcionado." });
       return;
     }
 
-    if (!id || !isValidUuid(id)) {
+    const id = getValidUuid(req.params.id);
+    if (!id) {
       res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El ID de tarjeta provisto no es válido." });
       return;
     }
@@ -208,14 +209,13 @@ export async function deleteCardController(
 ): Promise<void> {
   try {
     const userId = req.user?.userId;
-    const { id } = req.params;
-
     if (!userId) {
       res.status(401).json({ success: false, error: "UnauthorizedError", message: "Token no proporcionado." });
       return;
     }
 
-    if (!id || !isValidUuid(id)) {
+    const id = getValidUuid(req.params.id);
+    if (!id) {
       res.status(400).json({ success: false, error: "VALIDATION_ERROR", message: "El ID de tarjeta provisto no es válido." });
       return;
     }
