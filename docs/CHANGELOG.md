@@ -9,6 +9,8 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ### Added (Añadido)
 - **Módulo de Tarjetas (Base de datos y Modelo):** Creación de la tabla `cards` en PostgreSQL vinculada a `wallets(id)`, utilidad `cardGenerator.ts` con algoritmo de Luhn (Módulo 10) y modelo `cardModel.ts` para persistencia y gestión de múltiples tarjetas virtuales.
+- **Endpoints REST de Tarjetas (`/cards`):** Implementación de `GET /cards` (listado), `GET /cards/:id/details` (detalles completos), `POST /cards` (emisión con límite de 5 por cuenta y validación Zod), `PATCH /cards/:id/freeze` (congelar/reactivar) y `DELETE /cards/:id` (baja definitiva).
+- **Testing:** Creación de la suite de pruebas unitarias y de integración `cards.test.ts` con Vitest y Supertest cubriendo el 100% del ciclo de vida de una tarjeta.
 
 ## [1.4.0] - 2026-09-01
 

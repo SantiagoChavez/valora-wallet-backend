@@ -39,7 +39,7 @@ Para probar todas las funcionalidades en vivo o localmente sin necesidad de regi
 - **Emails:** Nodemailer + Gmail SMTP (comprobantes transaccionales y recuperación de cuenta)
 - **Chatbot:** Google Gemini API (gemini-3.5-flash-lite)
 - **Seguridad:** express-rate-limit, CORS whitelist dinámica, middleware de perfil completo
-- **Testing:** Vitest + Supertest (18 suites, 100+ tests)
+- **Testing:** Vitest + Supertest (20 suites, 130+ tests)
 - **Despliegue:** Render (Backend) / Vercel (Frontend)
 
 ## Requisitos

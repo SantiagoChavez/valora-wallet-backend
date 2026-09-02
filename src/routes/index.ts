@@ -5,6 +5,7 @@ import { balanceRouter } from "./balanceRoutes.js";
 import { chatbotRouter } from "./chatbotRoutes.js";
 import { walletRouter } from "./walletRoutes.js";
 import { catalogRouter } from "./catalogRoutes.js";
+import { cardRouter } from "./cardRoutes.js";
 
 export const router = Router();
 
@@ -27,3 +28,4 @@ router.use("/balances", balanceRouter);
 router.use("/chatbot", chatbotRouter);
 router.use("/wallet", walletRouter);
 router.use("/catalogs", catalogRouter);
+router.use("/cards", cardRouter);
