@@ -13,6 +13,7 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - **Controladores y Transacciones:** Refactorización de `authController` y `transactionService` para consumir el nuevo módulo unificado `emailService.ts`.
 - **Testing:** Creación de la suite de pruebas unitarias `emailService.test.ts` con Vitest y actualización de mocks en `passwordReset.test.ts`, `forgotPasswordRateLimit.test.ts` y `emailNotifications.test.ts`.
 - **Dependencias:** Desinstalación de `@aws-sdk/client-ses` e incorporación de `nodemailer` y `@types/nodemailer`.
+- **Chatbot (Google Gemini):** Configuración del modelo `gemini-3.5-flash-lite` como predeterminado con soporte dinámico para `process.env.GEMINI_MODEL`.
 
 ## [1.3.2] - 2026-08-13
 
