@@ -12,6 +12,10 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - **Endpoints REST de Tarjetas (`/cards`):** Implementación de `GET /cards` (listado), `GET /cards/:id/details` (detalles completos), `POST /cards` (emisión con límite de 5 por cuenta y validación Zod), `PATCH /cards/:id/freeze` (congelar/reactivar) y `DELETE /cards/:id` (baja definitiva).
 - **Testing:** Creación de la suite de pruebas unitarias y de integración `cards.test.ts` con Vitest y Supertest cubriendo el 100% del ciclo de vida de una tarjeta.
 
+### Changed (Modificado)
+- **Asuntos Dinámicos en Emails de Transferencia:** Incorporación del nombre y apellido de la contraparte (`Transferencia enviada a ...` / `Transferencia recibida de ...`) en los asuntos de los correos para evitar el colapso de hilos en Gmail y garantizar notificaciones destacadas e independientes por cada operación.
+- **Resiliencia DevOps y Rate Limiting:** Exclusión de `/` y `/health` del rate limiter global en `app.ts` (`skip: (req) => req.path === '/health' || req.path === '/'`) para evitar bloqueos `429 Too Many Requests` ante las sondas automáticas de monitoreo de Render.
+
 ## [1.4.0] - 2026-09-01
 
 ### Changed (Modificado)
