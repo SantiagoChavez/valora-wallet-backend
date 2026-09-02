@@ -368,7 +368,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
         const transferDate = new Date();
 
         notifyUserAsync(
-            "Transferencia enviada - Valora Wallet",
+            `Transferencia enviada a ${recipientInfo.first_name} ${recipientInfo.last_name} - Valora Wallet`,
             buildTransferSentEmailHtml({
                 amount: cleanAmount,
                 currency,
@@ -382,7 +382,7 @@ export async function executeTransfer(senderUserId: string, currency: string, am
             { email: senderUser.email, notificationsEnabled: senderUser.email_notifications_enabled }
         );
         notifyUserAsync(
-            "Transferencia recibida - Valora Wallet",
+            `Transferencia recibida de ${senderUser.first_name} ${senderUser.last_name} - Valora Wallet`,
             buildTransferReceivedEmailHtml({
                 amount: cleanAmount,
                 currency,
