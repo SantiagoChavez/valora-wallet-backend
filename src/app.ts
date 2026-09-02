@@ -59,9 +59,11 @@ app.use(express.json());
 
 // Limitador de peticiones (Rate Limiting) global para prevenir ataques DoS
 // Limita a cada IP a un máximo de 100 peticiones cada 15 minutos.
+// Excluye /health y / para no bloquear los health checks automáticos de Render / monitores de uptime.
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100, // límite de 100 peticiones por ventana por IP
+  skip: (req) => req.path === "/health" || req.path === "/",
   message: {
     success: false,
     error: "TOO_MANY_REQUESTS",
