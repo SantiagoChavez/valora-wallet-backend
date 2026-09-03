@@ -1,5 +1,4 @@
-import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
+import { Resend } from "resend";
 import { emailRegex } from "../utils/emailValidation.js";
 
 /**
@@ -10,43 +9,25 @@ function redactEmail(email: string): string {
   return atIndex === -1 ? "***" : `***${email.slice(atIndex)}`;
 }
 
-let transporter: Transporter | undefined;
+let resendClient: Resend | undefined;
 
 /**
- * Crea (una sola vez) y devuelve el transporter de Nodemailer configurado con Gmail SMTP,
- * validando las variables de entorno requeridas.
- * @returns El transporter de Nodemailer listo para usar.
+ * Inicializa y devuelve la instancia del cliente de Resend (singleton),
+ * validando que la variable de entorno RESEND_API_KEY esté configurada.
  */
-function getTransporter(): Transporter {
-  if (transporter) {
-    return transporter;
+function getResendClient(): Resend {
+  if (resendClient) {
+    return resendClient;
   }
 
-  const user = process.env.EMAIL_USER?.trim();
-  const pass = process.env.EMAIL_PASS?.trim();
+  const apiKey = process.env.RESEND_API_KEY?.trim();
 
-  if (!user) {
-    throw new Error("La variable de entorno EMAIL_USER no está configurada.");
-  }
-  if (!emailRegex.test(user)) {
-    throw new Error("La variable de entorno EMAIL_USER no tiene un formato de email válido.");
-  }
-  if (!pass) {
-    throw new Error("La variable de entorno EMAIL_PASS no está configurada.");
+  if (!apiKey) {
+    throw new Error("La variable de entorno RESEND_API_KEY no está configurada.");
   }
 
-  transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user,
-      pass,
-    },
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-  });
-
-  return transporter;
+  resendClient = new Resend(apiKey);
+  return resendClient;
 }
 
 export interface EmailConfirmacionParams {
@@ -56,9 +37,9 @@ export interface EmailConfirmacionParams {
 }
 
 /**
- * Envía un email transaccional vía Nodemailer utilizando el transporte SMTP de Gmail.
+ * Envía un email transaccional vía Resend HTTPS REST API.
  * @param params - Destinatario, asunto y cuerpo HTML del email.
- * @returns El messageId devuelto por el servidor SMTP.
+ * @returns El id del mensaje devuelto por Resend.
  */
 export async function enviarEmailConfirmacion({
   destinatario,
@@ -77,21 +58,24 @@ export async function enviarEmailConfirmacion({
     throw new Error("El cuerpo del email no puede estar vacío.");
   }
 
-  const mailTransporter = getTransporter();
-  const senderUser = process.env.EMAIL_USER?.trim();
+  const client = getResendClient();
 
   try {
-    const info = await mailTransporter.sendMail({
-      from: `"Valora Wallet" <${senderUser}>`,
-      to: destinatarioNormalizado,
+    const { data, error } = await client.emails.send({
+      from: "Valora Wallet <onboarding@resend.dev>",
+      to: [destinatarioNormalizado],
       subject: asunto,
       html: cuerpoHtml,
     });
 
-    const messageId = info.messageId || "sent";
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const messageId = data?.id || "sent";
 
     if (process.env.NODE_ENV !== "production") {
-      console.log("Email de confirmación enviado", {
+      console.log("Email de confirmación enviado vía Resend", {
         destinatario: redactEmail(destinatarioNormalizado),
         messageId,
       });
@@ -99,7 +83,7 @@ export async function enviarEmailConfirmacion({
 
     return messageId;
   } catch (error) {
-    console.error("Fallo al enviar email de confirmación vía Nodemailer", {
+    console.error("Fallo al enviar email de confirmación vía Resend", {
       destinatario: redactEmail(destinatarioNormalizado),
       error: error instanceof Error ? { name: error.name, message: error.message } : error,
     });

@@ -26,8 +26,8 @@
     "google-auth-library": "^11.0.0",
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.13.10",
-    "nodemailer": "^9.1.1",
     "pg": "^8.22.0",
+    "resend": "^6.25.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -36,7 +36,6 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.2.0",
-    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.1",
     "node-pg-migrate": "^9.0.0",

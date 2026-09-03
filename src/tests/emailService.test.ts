@@ -1,23 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import nodemailer from "nodemailer";
 
-const { sendMailMock, createTransportMock } = vi.hoisted(() => {
-  const sendMail = vi.fn();
-  const createTransport = vi.fn().mockImplementation(() => ({
-    sendMail,
-  }));
-  return { sendMailMock: sendMail, createTransportMock: createTransport };
+const sendMock = vi.fn();
+
+vi.mock("resend", () => {
+  return {
+    Resend: vi.fn().mockImplementation(function (this: any) {
+      this.emails = {
+        send: sendMock,
+      };
+    }),
+  };
 });
 
-vi.mock("nodemailer", () => ({
-  default: {
-    createTransport: createTransportMock,
-  },
-}));
-
 const REQUIRED_ENV_VARS = {
-  EMAIL_USER: "remitente@gmail.com",
-  EMAIL_PASS: "abcd efgh ijkl mnop",
+  RESEND_API_KEY: "re_test_key_12345",
 } as const;
 const TRACKED_ENV_VARS = Object.keys(REQUIRED_ENV_VARS);
 
@@ -26,8 +22,7 @@ describe("emailService", () => {
 
   beforeEach(() => {
     vi.resetModules();
-    sendMailMock.mockReset();
-    createTransportMock.mockClear();
+    sendMock.mockReset();
 
     for (const key of TRACKED_ENV_VARS) {
       originalEnv[key] = process.env[key];
@@ -48,7 +43,7 @@ describe("emailService", () => {
   });
 
   it("envía el email y devuelve el messageId cuando los datos son válidos", async () => {
-    sendMailMock.mockResolvedValueOnce({ messageId: "msg-12345" });
+    sendMock.mockResolvedValueOnce({ data: { id: "resend-msg-12345" }, error: null });
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     const messageId = await enviarEmailConfirmacion({
@@ -57,18 +52,11 @@ describe("emailService", () => {
       cuerpoHtml: "<p>Listo</p>",
     });
 
-    expect(messageId).toBe("msg-12345");
-    expect(createTransportMock).toHaveBeenCalledWith({
-      service: "gmail",
-      auth: {
-        user: "remitente@gmail.com",
-        pass: "abcd efgh ijkl mnop",
-      },
-    });
-    expect(sendMailMock).toHaveBeenCalledTimes(1);
-    expect(sendMailMock).toHaveBeenCalledWith({
-      from: '"Valora Wallet" <remitente@gmail.com>',
-      to: "usuario@mail.com",
+    expect(messageId).toBe("resend-msg-12345");
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledWith({
+      from: "Valora Wallet <onboarding@resend.dev>",
+      to: ["usuario@mail.com"],
       subject: "Confirmación",
       html: "<p>Listo</p>",
     });
@@ -84,7 +72,7 @@ describe("emailService", () => {
         cuerpoHtml: "<p>Listo</p>",
       }),
     ).rejects.toThrow("formato válido");
-    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("rechaza si el asunto está vacío", async () => {
@@ -97,7 +85,7 @@ describe("emailService", () => {
         cuerpoHtml: "<p>Listo</p>",
       }),
     ).rejects.toThrow("asunto");
-    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("rechaza si el cuerpo del email está vacío", async () => {
@@ -110,11 +98,11 @@ describe("emailService", () => {
         cuerpoHtml: "   ",
       }),
     ).rejects.toThrow("cuerpo");
-    expect(sendMailMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("propaga el error cuando Nodemailer falla al enviar", async () => {
-    sendMailMock.mockRejectedValueOnce(new Error("SMTP no disponible"));
+  it("propaga el error cuando Resend responde con un error de API", async () => {
+    sendMock.mockResolvedValueOnce({ data: null, error: { message: "API key inválida" } });
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     await expect(
@@ -123,11 +111,11 @@ describe("emailService", () => {
         asunto: "Confirmación",
         cuerpoHtml: "<p>Listo</p>",
       }),
-    ).rejects.toThrow("SMTP no disponible");
+    ).rejects.toThrow("API key inválida");
   });
 
-  it("devuelve 'sent' como fallback si sendMail no retorna messageId", async () => {
-    sendMailMock.mockResolvedValueOnce({});
+  it("devuelve 'sent' como fallback si Resend no retorna id de mensaje", async () => {
+    sendMock.mockResolvedValueOnce({ data: {}, error: null });
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     const messageId = await enviarEmailConfirmacion({
@@ -139,8 +127,8 @@ describe("emailService", () => {
     expect(messageId).toBe("sent");
   });
 
-  it("rechaza si falta la variable de entorno EMAIL_USER", async () => {
-    delete process.env.EMAIL_USER;
+  it("rechaza si falta la variable de entorno RESEND_API_KEY", async () => {
+    delete process.env.RESEND_API_KEY;
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     await expect(
@@ -149,32 +137,6 @@ describe("emailService", () => {
         asunto: "Confirmación",
         cuerpoHtml: "<p>Listo</p>",
       }),
-    ).rejects.toThrow("EMAIL_USER");
-  });
-
-  it("rechaza si EMAIL_USER tiene un formato inválido", async () => {
-    process.env.EMAIL_USER = "invalido";
-    const { enviarEmailConfirmacion } = await import("../services/emailService.js");
-
-    await expect(
-      enviarEmailConfirmacion({
-        destinatario: "usuario@mail.com",
-        asunto: "Confirmación",
-        cuerpoHtml: "<p>Listo</p>",
-      }),
-    ).rejects.toThrow("formato de email válido");
-  });
-
-  it("rechaza si falta la variable de entorno EMAIL_PASS", async () => {
-    delete process.env.EMAIL_PASS;
-    const { enviarEmailConfirmacion } = await import("../services/emailService.js");
-
-    await expect(
-      enviarEmailConfirmacion({
-        destinatario: "usuario@mail.com",
-        asunto: "Confirmación",
-        cuerpoHtml: "<p>Listo</p>",
-      }),
-    ).rejects.toThrow("EMAIL_PASS");
+    ).rejects.toThrow("RESEND_API_KEY");
   });
 });
