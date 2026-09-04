@@ -1,4 +1,3 @@
-import { Resend } from "resend";
 import { emailRegex } from "../utils/emailValidation.js";
 
 /**
@@ -9,27 +8,6 @@ function redactEmail(email: string): string {
   return atIndex === -1 ? "***" : `***${email.slice(atIndex)}`;
 }
 
-let resendClient: Resend | undefined;
-
-/**
- * Inicializa y devuelve la instancia del cliente de Resend (singleton),
- * validando que la variable de entorno RESEND_API_KEY esté configurada.
- */
-function getResendClient(): Resend {
-  if (resendClient) {
-    return resendClient;
-  }
-
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-
-  if (!apiKey) {
-    throw new Error("La variable de entorno RESEND_API_KEY no está configurada.");
-  }
-
-  resendClient = new Resend(apiKey);
-  return resendClient;
-}
-
 export interface EmailConfirmacionParams {
   destinatario: string;
   asunto: string;
@@ -37,9 +15,9 @@ export interface EmailConfirmacionParams {
 }
 
 /**
- * Envía un email transaccional vía Resend HTTPS REST API.
+ * Envía un email transaccional vía Brevo HTTPS REST API.
  * @param params - Destinatario, asunto y cuerpo HTML del email.
- * @returns El id del mensaje devuelto por Resend.
+ * @returns El id del mensaje devuelto por Brevo.
  */
 export async function enviarEmailConfirmacion({
   destinatario,
@@ -58,24 +36,44 @@ export async function enviarEmailConfirmacion({
     throw new Error("El cuerpo del email no puede estar vacío.");
   }
 
-  const client = getResendClient();
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("La variable de entorno BREVO_API_KEY no está configurada.");
+  }
+
+  const senderEmail = process.env.BREVO_SENDER_EMAIL?.trim() || "chavezsantiago480@gmail.com";
+  const senderName = process.env.BREVO_SENDER_NAME?.trim() || "Valora Wallet";
 
   try {
-    const { data, error } = await client.emails.send({
-      from: "Valora Wallet <onboarding@resend.dev>",
-      to: [destinatarioNormalizado],
-      subject: asunto,
-      html: cuerpoHtml,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email: destinatarioNormalizado }],
+        subject: asunto,
+        htmlContent: cuerpoHtml,
+      }),
     });
 
-    if (error) {
-      throw new Error(error.message);
+    const data = (await response.json().catch(() => ({}))) as {
+      messageId?: string;
+      message?: string;
+      code?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(data.message || `Error de Brevo API (${response.status})`);
     }
 
-    const messageId = data?.id || "sent";
+    const messageId = data.messageId || "sent";
 
     if (process.env.NODE_ENV !== "production") {
-      console.log("Email de confirmación enviado vía Resend", {
+      console.log("Email de confirmación enviado vía Brevo", {
         destinatario: redactEmail(destinatarioNormalizado),
         messageId,
       });
@@ -83,7 +81,7 @@ export async function enviarEmailConfirmacion({
 
     return messageId;
   } catch (error) {
-    console.error("Fallo al enviar email de confirmación vía Resend", {
+    console.error("Fallo al enviar email de confirmación vía Brevo", {
       destinatario: redactEmail(destinatarioNormalizado),
       error: error instanceof Error ? { name: error.name, message: error.message } : error,
     });
