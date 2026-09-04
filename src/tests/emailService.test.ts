@@ -1,28 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const sendMock = vi.fn();
-
-vi.mock("resend", () => {
-  return {
-    Resend: vi.fn().mockImplementation(function (this: any) {
-      this.emails = {
-        send: sendMock,
-      };
-    }),
-  };
-});
-
 const REQUIRED_ENV_VARS = {
-  RESEND_API_KEY: "re_test_key_12345",
+  BREVO_API_KEY: "xkeysib-test-api-key-12345",
+  BREVO_SENDER_EMAIL: "chavezsantiago480@gmail.com",
+  BREVO_SENDER_NAME: "Valora Wallet",
 } as const;
 const TRACKED_ENV_VARS = Object.keys(REQUIRED_ENV_VARS);
 
 describe("emailService", () => {
   const originalEnv: Record<string, string | undefined> = {};
+  let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.resetModules();
-    sendMock.mockReset();
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
 
     for (const key of TRACKED_ENV_VARS) {
       originalEnv[key] = process.env[key];
@@ -33,6 +25,7 @@ describe("emailService", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     for (const key of TRACKED_ENV_VARS) {
       if (originalEnv[key] === undefined) {
         delete process.env[key];
@@ -43,23 +36,39 @@ describe("emailService", () => {
   });
 
   it("envía el email y devuelve el messageId cuando los datos son válidos", async () => {
-    sendMock.mockResolvedValueOnce({ data: { id: "resend-msg-12345" }, error: null });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({ messageId: "<20260904-msg-123@smtp-relay.mailin.fr>" }),
+    });
+
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     const messageId = await enviarEmailConfirmacion({
       destinatario: "usuario@mail.com",
-      asunto: "Confirmación",
-      cuerpoHtml: "<p>Listo</p>",
+      asunto: "Confirmación de transferencia",
+      cuerpoHtml: "<p>Tu transferencia fue exitosa</p>",
     });
 
-    expect(messageId).toBe("resend-msg-12345");
-    expect(sendMock).toHaveBeenCalledTimes(1);
-    expect(sendMock).toHaveBeenCalledWith({
-      from: "Valora Wallet <onboarding@resend.dev>",
-      to: ["usuario@mail.com"],
-      subject: "Confirmación",
-      html: "<p>Listo</p>",
-    });
+    expect(messageId).toBe("<20260904-msg-123@smtp-relay.mailin.fr>");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.brevo.com/v3/smtp/email",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": "xkeysib-test-api-key-12345",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: { name: "Valora Wallet", email: "chavezsantiago480@gmail.com" },
+          to: [{ email: "usuario@mail.com" }],
+          subject: "Confirmación de transferencia",
+          htmlContent: "<p>Tu transferencia fue exitosa</p>",
+        }),
+      }),
+    );
   });
 
   it("rechaza si el email del destinatario tiene formato inválido", async () => {
@@ -72,7 +81,7 @@ describe("emailService", () => {
         cuerpoHtml: "<p>Listo</p>",
       }),
     ).rejects.toThrow("formato válido");
-    expect(sendMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rechaza si el asunto está vacío", async () => {
@@ -85,7 +94,7 @@ describe("emailService", () => {
         cuerpoHtml: "<p>Listo</p>",
       }),
     ).rejects.toThrow("asunto");
-    expect(sendMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rechaza si el cuerpo del email está vacío", async () => {
@@ -98,11 +107,16 @@ describe("emailService", () => {
         cuerpoHtml: "   ",
       }),
     ).rejects.toThrow("cuerpo");
-    expect(sendMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("propaga el error cuando Resend responde con un error de API", async () => {
-    sendMock.mockResolvedValueOnce({ data: null, error: { message: "API key inválida" } });
+  it("propaga el error cuando Brevo responde con un error de API", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ message: "Sender email is not authorized" }),
+    });
+
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     await expect(
@@ -111,11 +125,16 @@ describe("emailService", () => {
         asunto: "Confirmación",
         cuerpoHtml: "<p>Listo</p>",
       }),
-    ).rejects.toThrow("API key inválida");
+    ).rejects.toThrow("Sender email is not authorized");
   });
 
-  it("devuelve 'sent' como fallback si Resend no retorna id de mensaje", async () => {
-    sendMock.mockResolvedValueOnce({ data: {}, error: null });
+  it("devuelve 'sent' como fallback si Brevo no retorna id de mensaje", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 201,
+      json: async () => ({}),
+    });
+
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     const messageId = await enviarEmailConfirmacion({
@@ -127,8 +146,8 @@ describe("emailService", () => {
     expect(messageId).toBe("sent");
   });
 
-  it("rechaza si falta la variable de entorno RESEND_API_KEY", async () => {
-    delete process.env.RESEND_API_KEY;
+  it("rechaza si falta la variable de entorno BREVO_API_KEY", async () => {
+    delete process.env.BREVO_API_KEY;
     const { enviarEmailConfirmacion } = await import("../services/emailService.js");
 
     await expect(
@@ -137,6 +156,6 @@ describe("emailService", () => {
         asunto: "Confirmación",
         cuerpoHtml: "<p>Listo</p>",
       }),
-    ).rejects.toThrow("RESEND_API_KEY");
+    ).rejects.toThrow("BREVO_API_KEY");
   });
 });

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { chatController, resetChatController } from "../controllers/chatbotController.js";
 import { authMiddleware, type AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 
@@ -17,7 +17,7 @@ const chatMessageLimiter = rateLimit({
     max: 20,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => (req as AuthenticatedRequest).user?.userId ?? req.ip ?? "unknown",
+    keyGenerator: (req) => (req as AuthenticatedRequest).user?.userId ?? (req.ip ? ipKeyGenerator(req.ip) : "unknown"),
     message: {
         success: false,
         error: "TooManyRequestsError",
