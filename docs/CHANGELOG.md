@@ -5,6 +5,20 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.6.0] - 2026-09-04
+
+### Added (Añadido)
+- **Servicio de Emails Transaccionales (Brevo HTTPS REST API):** Migración completa del servicio de emails hacia la API REST v3 de Brevo (`https://api.brevo.com/v3/smtp/email`) utilizando `fetch` nativo de Node.js, erradicando las restricciones de puertos SMTP y límites restrictivos de sandbox de proveedores previos.
+- **Soporte Dinámico de Remitente:** Nuevas variables opcionales `BREVO_SENDER_EMAIL` y `BREVO_SENDER_NAME` con fallbacks predeterminados seguros a nivel de aplicación.
+- **Documentación Técnica & Post-Mortem:** Creación de la guía técnica `docs/debug_email_services.md` documentando la evolución cronológica, problemas en cloud (Render), soluciones y comparativa de los 4 proveedores evaluados (AWS SES, Gmail SMTP, Resend y Brevo).
+
+### Fixed (Corregido)
+- **Validación de Subredes IPv6 en Rate Limiting:** Integración de la función auxiliar `ipKeyGenerator` de `express-rate-limit` en el fallback de `chatMessageLimiter` (`chatbotRoutes.ts`), eliminando la advertencia/error de validación `ERR_ERL_KEY_GEN_IPV6` durante el inicio del servidor en Render.
+- **Resolución de Red Saliente (DNS IPv4):** Configuración de `dns.setDefaultResultOrder("ipv4first")` en `server.ts` para evitar fallos de socket inalcanzable (`ENETUNREACH`) al conectar con bases de datos o servicios externos desde entornos cloud IPv4-only.
+
+### Removed (Eliminado)
+- **Dependencia `resend`:** Desinstalación del SDK de `resend` de `package.json`, aligerando las dependencias del proyecto y acelerando los tiempos de despliegue.
+
 ## [1.5.0] - 2026-09-02
 
 ### Added (Añadido)

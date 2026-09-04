@@ -9,7 +9,7 @@ Desarrollado originalmente por **Nexo Tech Solutions** como Proyecto Final para 
 > - **Frontend:** Desplegado en **Vercel**.
 > - **Backend API:** Desplegado en **Render**.
 > - **Base de Datos:** **Neon PostgreSQL (Serverless)**.
-> - **Servicio de Emails:** Migrado a **Nodemailer + Gmail SMTP** (reemplazando AWS SES).
+> - **Servicio de Emails:** Migrado a **Brevo (Sendinblue) HTTPS REST API** (reemplazando AWS SES tras evaluar Nodemailer y Resend, logrando entrega sin restricciones en plan 100% gratuito).
 > - **Asistente de IA (Chatbot):** Integrado con **Google Gemini 3.5 Flash Lite** para respuestas financieras inteligentes y alto límite de contexto.
 
 > **Nuestra Misión:** Facilitar la vida financiera de los profesionales independientes permitiéndoles centralizar cobros internacionales en múltiples monedas, realizar conversiones con tasas transparentes en tiempo real y contar con un asistente de IA para optimizar la gestión de sus ingresos.
@@ -44,7 +44,7 @@ Para probar todas las funcionalidades en vivo o localmente sin necesidad de regi
 - **Base de datos:** PostgreSQL (Neon)
 - **Autenticación:** JWT (HS256, TTL 15 min) + Google OAuth 2.0
 - **Validación:** Zod v4 + libphonenumber-js (celular por país) + validación de DU por país
-- **Emails:** Nodemailer + Gmail SMTP (comprobantes transaccionales y recuperación de cuenta)
+- **Emails:** Brevo HTTPS REST API (comprobantes transaccionales y recuperación de cuenta, sin dependencias externas)
 - **Chatbot:** Google Gemini API (gemini-3.5-flash-lite)
 - **Seguridad:** express-rate-limit, CORS whitelist dinámica, middleware de perfil completo
 - **Testing:** Vitest + Supertest (20 suites, 130+ tests)
@@ -56,7 +56,7 @@ Para probar todas las funcionalidades en vivo o localmente sin necesidad de regi
 - Cuenta de PostgreSQL local o acceso a la instancia de Neon
 - Variables de entorno (ver `.env.example`)
 - (Opcional) Google Cloud Console con OAuth Client ID configurado para login con Google
-- Cuenta de Gmail con Contraseña de Aplicación (App Password) habilitada
+- Cuenta en Brevo con API Key (prefijo `xkeysib-...`) y remitente verificado
 
 ## Instalación y setup local
 
@@ -78,8 +78,9 @@ npm run dev             # levanta el servidor en modo desarrollo
 | `DB_SSL_REJECT_UNAUTHORIZED` | Valida estrictamente certificados SSL de la base de datos (por defecto `true`). Colocar `false` para omitir. |
 | `JWT_SECRET`            | Secreto para firmar los tokens JWT (HS256, TTL 15 min) |
 | `GOOGLE_CLIENT_ID`      | Client ID de Google OAuth 2.0 (Google Cloud Console)   |
-| `EMAIL_USER`            | Dirección de correo de Gmail para el envío de notificaciones y comprobantes |
-| `EMAIL_PASS`            | Contraseña de aplicación (App Password) de 16 caracteres de Google |
+| `BREVO_API_KEY`         | Clave API de Brevo (prefijo `xkeysib-...`) para envío transaccional vía HTTPS REST API |
+| `BREVO_SENDER_EMAIL`    | (Opcional) Correo remitente verificado en Brevo (default: `chavezsantiago480@gmail.com`) |
+| `BREVO_SENDER_NAME`     | (Opcional) Nombre del remitente visible en las notificaciones (default: `Valora Wallet`) |
 | `GEMINI_API_KEY`        | API key de Google Gemini                               |
 | `FRONTEND_URL`          | URL del frontend en Vercel, usada para configurar CORS |
 | `PORT`                  | Puerto local (default 3000)                            |
@@ -94,14 +95,15 @@ src/
   ├── models/          # Modelos de datos (users, wallets, balances, transactions)
   ├── routes/          # Definición de rutas de la API
   ├── schemas/         # Esquemas de validación Zod (auth, transactions)
-  ├── services/        # Integraciones externas (Frankfurter, Gemini, Nodemailer/Gmail SMTP)
-  ├── tests/           # 18 suites de tests con Vitest + Supertest
+  ├── services/        # Integraciones externas (Frankfurter, Gemini, Brevo HTTPS REST API)
+  ├── tests/           # 20 suites de tests con Vitest + Supertest (130+ tests)
   └── utils/           # JWT, validación de celular, validación de documento
 docs/
-  ├── CHANGELOG.md     # Historial de versiones
-  ├── Endpoints.txt    # Guía completa de endpoints para Insomnia/REST Client
-  ├── Explicacion.md   # Detalle técnico del motor financiero
-  └── informe_frontend.md  # Reporte de integración Backend → Frontend
+  ├── CHANGELOG.md            # Historial de versiones y releases
+  ├── Endpoints.txt           # Guía completa de endpoints para Insomnia/REST Client
+  ├── Explicacion.md          # Detalle técnico del motor financiero
+  ├── debug_email_services.md # Bitácora técnica y caso de estudio de servicios de email
+  └── informe_frontend.md     # Reporte de integración Backend → Frontend
 ```
 
 ---
@@ -293,10 +295,25 @@ npm run test
 npm run dev        # desarrollo con hot-reload
 npm run build      # build de producción
 npm run start      # levanta el build de producción
-npm run test       # corre las 18 suites de Vitest (100+ tests)
+npm run test       # corre las 20 suites de Vitest (130+ tests)
 npm run db:init    # inicializa y despliega el esquema SQL en la base de datos (PostgreSQL)
 npx tsx src/database/seed.ts  # poblar con usuarios demo y transacciones para la presentación
 ```
+
+## 🛠️ Bitácora de Debugging & Lecciones Técnicas: La Odisea del Servicio de Emails
+
+Durante la transición de **Valora Wallet** desde una infraestructura académica con servicios pagos hacia un entorno personal de producción sustentable sobre **planes 100% gratuitos**, el subsistema de correos electrónicos transaccionales atravesó múltiples desafíos de red, políticas de sandbox y bloqueos de nube. 
+
+Esta bitácora resume las 4 fases evolutivas para servir de guía a la comunidad:
+
+| Fase / Proveedor | Protocolo | Problema Encontrado | Solución Aplicada | Estado |
+| :--- | :---: | :--- | :--- | :---: |
+| **0. AWS SES** | AWS SDK | Requiere tarjeta de crédito activa; régimen *Sandbox* estricto (solo permite enviar a emails verificados manualmente en AWS Console). | Inviable para operar gratis sin riesgo de facturación. | ❌ Descartado |
+| **1. Gmail SMTP + Nodemailer** | SMTP (587) | **Bloqueos en Render (`ENETUNREACH`):** Node 18+ prioriza IPv6 por defecto (`verbatim`). Al no haber ruteo IPv6 saliente en Render, fallaba la conexión TCP. Riesgo de baneo de cuenta Google personal por envíos masivos. | Se forzó DNS a `ipv4first` (`dns.setDefaultResultOrder`) y connection pooling, pero la dependencia de SMTP clásico seguía siendo frágil. | ⚠️ Reemplazado |
+| **2. Resend** | HTTPS (443) | **Sandbox Restrictivo de Dominio:** En su plan gratuito sin dominio propio (`onboarding@resend.dev`), Resend **solo permite enviar correos a la propia dirección del dueño de la cuenta** (`403 Forbidden` a cualquier otro usuario). | Inviable para una billetera donde usuarios externos y evaluadores deben recibir sus comprobantes. | ❌ Descartado |
+| **3. Brevo (Sendinblue)** | HTTPS (443) | **Confusión de Credenciales:** Brevo entrega claves SMTP (`xsmtpsib-...`) por defecto, las cuales arrojan `401 Key not found` si se envían a la API REST. | Se generó la API Key con prefijo **`xkeysib-...`** en la pestaña *Claves API*. Permite enviar a **cualquier destinatario sin costo** con remitente Gmail verificado. | 🏆 **En Producción** |
+
+> 📖 **Documentación Completa:** Para ver el análisis a fondo con fragmentos de código, diagnósticos de sockets, errores de validación de IPv6 (`ERR_ERL_KEY_GEN_IPV6`) y diagramas de flujo, consultá el archivo dedicado: [`docs/debug_email_services.md`](docs/debug_email_services.md).
 
 ## ⚙️ Despliegue en Producción (Render, Neon y Vercel)
 
